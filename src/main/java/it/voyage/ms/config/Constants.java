@@ -8,17 +8,8 @@ import lombok.NoArgsConstructor;
  */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class Constants {
-
  
-	public static final class Collections {
-
-		public static final String CONFIG_DATA = "config_data";
-
-		private Collections() {
-
-		}
-	}
-
+	
 	@NoArgsConstructor(access = AccessLevel.PRIVATE)
 	public static final class Profile {
 
@@ -31,6 +22,13 @@ public final class Constants {
 		 * Dev profile.
 		 */
 		public static final String DEV = "dev";
+ 
+	}
+	
+	@NoArgsConstructor(access = AccessLevel.PRIVATE)
+	public static final class Properties {
+
+		public static final String MS_NAME = "voyage";
  
 	}
 
