@@ -12,11 +12,6 @@ import io.swagger.v3.oas.annotations.extensions.Extension;
 import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import io.swagger.v3.oas.annotations.info.Contact;
 import io.swagger.v3.oas.annotations.info.Info;
-import io.swagger.v3.oas.models.media.Content;
-import io.swagger.v3.oas.models.media.MediaType;
-import io.swagger.v3.oas.models.media.Schema;
-import io.swagger.v3.oas.models.responses.ApiResponse;
-import io.swagger.v3.oas.models.responses.ApiResponses;
 import io.swagger.v3.oas.models.servers.Server;
 
 @Configuration
@@ -53,20 +48,6 @@ public class OpenApiCFG {
                     server.addExtension("x-sandbox", true);
                 }
             }
-			
-			openApi.getPaths().values().forEach(pathItem -> pathItem.readOperations().forEach(operation -> {
-				ApiResponses apiResponses = operation.getResponses();
-				
-				Schema<Object> errorResponseSchema = new Schema<>();
-				errorResponseSchema.setName("Error");
-				errorResponseSchema.set$ref("#/components/schemas/ErrorResponseDTO");
-				MediaType media =new MediaType();
-				media.schema(errorResponseSchema);
-				ApiResponse apiResponse = new ApiResponse().description("default")
-				        .content(new Content()
-	                                .addMediaType(org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON_VALUE, media));
-				apiResponses.addApiResponse("default", apiResponse);
-			}));
 		};
 	}
 }

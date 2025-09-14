@@ -5,16 +5,17 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import lombok.Data;
 
-@Document(collection = "users")
+import java.util.Date;
+
+@Document("friend_relationships")
 @Data
-public class UserEty {
+public class FriendRelationship {
 
     @Id
     private String id;
-    private String name;
-    private String email;
-    private String avatar;
-//    private Date createdAt;
-//    private Date lastLogin;
-
+    private String requesterId;
+    private String receiverId;
+    private String status;
+    private Date createdAt;
+ 
 }
