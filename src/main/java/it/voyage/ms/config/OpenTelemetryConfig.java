@@ -1,6 +1,7 @@
 package it.voyage.ms.config;
 
 import org.springframework.context.annotation.Bean;
+import static it.voyage.ms.config.Constants.Properties.MS_NAME;
 import org.springframework.context.annotation.Configuration;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
@@ -10,6 +11,6 @@ public class OpenTelemetryConfig {
 
     @Bean
     public Tracer tracer() {
-        return GlobalOpenTelemetry.getTracer("it-fse-ana-validator");
+        return GlobalOpenTelemetry.getTracer(MS_NAME);
     }
 }

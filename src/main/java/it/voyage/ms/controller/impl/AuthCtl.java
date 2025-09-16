@@ -19,7 +19,7 @@ import it.voyage.ms.repository.impl.UserRepository;
 
 @RestController
 @RequestMapping("/api/auth")
-public class AuthController {
+public class AuthCtl {
 
     @Autowired
     private UserRepository userRepository;
@@ -41,15 +41,15 @@ public class AuthController {
 
             if (existingUser.isPresent()) {
                 user = existingUser.get();
-//                user.setLastLogin(new Date());
+                user.setLastLogin(new Date());
             } else {
                 user = new UserEty();
                 user.setId(uid);
                 user.setName(decodedToken.getName());
                 user.setEmail(decodedToken.getEmail());
                 user.setAvatar(decodedToken.getPicture());
-//                user.setCreatedAt(new Date());
-//                user.setLastLogin(new Date());
+                user.setCreatedAt(new Date());
+                user.setLastLogin(new Date());
             }
 
             UserEty savedUser = userRepository.save(user);

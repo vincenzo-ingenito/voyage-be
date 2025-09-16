@@ -41,7 +41,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/friends")
-public class FriendController {
+public class FriendCtl {
 
 	@Autowired
 	private FriendRelationshipRepository friendRelationshipRepository;
@@ -152,6 +152,13 @@ public class FriendController {
 		return ResponseEntity.ok(friends);
 	}
 
+	@GetMapping("/requests/pending")
+	public ResponseEntity<List<FriendRelationship> > getPendingRequests(HttpServletRequest request) {
+		String currentUserId = getUserIdFromToken(request);
+		List<FriendRelationship> pendingRequests = friendRelationshipRepository.findByReceiverIdAndStatus(currentUserId, "PENDING");
+		return ResponseEntity.ok(pendingRequests);
+	}
+
 	@DeleteMapping("/remove/{friendId}")
 	public ResponseEntity<String> deleteFriend(@PathVariable String friendId, HttpServletRequest request) {
 		String currentUserId = getUserIdFromToken(request);
@@ -169,86 +176,60 @@ public class FriendController {
 		}
 	}
 
-//	@PostMapping("/search")
-//	public ResponseEntity<List<Friend>> searchUsers(@RequestBody SearchRequest searchRequest, HttpServletRequest request) {
-//		String currentUserId = getUserIdFromToken(request);
-//		String query = searchRequest.getQuery();
-//
-//		if (currentUserId == null || query == null || query.trim().isEmpty()) {
-//			return ResponseEntity.ok(Collections.emptyList());
-//		}
-//
-//		// Utilizza il metodo di ricerca flessibile del repository
-//		List<UserEty> users = userRepository.findByNameRegex(query);
-//
-//		List<Friend> availableFriends = users.stream()
-//				// Filtra per rimuovere l'utente corrente dalla lista dei risultati
-//				.filter(user -> !user.getId().equals(currentUserId))
-//				// Filtra per rimuovere gli utenti che hanno bloccato l'utente corrente
-//				.filter(user -> {
-//					List<FriendRelationship> blockedBy = friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(user.getId(), currentUserId, "BLOCKED");
-//					return blockedBy.isEmpty();
-//				})
-//				// Mappa gli oggetti User in oggetti Friend DTO per la risposta
-//				.map(user -> new Friend(user.getId(), user.getName(), user.getAvatar()))
-//				.collect(Collectors.toList());
-//
-//		return ResponseEntity.ok(availableFriends);
-//	}
 
 	@PostMapping("/search")
-    public ResponseEntity<List<UserSearchResult>> searchUsers(@RequestBody SearchRequest searchRequest, HttpServletRequest request) {
-        String currentUserId = getUserIdFromToken(request);
-        String query = searchRequest.getQuery();
+	public ResponseEntity<List<UserSearchResult>> searchUsers(@RequestBody SearchRequest searchRequest, HttpServletRequest request) {
+		String currentUserId = getUserIdFromToken(request);
+		String query = searchRequest.getQuery();
 
-        if (currentUserId == null || query == null || query.trim().isEmpty()) {
-            return ResponseEntity.ok(Collections.emptyList());
-        }
-        
-        // Trova tutti gli ID degli utenti che hanno bloccato l'utente corrente
-        List<String> blockedByUserIds = friendRelationshipRepository.findByReceiverIdAndStatus(currentUserId, "BLOCKED").stream()
-                .map(FriendRelationship::getRequesterId)
-                .collect(Collectors.toList());
+		if (currentUserId == null || query == null || query.trim().isEmpty()) {
+			return ResponseEntity.ok(Collections.emptyList());
+		}
 
-        // Trova tutti gli utenti che corrispondono alla query, escludendo l'utente corrente e quelli che lo hanno bloccato
-        List<UserEty> users = userRepository.findByNameRegex(query).stream()
-                .filter(user -> !user.getId().equals(currentUserId))
-                .filter(user -> !blockedByUserIds.contains(user.getId()))
-                .collect(Collectors.toList());
+		// Trova tutti gli ID degli utenti che hanno bloccato l'utente corrente
+		List<String> blockedByUserIds = friendRelationshipRepository.findByReceiverIdAndStatus(currentUserId, "BLOCKED").stream()
+				.map(FriendRelationship::getRequesterId)
+				.collect(Collectors.toList());
 
-        // Per ogni utente trovato, determina lo stato della relazione con l'utente corrente
-        List<UserSearchResult> results = users.stream()
-                .map(user -> {
-                    FriendStatus status;
+		// Trova tutti gli utenti che corrispondono alla query, escludendo l'utente corrente e quelli che lo hanno bloccato
+		List<UserEty> users = userRepository.findByNameRegex(query).stream()
+				.filter(user -> !user.getId().equals(currentUserId))
+				.filter(user -> !blockedByUserIds.contains(user.getId()))
+				.collect(Collectors.toList());
 
-                    // CONTROLLO AGGIUNTO: Se l'utente corrente ha bloccato la persona trovata, imposta lo stato a BLOCKED.
-                    if (friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(currentUserId, user.getId(), "BLOCKED").size() > 0) {
-                        status = FriendStatus.BLOCKED;
-                    }
-                    // Controlla se sono già amici
-                    else if (friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(currentUserId, user.getId(), "ACCEPTED").size() > 0 ||
-                        friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(user.getId(), currentUserId, "ACCEPTED").size() > 0) {
-                        status = FriendStatus.ALREADY_FRIENDS;
-                    } 
-                    // Controlla se c'è una richiesta in sospeso inviata dall'utente corrente
-                    else if (friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(currentUserId, user.getId(), "PENDING").size() > 0) {
-                        status = FriendStatus.PENDING_REQUEST_SENT;
-                    }
-                    // Controlla se c'è una richiesta in sospeso ricevuta dall'utente corrente
-                    else if (friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(user.getId(), currentUserId, "PENDING").size() > 0) {
-                        status = FriendStatus.PENDING_REQUEST_RECEIVED;
-                    } 
-                    // Se non ci sono relazioni esistenti, l'utente è disponibile
-                    else {
-                        status = FriendStatus.AVAILABLE;
-                    }
+		// Per ogni utente trovato, determina lo stato della relazione con l'utente corrente
+		List<UserSearchResult> results = users.stream()
+				.map(user -> {
+					FriendStatus status;
 
-                    return new UserSearchResult(user.getId(), user.getName(), user.getAvatar(), status);
-                })
-                .collect(Collectors.toList());
+					// CONTROLLO AGGIUNTO: Se l'utente corrente ha bloccato la persona trovata, imposta lo stato a BLOCKED.
+					if (friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(currentUserId, user.getId(), "BLOCKED").size() > 0) {
+						status = FriendStatus.BLOCKED;
+					}
+					// Controlla se sono già amici
+					else if (friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(currentUserId, user.getId(), "ACCEPTED").size() > 0 ||
+							friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(user.getId(), currentUserId, "ACCEPTED").size() > 0) {
+						status = FriendStatus.ALREADY_FRIENDS;
+					} 
+					// Controlla se c'è una richiesta in sospeso inviata dall'utente corrente
+					else if (friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(currentUserId, user.getId(), "PENDING").size() > 0) {
+						status = FriendStatus.PENDING_REQUEST_SENT;
+					}
+					// Controlla se c'è una richiesta in sospeso ricevuta dall'utente corrente
+					else if (friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(user.getId(), currentUserId, "PENDING").size() > 0) {
+						status = FriendStatus.PENDING_REQUEST_RECEIVED;
+					} 
+					// Se non ci sono relazioni esistenti, l'utente è disponibile
+					else {
+						status = FriendStatus.AVAILABLE;
+					}
 
-        return ResponseEntity.ok(results);
-    }
+					return new UserSearchResult(user.getId(), user.getName(), user.getAvatar(), status);
+				})
+				.collect(Collectors.toList());
+
+		return ResponseEntity.ok(results);
+	}
 
 	// Endpoint per inviare una richiesta di amicizia
 	@PostMapping("/send-request")
@@ -280,88 +261,88 @@ public class FriendController {
 			return ResponseEntity.status(500).body("Errore nell'invio della richiesta: " + e.getMessage());
 		}
 	}
-	
+
 	@PostMapping("/unblock")
-    public ResponseEntity<?> unblockUser(@RequestBody String userIdToUnblock, HttpServletRequest request) {
-        String currentUserId = getUserIdFromToken(request);
-        
-        if (currentUserId == null || userIdToUnblock == null || userIdToUnblock.trim().isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
+	public ResponseEntity<?> unblockUser(@RequestBody String userIdToUnblock, HttpServletRequest request) {
+		String currentUserId = getUserIdFromToken(request);
 
-        // Trova la relazione di blocco
-        List<FriendRelationship> relationships = friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(currentUserId, userIdToUnblock, "BLOCKED");
+		if (currentUserId == null || userIdToUnblock == null || userIdToUnblock.trim().isEmpty()) {
+			return ResponseEntity.badRequest().build();
+		}
 
-        if (relationships.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
+		// Trova la relazione di blocco
+		List<FriendRelationship> relationships = friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(currentUserId, userIdToUnblock, "BLOCKED");
 
-        // Elimina la relazione di blocco
-        friendRelationshipRepository.delete(relationships.get(0));
+		if (relationships.isEmpty()) {
+			return ResponseEntity.notFound().build();
+		}
 
-        return ResponseEntity.ok().build();
-    }
-	
+		// Elimina la relazione di blocco
+		friendRelationshipRepository.delete(relationships.get(0));
+
+		return ResponseEntity.ok().build();
+	}
+
 	@GetMapping("/{friendId}/visited")
-    public ResponseEntity<List<CountryVisit>> getVisitedCountries(@PathVariable String friendId) {
-        List<CountryVisit> mockVisitedCountries = new ArrayList<>();
-        
-        CountryVisit italy = new CountryVisit();
-        italy.setIso("IT");
-        italy.setName("Italia");
-        italy.setVisitedDates(Set.of("2023-09-01", "2024-05-15"));
-        italy.setCoord(new Coords());
-        italy.getCoord().setLat(41.9028);
-        italy.getCoord().setLng(12.4964);
+	public ResponseEntity<List<CountryVisit>> getVisitedCountries(@PathVariable String friendId) {
+		List<CountryVisit> mockVisitedCountries = new ArrayList<>();
 
-        RegionVisit lazio = new RegionVisit();
-        lazio.setId("IT-LA");
-        lazio.setName("Lazio");
-        lazio.setCoord(new Coords());
-        lazio.getCoord().setLat(41.9028);
-        lazio.getCoord().setLng(12.4964);
+		CountryVisit italy = new CountryVisit();
+		italy.setIso("IT");
+		italy.setName("Italia");
+		italy.setVisitedDates(Set.of("2023-09-01", "2024-05-15"));
+		italy.setCoord(new Coords());
+		italy.getCoord().setLat(41.9028);
+		italy.getCoord().setLng(12.4964);
 
-        DailyItinerary itineraryDay1 = new DailyItinerary();
-        itineraryDay1.setDay(1);
-        itineraryDay1.setDate("2023-09-01");
-        itineraryDay1.setPoints(Arrays.asList(
-            createPoint("Colosseo", "attraction", 41.8902, 12.4922, "Visita del Colosseo."),
-            createPoint("Trattoria Da Nennella", "restaurant", 41.8967, 12.4735, "Pranzo tipico.")
-        ));
+		RegionVisit lazio = new RegionVisit();
+		lazio.setId("IT-LA");
+		lazio.setName("Lazio");
+		lazio.setCoord(new Coords());
+		lazio.getCoord().setLat(41.9028);
+		lazio.getCoord().setLng(12.4964);
 
-        lazio.setItinerary(Arrays.asList(itineraryDay1));
-        italy.setRegions(Arrays.asList(lazio));
-        mockVisitedCountries.add(italy);
-        
-        CountryVisit france = new CountryVisit();
-        france.setIso("FR");
-        france.setName("Francia");
-        france.setVisitedDates(Set.of("2022-03-20"));
-        france.setCoord(new Coords());
-        france.getCoord().setLat(48.8566);
-        france.getCoord().setLng(2.3522);
+		DailyItinerary itineraryDay1 = new DailyItinerary();
+		itineraryDay1.setDay(1);
+		itineraryDay1.setDate("2023-09-01");
+		itineraryDay1.setPoints(Arrays.asList(
+				createPoint("Colosseo", "attraction", 41.8902, 12.4922, "Visita del Colosseo."),
+				createPoint("Trattoria Da Nennella", "restaurant", 41.8967, 12.4735, "Pranzo tipico.")
+				));
 
-        RegionVisit paris = new RegionVisit();
-        paris.setId("FR-IDF");
-        paris.setName("Île-de-France");
-        paris.setCoord(new Coords());
-        paris.getCoord().setLat(48.8566);
-        paris.getCoord().setLng(2.3522);
-        
-        france.setRegions(Arrays.asList(paris));
-        mockVisitedCountries.add(france);
+		lazio.setItinerary(Arrays.asList(itineraryDay1));
+		italy.setRegions(Arrays.asList(lazio));
+		mockVisitedCountries.add(italy);
 
-        return ResponseEntity.ok(mockVisitedCountries);
-    }
-	
-	 private PointOfInterest createPoint(String name, String type, double lat, double lng, String description) {
-	        PointOfInterest point = new PointOfInterest();
-	        point.setName(name);
-	        point.setType(type);
-	        point.setDescription(description);
-	        point.setCoord(new Coords());
-	        point.getCoord().setLat(lat);
-	        point.getCoord().setLng(lng);
-	        return point;
-	    }
+		CountryVisit france = new CountryVisit();
+		france.setIso("FR");
+		france.setName("Francia");
+		france.setVisitedDates(Set.of("2022-03-20"));
+		france.setCoord(new Coords());
+		france.getCoord().setLat(48.8566);
+		france.getCoord().setLng(2.3522);
+
+		RegionVisit paris = new RegionVisit();
+		paris.setId("FR-IDF");
+		paris.setName("Île-de-France");
+		paris.setCoord(new Coords());
+		paris.getCoord().setLat(48.8566);
+		paris.getCoord().setLng(2.3522);
+
+		france.setRegions(Arrays.asList(paris));
+		mockVisitedCountries.add(france);
+
+		return ResponseEntity.ok(mockVisitedCountries);
+	}
+
+	private PointOfInterest createPoint(String name, String type, double lat, double lng, String description) {
+		PointOfInterest point = new PointOfInterest();
+		point.setName(name);
+		point.setType(type);
+		point.setDescription(description);
+		point.setCoord(new Coords());
+		point.getCoord().setLat(lat);
+		point.getCoord().setLng(lng);
+		return point;
+	}
 }
