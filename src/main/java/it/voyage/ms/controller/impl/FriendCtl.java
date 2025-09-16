@@ -4,7 +4,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,6 +30,7 @@ import com.google.firebase.auth.FirebaseToken;
 import it.voyage.ms.dto.response.Coords;
 import it.voyage.ms.dto.response.CountryVisit;
 import it.voyage.ms.dto.response.DailyItinerary;
+import it.voyage.ms.dto.response.FriendRelationshipDto;
 import it.voyage.ms.dto.response.FriendRequestDto;
 import it.voyage.ms.dto.response.PointOfInterest;
 import it.voyage.ms.dto.response.RegionVisit;
@@ -111,6 +115,27 @@ public class FriendCtl {
 		friendRelationshipRepository.save(newRelationship);
 		return ResponseEntity.ok("Richiesta di amicizia inviata con successo.");
 	}
+	
+	@PutMapping("/{requesterId}/{action}")
+    public ResponseEntity<?> handleFriendRequest(@PathVariable String requesterId, @PathVariable String action, HttpServletRequest request) {
+        try {
+        	String currentUserId = getUserIdFromToken(request);
+    		if (currentUserId == null) {
+    			return new ResponseEntity<>("Token di autenticazione non valido.", HttpStatus.UNAUTHORIZED);
+    		}
+
+            if ("accept".equals(action)) {
+            	friendRelationshipRepository.updateRequestStatus(requesterId, currentUserId, "ACCEPTED");
+            } else if ("decline".equals(action)) {
+            	
+            }
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Failed to handle friend request. " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+        return null;
+    }
 
 	@PostMapping("/accept")
 	public ResponseEntity<String> acceptFriendRequest(@RequestBody FriendRequestDTO requestDTO, HttpServletRequest request) {
@@ -153,10 +178,22 @@ public class FriendCtl {
 	}
 
 	@GetMapping("/requests/pending")
-	public ResponseEntity<List<FriendRelationship> > getPendingRequests(HttpServletRequest request) {
+	public ResponseEntity<List<FriendRelationshipDto>> getPendingRequests(HttpServletRequest request) {
 		String currentUserId = getUserIdFromToken(request);
 		List<FriendRelationship> pendingRequests = friendRelationshipRepository.findByReceiverIdAndStatus(currentUserId, "PENDING");
-		return ResponseEntity.ok(pendingRequests);
+		List<FriendRelationshipDto> dtos = new ArrayList<>();
+		for(FriendRelationship f:pendingRequests) {
+			FriendRelationshipDto dto = new FriendRelationshipDto();
+			dto.setCreatedAt(f.getCreatedAt());
+			dto.setReceiverId(f.getReceiverId());
+			dto.setRequesterId(f.getRequesterId());
+			Optional<UserEty> userEty = userRepository.findById(f.getRequesterId());
+			dto.setAvatar(userEty.get().getAvatar());
+			dto.setName(userEty.get().getName());
+			dtos.add(dto);
+		}
+		
+		return ResponseEntity.ok(dtos);
 	}
 
 	@DeleteMapping("/remove/{friendId}")
