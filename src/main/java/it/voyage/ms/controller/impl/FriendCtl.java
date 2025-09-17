@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.google.auto.value.AutoBuilder;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
@@ -30,16 +31,22 @@ import com.google.firebase.auth.FirebaseToken;
 import it.voyage.ms.dto.response.Coords;
 import it.voyage.ms.dto.response.CountryVisit;
 import it.voyage.ms.dto.response.DailyItinerary;
+import it.voyage.ms.dto.response.DailyItineraryDTO;
 import it.voyage.ms.dto.response.FriendRelationshipDto;
 import it.voyage.ms.dto.response.FriendRequestDto;
+import it.voyage.ms.dto.response.PointDTO;
 import it.voyage.ms.dto.response.PointOfInterest;
 import it.voyage.ms.dto.response.RegionVisit;
 import it.voyage.ms.dto.response.SearchRequest;
+import it.voyage.ms.dto.response.TravelDTO;
 import it.voyage.ms.dto.response.UserSearchResult;
 import it.voyage.ms.enums.FriendStatus;
 import it.voyage.ms.repository.entity.FriendRelationship;
+import it.voyage.ms.repository.entity.Point;
+import it.voyage.ms.repository.entity.TravelEty;
 import it.voyage.ms.repository.entity.UserEty;
 import it.voyage.ms.repository.impl.FriendRelationshipRepository;
+import it.voyage.ms.repository.impl.TravelRepository;
 import it.voyage.ms.repository.impl.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -47,11 +54,16 @@ import jakarta.servlet.http.HttpServletRequest;
 @RequestMapping("/api/friends")
 public class FriendCtl {
 
+
+
 	@Autowired
 	private FriendRelationshipRepository friendRelationshipRepository;
 
 	@Autowired
 	private UserRepository userRepository;
+
+	@Autowired
+	private TravelRepository travelRepo;
 
 	private enum FriendshipStatus {
 		PENDING, ACCEPTED, BLOCKED
@@ -115,27 +127,27 @@ public class FriendCtl {
 		friendRelationshipRepository.save(newRelationship);
 		return ResponseEntity.ok("Richiesta di amicizia inviata con successo.");
 	}
-	
-	@PutMapping("/{requesterId}/{action}")
-    public ResponseEntity<?> handleFriendRequest(@PathVariable String requesterId, @PathVariable String action, HttpServletRequest request) {
-        try {
-        	String currentUserId = getUserIdFromToken(request);
-    		if (currentUserId == null) {
-    			return new ResponseEntity<>("Token di autenticazione non valido.", HttpStatus.UNAUTHORIZED);
-    		}
 
-            if ("accept".equals(action)) {
-            	friendRelationshipRepository.updateRequestStatus(requesterId, currentUserId, "ACCEPTED");
-            } else if ("decline".equals(action)) {
-            	
-            }
-        } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", "Failed to handle friend request. " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
-        }
-        return null;
-    }
+	@PutMapping("/{requesterId}/{action}")
+	public ResponseEntity<?> handleFriendRequest(@PathVariable String requesterId, @PathVariable String action, HttpServletRequest request) {
+		try {
+			String currentUserId = getUserIdFromToken(request);
+			if (currentUserId == null) {
+				return new ResponseEntity<>("Token di autenticazione non valido.", HttpStatus.UNAUTHORIZED);
+			}
+
+			if ("accept".equals(action)) {
+				friendRelationshipRepository.updateRequestStatus(requesterId, currentUserId, "ACCEPTED");
+			} else if ("decline".equals(action)) {
+
+			}
+		} catch (Exception e) {
+			Map<String, String> error = new HashMap<>();
+			error.put("error", "Failed to handle friend request. " + e.getMessage());
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+		}
+		return null;
+	}
 
 	@PostMapping("/accept")
 	public ResponseEntity<String> acceptFriendRequest(@RequestBody FriendRequestDTO requestDTO, HttpServletRequest request) {
@@ -192,7 +204,7 @@ public class FriendCtl {
 			dto.setName(userEty.get().getName());
 			dtos.add(dto);
 		}
-		
+
 		return ResponseEntity.ok(dtos);
 	}
 
@@ -320,6 +332,28 @@ public class FriendCtl {
 		return ResponseEntity.ok().build();
 	}
 
+	@PostMapping
+	public ResponseEntity<String> saveTravel(@RequestBody TravelDTO travelData,HttpServletRequest request) {
+		String currentUserId = getUserIdFromToken(request);
+		TravelEty travel = convertToDocument(travelData);
+		travel.setUserId(currentUserId); 
+		travelRepo.save(travel);
+
+
+		return ResponseEntity.ok("Travel data saved successfully!");
+	}
+
+	@GetMapping("/travels")
+	public ResponseEntity<List<TravelDTO>> getTravels(HttpServletRequest request) {
+		String currentUserId = getUserIdFromToken(request);
+		List<TravelEty> travelEty = travelRepo.findByUserId(currentUserId);
+		List<TravelDTO> output = new ArrayList<>();
+		for(TravelEty t : travelEty) {
+			output.add(convertToDTO(t));
+		}
+		return ResponseEntity.ok(output);
+	}
+
 	@GetMapping("/{friendId}/visited")
 	public ResponseEntity<List<CountryVisit>> getVisitedCountries(@PathVariable String friendId) {
 		List<CountryVisit> mockVisitedCountries = new ArrayList<>();
@@ -381,5 +415,73 @@ public class FriendCtl {
 		point.getCoord().setLat(lat);
 		point.getCoord().setLng(lng);
 		return point;
+	}
+
+	private TravelEty convertToDocument(TravelDTO dto) {
+		TravelEty travel = new TravelEty();
+		travel.setTravelName(dto.getTravelName());
+
+		List<DailyItinerary> itineraryDocuments = dto.getItinerary().stream()
+				.map(dayDTO -> {
+					DailyItinerary day = new DailyItinerary();
+					day.setDay(dayDTO.getDay());
+					day.setDate(dayDTO.getDate());
+
+					List<Point> pointDocuments = dayDTO.getPoints().stream()
+							.map(pointDTO -> {
+								Point point = new Point();
+								point.setName(pointDTO.getName());
+								point.setType(pointDTO.getType());
+								point.setDescription(pointDTO.getDescription());
+								point.setCost(pointDTO.getCost());
+								point.setLat(pointDTO.getCoord().getLat());
+								point.setLng(pointDTO.getCoord().getLng());
+								point.setCountry(pointDTO.getCountry());
+								point.setRegion(pointDTO.getRegion());
+								point.setCity(pointDTO.getCity());
+								return point;
+							}).collect(Collectors.toList());
+
+					day.setPointss(pointDocuments);
+					return day;
+				}).collect(Collectors.toList());
+
+		travel.setItinerary(itineraryDocuments);
+		return travel;
+	}
+
+	private TravelDTO convertToDTO(TravelEty travel) {
+		TravelDTO dto = new TravelDTO();
+		dto.setTravelName(travel.getTravelName());
+
+		List<DailyItineraryDTO> dayDTOs = travel.getItinerary().stream()
+				.map(day -> {
+					DailyItineraryDTO dayDTO = new DailyItineraryDTO();
+					dayDTO.setDay(day.getDay());
+					dayDTO.setDate(day.getDate());
+
+					List<PointDTO> pointDTOs = day.getPointss().stream()
+							.map(point -> {
+								PointDTO pointDTO = new PointDTO();
+								pointDTO.setName(point.getName());
+								pointDTO.setType(point.getType());
+								pointDTO.setDescription(point.getDescription());
+								pointDTO.setCost(point.getCost());
+								Coords coords = new Coords();
+								coords.setLat(point.getLat());
+								coords.setLng(point.getLng());
+								pointDTO.setCoord(coords);
+								pointDTO.setCountry(point.getCountry());
+								pointDTO.setRegion(point.getRegion());
+								pointDTO.setCity(point.getCity());
+								return pointDTO;
+							}).collect(Collectors.toList());
+
+					dayDTO.setPoints(pointDTOs);
+					return dayDTO;
+				}).collect(Collectors.toList());
+
+		dto.setItinerary(dayDTOs);
+		return dto;
 	}
 }
