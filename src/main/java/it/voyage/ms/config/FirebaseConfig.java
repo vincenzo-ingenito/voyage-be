@@ -24,3 +24,5 @@ public class FirebaseConfig {
         return FirebaseApp.initializeApp(options);
     }
 }
+
+//TODO Configurare props per passare chiave firebase da props

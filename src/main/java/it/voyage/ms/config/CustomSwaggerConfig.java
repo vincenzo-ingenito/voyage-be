@@ -7,7 +7,7 @@ import lombok.Getter;
 
 @Configuration
 @Getter
-public class CustomSwaggerCFG {
+public class CustomSwaggerConfig {
 
     @Value("${docs.info.api-id}")
 	private String apiId;

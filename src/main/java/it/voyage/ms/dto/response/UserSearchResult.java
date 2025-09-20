@@ -1,14 +1,14 @@
 package it.voyage.ms.dto.response;
 
-import it.voyage.ms.enums.FriendStatus;
+import it.voyage.ms.enums.FriendRelationshipStatusEnum;
 
 public class UserSearchResult {
     private String id;
     private String name;
     private String avatar;
-    private FriendStatus status;
+    private FriendRelationshipStatusEnum status;
 
-    public UserSearchResult(String id, String name, String avatar, FriendStatus status) {
+    public UserSearchResult(String id, String name, String avatar, FriendRelationshipStatusEnum status) {
         this.id = id;
         this.name = name;
         this.avatar = avatar;
@@ -40,11 +40,11 @@ public class UserSearchResult {
         this.avatar = avatar;
     }
 
-    public FriendStatus getStatus() {
+    public FriendRelationshipStatusEnum getStatus() {
         return status;
     }
 
-    public void setStatus(FriendStatus status) {
+    public void setStatus(FriendRelationshipStatusEnum status) {
         this.status = status;
     }
 }

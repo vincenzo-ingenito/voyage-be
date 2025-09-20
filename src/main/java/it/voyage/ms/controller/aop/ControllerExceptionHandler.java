@@ -9,6 +9,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import it.voyage.ms.enums.ErrorClassEnum;
 import it.voyage.ms.exceptions.BusinessException;
+import it.voyage.ms.exceptions.NotFoundException;
+import it.voyage.ms.exceptions.ValidationException;
 import it.voyage.ms.response.BaseResponse;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,6 +52,18 @@ public class ControllerExceptionHandler extends ResponseEntityExceptionHandler {
 	protected ResponseEntity<BaseResponse> handleGenericException(final Exception ex, final WebRequest request) {
 		log.error("handleGenericException", ex);
 		return getErrorResponse(ErrorClassEnum.GENERIC, ex);//500 SERVER ERROR/ISR
+	}
+	
+	@ExceptionHandler(value = {ValidationException.class})
+	protected ResponseEntity<BaseResponse> handleValidationException(final ValidationException ex, final WebRequest request) {
+		log.error("handleValidationException", ex);
+		return getErrorResponse(ErrorClassEnum.VALIDATION, ex);//400 VALIDATION
+	}
+	
+	@ExceptionHandler(value = {NotFoundException.class})
+	protected ResponseEntity<BaseResponse> handleValidationException(final NotFoundException ex, final WebRequest request) {
+		log.error("handleNotFOundException", ex);
+		return getErrorResponse(ErrorClassEnum.NOT_FOUND, ex);//404 NOT FOUND
 	}
 
 }

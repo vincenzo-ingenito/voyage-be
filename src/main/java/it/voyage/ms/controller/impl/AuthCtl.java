@@ -1,63 +1,29 @@
 package it.voyage.ms.controller.impl;
 
-import java.util.Date;
-import java.util.Optional;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseToken;
 
-import it.voyage.ms.repository.entity.UserEty;
-import it.voyage.ms.repository.impl.UserRepository;
+import it.voyage.ms.dto.response.UserDto;
+import it.voyage.ms.service.IUserService;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthCtl {
 
-    @Autowired
-    private UserRepository userRepository;
+	@Autowired
+	private IUserService userService;
 
-    @PostMapping("/login")
-    public ResponseEntity<UserEty> login(@RequestHeader("Authorization") String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
-            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
-        }
-        
-        String idToken = authorization.substring(7);
+	@PostMapping("/login")
+	public ResponseEntity<UserDto> login(@AuthenticationPrincipal FirebaseToken firebaseToken) {
+		UserDto userDto = userService.login(firebaseToken);
+		return new ResponseEntity<>(userDto, HttpStatus.OK);
 
-        try {
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(idToken);
-            String uid = decodedToken.getUid();
-            
-            Optional<UserEty> existingUser = userRepository.findById(uid);
-            UserEty user;
-
-            if (existingUser.isPresent()) {
-                user = existingUser.get();
-                user.setLastLogin(new Date());
-            } else {
-                user = new UserEty();
-                user.setId(uid);
-                user.setName(decodedToken.getName());
-                user.setEmail(decodedToken.getEmail());
-                user.setAvatar(decodedToken.getPicture());
-                user.setCreatedAt(new Date());
-                user.setLastLogin(new Date());
-            }
-
-            UserEty savedUser = userRepository.save(user);
-            return new ResponseEntity<>(savedUser, HttpStatus.OK);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
-        }
-    }
+	}
 }

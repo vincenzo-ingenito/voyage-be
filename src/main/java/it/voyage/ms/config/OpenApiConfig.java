@@ -28,10 +28,10 @@ import io.swagger.v3.oas.models.servers.Server;
 			description = "Voyage",
 			termsOfService = "${docs.info.termsOfService}", 
 			contact = @Contact(name = "${docs.info.contact.name}", url = "${docs.info.contact.url}", email = "${docs.info.contact.mail}")))
-public class OpenApiCFG {
+public class OpenApiConfig {
 
 
-  public OpenApiCFG() {
+  public OpenApiConfig() {
   }
 
   @Bean

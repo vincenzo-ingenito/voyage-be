@@ -1,17 +1,27 @@
 package it.voyage.ms.config;
 
+import java.util.List;
+
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
-public class CorsConfig implements WebMvcConfigurer {
+public class CorsConfig {
 
-	 @Override
-	    public void addCorsMappings(CorsRegistry registry) {
-	        registry.addMapping("/**") // Applica a tutte le rotte API
-	                .allowedOrigins("*") // Permette le richieste da qualsiasi origine
-	                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // Permetti i metodi necessari
-	                .allowedHeaders("*"); // Permetti tutti gli header
-	    }
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of("http://localhost:8081")); 
+        configuration.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization","Content-Type"));
+        configuration.setAllowCredentials(true);  
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
 }
+
+//TODO - Cambiare http://localhost:8081 con props per impostare i vari ambienti
