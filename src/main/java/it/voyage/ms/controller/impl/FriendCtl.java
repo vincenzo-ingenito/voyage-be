@@ -1,11 +1,9 @@
 package it.voyage.ms.controller.impl;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +23,6 @@ import it.voyage.ms.dto.response.CountryVisit;
 import it.voyage.ms.dto.response.DailyItineraryDTO;
 import it.voyage.ms.dto.response.FriendRelationshipDto;
 import it.voyage.ms.dto.response.PointDTO;
-import it.voyage.ms.dto.response.RegionVisit;
 import it.voyage.ms.dto.response.SearchRequest;
 import it.voyage.ms.dto.response.TravelDTO;
 import it.voyage.ms.dto.response.UserSearchResult;

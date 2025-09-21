@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,16 +35,11 @@ public class TravelCtl {
 		return ResponseEntity.ok(output);
 	}
 	
-	@DeleteMapping("")
-	public ResponseEntity<List<TravelDTO>> deleteTravelById(@AuthenticationPrincipal FirebaseToken userFirebase) {
-		List<TravelEty> travelEty = travelRepo.findByUserId(userFirebase.getUid());
-		List<TravelDTO> output = new ArrayList<>();
-		for(TravelEty t : travelEty) {
-			output.add(TravelDTO.convertToDTO(t));
-		}
-		return ResponseEntity.ok(output);
+	@DeleteMapping("/{travelId}")
+	public ResponseEntity<String> deleteTravelById(@PathVariable String travelId, @AuthenticationPrincipal FirebaseToken userFirebase) {
+	    long deletedCount = travelRepo.deleteByIdAndUserId(travelId, userFirebase.getUid());
+	    return deletedCount > 0 ? ResponseEntity.ok("Viaggio eliminato con successo") : ResponseEntity.notFound().build();
 	}
-	
 
 
 }
