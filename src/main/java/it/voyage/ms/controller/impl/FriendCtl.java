@@ -25,6 +25,7 @@ import it.voyage.ms.dto.response.FriendRelationshipDto;
 import it.voyage.ms.dto.response.PointDTO;
 import it.voyage.ms.dto.response.SearchRequest;
 import it.voyage.ms.dto.response.TravelDTO;
+import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.dto.response.UserSearchResult;
 import it.voyage.ms.enums.FriendRelationshipStatusEnum;
 import it.voyage.ms.exceptions.NotFoundException;
@@ -47,42 +48,48 @@ public class FriendCtl {
 
 	@Autowired
 	private TravelRepository travelRepo;
-
-	private enum FriendshipStatus {
-		PENDING, ACCEPTED, BLOCKED
-	}
-
-	static class FriendRequestDTO {
-		private String friendId;
-
-		public String getFriendId() {
-			return friendId;
-		}
-
-		public void setFriendId(String friendId) {
-			this.friendId = friendId;
-		}
-	}
-
+ 
 	@GetMapping("/accepted")
-	public ResponseEntity<List<UserEty>> getAcceptedFriends(@AuthenticationPrincipal FirebaseToken user) {
+	public ResponseEntity<List<UserDto>> getAcceptedFriends(@AuthenticationPrincipal FirebaseToken user) {
 
-		List<FriendRelationshipEty> relationships = friendRelationshipRepository.findByRequesterIdAndStatusOrReceiverIdAndStatus(
-				user.getUid(), FriendshipStatus.ACCEPTED.name(),
-				user.getUid(), FriendshipStatus.ACCEPTED.name()
-				);
+	    // Recupera le relazioni accettate
+	    List<FriendRelationshipEty> relationships = friendRelationshipRepository
+	            .findByRequesterIdAndStatusOrReceiverIdAndStatus(
+	                    user.getUid(),
+	                    FriendRelationshipStatusEnum.ACCEPTED.name(),
+	                    user.getUid(),
+	                    FriendRelationshipStatusEnum.ACCEPTED.name()
+	            );
 
-		List<String> friendIds = relationships.stream()
-				.map(rel -> rel.getRequesterId().equals(user.getUid()) ? rel.getReceiverId() : rel.getRequesterId())
-				.collect(Collectors.toList());
+	    // Costruisce la lista degli ID amici
+	    List<String> friendIds = relationships.stream()
+	            .map(rel -> rel.getRequesterId().equals(user.getUid()) ? rel.getReceiverId() : rel.getRequesterId())
+	            .collect(Collectors.toList());
 
-		List<UserEty> friends = userRepository.findAllById(friendIds);
-		return ResponseEntity.ok(friends);
+	    // Recupera gli utenti amici
+	    List<UserEty> friends = userRepository.findAllById(friendIds);
+
+	    // Converte in DTO gli amici
+	    List<UserDto> friendDtos = friends.stream()
+	            .map(f -> UserDto.fromEntityWithUid(f, user.getUid()))
+	            .collect(Collectors.toList());
+
+	    // Recupera l'utente loggato e lo mette sempre primo
+	    UserEty currentUser = userRepository.findById(user.getUid()).orElse(null);
+	    List<UserDto> output = new ArrayList<>();
+	    if (currentUser != null) {
+	        output.add(UserDto.fromEntityWithUid(currentUser, user.getUid())); // Primo elemento
+	    }
+	    output.addAll(friendDtos); // Seguono tutti gli amici
+
+	    return ResponseEntity.ok(output);
 	}
+
+
 
 	@GetMapping("/requests/pending")
 	public ResponseEntity<List<FriendRelationshipDto>> getPendingRequests(@AuthenticationPrincipal FirebaseToken user) {
-		List<FriendRelationshipEty> pendingRequests = friendRelationshipRepository.findByReceiverIdAndStatus(user.getUid(), "PENDING");
+		List<FriendRelationshipEty> pendingRequests = friendRelationshipRepository.findByReceiverIdAndStatus(user.getUid(), FriendRelationshipStatusEnum.PENDING.name());
 		List<FriendRelationshipDto> dtos = new ArrayList<>();
 		for(FriendRelationshipEty f:pendingRequests) {
 			FriendRelationshipDto dto = new FriendRelationshipDto();
@@ -101,56 +108,52 @@ public class FriendCtl {
 
 	@PostMapping("/search")
 	public ResponseEntity<List<UserSearchResult>> searchUsers(@RequestBody SearchRequest searchRequest, @AuthenticationPrincipal FirebaseToken userFirebase) {
-		String query = searchRequest.getQuery();
+	    String query = searchRequest.getQuery();
 
-		if (query == null || query.trim().isEmpty()) {
-			return ResponseEntity.ok(Collections.emptyList());
-		}
+	    if (query == null || query.trim().isEmpty()) {
+	        return ResponseEntity.ok(Collections.emptyList());
+	    }
 
-		// Trova tutti gli ID degli utenti che hanno bloccato l'utente corrente
-		List<String> blockedByUserIds = friendRelationshipRepository.findByReceiverIdAndStatus(userFirebase.getUid(), "BLOCKED").stream()
-				.map(FriendRelationshipEty::getRequesterId)
-				.collect(Collectors.toList());
+	    // Trova tutti gli ID degli utenti che hanno bloccato l'utente corrente
+	    List<String> blockedByUserIds = friendRelationshipRepository.findByReceiverIdAndStatus(userFirebase.getUid(), "BLOCKED").stream()
+	            .map(FriendRelationshipEty::getRequesterId)
+	            .collect(Collectors.toList());
 
-		// Trova tutti gli utenti che corrispondono alla query, escludendo l'utente corrente e quelli che lo hanno bloccato
-		List<UserEty> users = userRepository.findByNameRegex(query).stream()
-				.filter(user -> !user.getId().equals(userFirebase.getUid()))
-				.filter(user -> !blockedByUserIds.contains(user.getId()))
-				.collect(Collectors.toList());
+	    // Trova tutti gli utenti che corrispondono alla query, escludendo l'utente corrente e quelli che lo hanno bloccato
+	    List<UserEty> users = userRepository.findByNameRegex(query).stream()
+	            .filter(user -> !user.getId().equals(userFirebase.getUid()))
+	            .filter(user -> !blockedByUserIds.contains(user.getId()))
+	            .collect(Collectors.toList());
 
-		// Per ogni utente trovato, determina lo stato della relazione con l'utente corrente
-		List<UserSearchResult> results = users.stream()
-				.map(user -> {
-					FriendRelationshipStatusEnum status;
+	    // Per ogni utente trovato, determina lo stato della relazione con l'utente corrente
+	    List<UserSearchResult> results = users.stream()
+	            .map(user -> {
+	                FriendRelationshipStatusEnum status;
 
-					// CONTROLLO AGGIUNTO: Se l'utente corrente ha bloccato la persona trovata, imposta lo stato a BLOCKED.
-					if (friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(userFirebase.getUid(), user.getId(), "BLOCKED").size() > 0) {
-						status = FriendRelationshipStatusEnum.BLOCKED;
-					}
-					// Controlla se sono già amici
-					else if (friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(userFirebase.getUid(), user.getId(), "ACCEPTED").size() > 0 ||
-							friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(user.getId(), userFirebase.getUid(), "ACCEPTED").size() > 0) {
-						status = FriendRelationshipStatusEnum.ALREADY_FRIENDS;
-					} 
-					// Controlla se c'è una richiesta in sospeso inviata dall'utente corrente
-					else if (friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(userFirebase.getUid(), user.getId(), "PENDING_REQUEST_SENT").size() > 0) {
-						status = FriendRelationshipStatusEnum.PENDING_REQUEST_SENT;
-					}
-					// Controlla se c'è una richiesta in sospeso ricevuta dall'utente corrente
-					else if (friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(user.getId(), userFirebase.getUid(), "PENDING_REQUEST_RECEIVED").size() > 0) {
-						status = FriendRelationshipStatusEnum.PENDING_REQUEST_RECEIVED;
-					} 
-					// Se non ci sono relazioni esistenti, l'utente è disponibile
-					else {
-						status = FriendRelationshipStatusEnum.AVAILABLE;
-					}
+	                // Controllo aggiunto per vedere se l'utente corrente ha bloccato la persona trovata
+	                if (friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(userFirebase.getUid(), user.getId(), "BLOCKED").size() > 0) {
+	                    status = FriendRelationshipStatusEnum.BLOCKED;
+	                } else if (friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(userFirebase.getUid(), user.getId(), "ACCEPTED").size() > 0 ||
+	                        friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(user.getId(), userFirebase.getUid(), "ACCEPTED").size() > 0) {
+	                    status = FriendRelationshipStatusEnum.ALREADY_FRIENDS;
+	                } else if (friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(userFirebase.getUid(), user.getId(), "PENDING").size() > 0) {
+	                    FriendRelationshipEty pendingRequest = friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(userFirebase.getUid(), user.getId(), "PENDING").stream().findFirst().orElse(null);
+	                    if (pendingRequest != null) {
+	                        status = FriendRelationshipStatusEnum.PENDING_REQUEST_SENT;
+	                    } else {
+	                        status = FriendRelationshipStatusEnum.PENDING_REQUEST_RECEIVED;
+	                    }
+	                } else {
+	                    status = FriendRelationshipStatusEnum.AVAILABLE;
+	                }
 
-					return new UserSearchResult(user.getId(), user.getName(), user.getAvatar(), status);
-				})
-				.collect(Collectors.toList());
+	                return new UserSearchResult(user.getId(), user.getName(), user.getAvatar(), status);
+	            })
+	            .collect(Collectors.toList());
 
-		return ResponseEntity.ok(results);
+	    return ResponseEntity.ok(results);
 	}
+
 
 
 	@PostMapping("/unblock")
@@ -186,15 +189,15 @@ public class FriendCtl {
 
 	@GetMapping("/{friendId}/visited")
 	public ResponseEntity<List<CountryVisit>> getVisitedCountries(@PathVariable String friendId,@AuthenticationPrincipal FirebaseToken userFirebase) {
-		
+
 		List<FriendRelationshipEty> relationships = friendRelationshipRepository.findByRequesterIdAndStatusOrReceiverIdAndStatus(
-				userFirebase.getUid(), FriendshipStatus.ACCEPTED.name(),
-				userFirebase.getUid(), FriendshipStatus.ACCEPTED.name()
+				userFirebase.getUid(), FriendRelationshipStatusEnum.ACCEPTED.name(),
+				userFirebase.getUid(), FriendRelationshipStatusEnum.ACCEPTED.name()
 				);
 		if(relationships.isEmpty()) {
 			throw new NotFoundException("");
 		}
-		
+
 		List<TravelEty> travels = travelRepo.findByUserId(friendId);
 		List<CountryVisit> output = new ArrayList<>();
 		for(TravelEty travel : travels) {
@@ -203,7 +206,7 @@ public class FriendCtl {
 
 		return ResponseEntity.ok(output);
 	}
- 
+
 
 	private TravelEty convertToDocument(TravelDTO dto) {
 		TravelEty travel = new TravelEty();
@@ -214,7 +217,7 @@ public class FriendCtl {
 					DailyItineraryDTO day = new DailyItineraryDTO();
 					day.setDay(dayDTO.getDay());
 					day.setDate(dayDTO.getDate());
-					
+
 
 					List<PointDTO> pointDocuments = dayDTO.getPoints().stream()
 							.map(pointDTO -> {

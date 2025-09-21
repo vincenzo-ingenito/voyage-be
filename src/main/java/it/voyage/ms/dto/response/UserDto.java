@@ -8,18 +8,33 @@ import lombok.Data;
 @Data
 public class UserDto {
 
+	private String id;
 	private String name;
 	private String email;
 	private String avatar;
 	private Date lastLogin;
-	
-    public static UserDto fromEntity(UserEty user) {
-    	UserDto dto = new UserDto();
-        dto.setName(user.getName());
-        dto.setEmail(user.getEmail());
-        dto.setAvatar(user.getAvatar());
-        dto.setLastLogin(user.getLastLogin());
-        return dto;
-    }
- 
+	private boolean isCurrentUser;
+
+	public static UserDto fromEntity(UserEty user) {
+		UserDto dto = new UserDto();
+		dto.setId(user.getId());
+		dto.setName(user.getName());
+		dto.setEmail(user.getEmail());
+		dto.setAvatar(user.getAvatar());
+		dto.setLastLogin(user.getLastLogin());
+		dto.setCurrentUser(false);
+		return dto;
+	}
+
+	public static UserDto fromEntityWithUid(UserEty user, String loggedInUid) {
+		UserDto dto = new UserDto();
+		dto.setId(user.getId());
+		dto.setName(user.getName());
+		dto.setEmail(user.getEmail());
+		dto.setAvatar(user.getAvatar());
+		dto.setLastLogin(user.getLastLogin());
+		dto.setCurrentUser(user.getId().equals(loggedInUid));
+		return dto;
+	}
+
 }

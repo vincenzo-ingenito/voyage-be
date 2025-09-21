@@ -46,7 +46,7 @@ public class FriendRelationshipCtl {
 		FriendRelationshipEty newRequest = new FriendRelationshipEty();
 		newRequest.setRequesterId(userFirebase.getUid());
 		newRequest.setReceiverId(receiverId);
-		newRequest.setStatus(FriendRelationshipStatusEnum.PENDING_REQUEST_SENT.name());
+		newRequest.setStatus(FriendRelationshipStatusEnum.PENDING.name());
 		newRequest.setCreatedAt(new Date());
 
 		friendRelationshipRepository.save(newRequest);

@@ -7,6 +7,7 @@ public class UserSearchResult {
     private String name;
     private String avatar;
     private FriendRelationshipStatusEnum status;
+    private boolean imrequestor;
 
     public UserSearchResult(String id, String name, String avatar, FriendRelationshipStatusEnum status) {
         this.id = id;
