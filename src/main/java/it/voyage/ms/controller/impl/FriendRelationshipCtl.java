@@ -19,7 +19,9 @@ import com.google.firebase.auth.FirebaseToken;
 import it.voyage.ms.dto.response.FriendRequestDto;
 import it.voyage.ms.enums.FriendRelationshipStatusEnum;
 import it.voyage.ms.repository.entity.FriendRelationshipEty;
+import it.voyage.ms.repository.entity.UserEty;
 import it.voyage.ms.repository.impl.IFriendRelationshipRepository;
+import it.voyage.ms.repository.impl.UserRepository;
 
 
 @RestController
@@ -28,6 +30,9 @@ public class FriendRelationshipCtl {
 
 	@Autowired
 	private IFriendRelationshipRepository friendRelationshipRepository;
+
+	@Autowired
+	private UserRepository userRepository;
 
 
 	@PostMapping("/send-request")
@@ -43,14 +48,26 @@ public class FriendRelationshipCtl {
 			return ResponseEntity.status(409).body("Una richiesta di amicizia con questo utente esiste già.");
 		}
 
+		Optional<UserEty> receiverUser = userRepository.findById(receiverId);
+		if (receiverUser.isEmpty()) {
+			return ResponseEntity.status(404).body("Utente destinatario non trovato.");
+		}
+
+
 		FriendRelationshipEty newRequest = new FriendRelationshipEty();
 		newRequest.setRequesterId(userFirebase.getUid());
 		newRequest.setReceiverId(receiverId);
-		newRequest.setStatus(FriendRelationshipStatusEnum.PENDING.name());
 		newRequest.setCreatedAt(new Date());
 
-		friendRelationshipRepository.save(newRequest);
-		return ResponseEntity.ok("Richiesta di amicizia inviata con successo.");
+		if (receiverUser.get().isPrivate()) {
+			newRequest.setStatus(FriendRelationshipStatusEnum.PENDING.name());
+			friendRelationshipRepository.save(newRequest);
+			return ResponseEntity.ok("Richiesta di amicizia inviata con successo.");
+		} else {
+			newRequest.setStatus(FriendRelationshipStatusEnum.ACCEPTED.name());
+			friendRelationshipRepository.save(newRequest);
+			return ResponseEntity.ok("Amico aggiunto con successo! Il profilo è pubblico.");
+		}
 	}
 
 	@PutMapping("/{requesterId}/{action}")
