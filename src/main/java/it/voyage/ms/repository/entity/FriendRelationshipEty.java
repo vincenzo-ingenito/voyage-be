@@ -9,7 +9,7 @@ import lombok.Data;
 
 @Document("friend_relationships")
 @Data
-public class FriendRelationship {
+public class FriendRelationshipEty {
 
     @Id
     private String id;

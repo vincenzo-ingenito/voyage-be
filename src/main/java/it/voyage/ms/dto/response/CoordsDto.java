@@ -1,9 +1,11 @@
 package it.voyage.ms.dto.response;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 @Data
-public class Coords {
+@AllArgsConstructor
+public class CoordsDto {
 
 	private Double lat;
     private Double lng;

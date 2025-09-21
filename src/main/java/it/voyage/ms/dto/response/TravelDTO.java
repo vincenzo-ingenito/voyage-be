@@ -1,28 +1,50 @@
 package it.voyage.ms.dto.response;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
+import it.voyage.ms.repository.entity.TravelEty;
+import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @NoArgsConstructor
+@Data
 public class TravelDTO {
-    private String travelName; // Un nome per il viaggio (es. "Vacanza in Italia")
-    private List<DailyItineraryDTO> itinerary;
+	private String travelId;
+	private String travelName; 
+	private List<DailyItineraryDTO> itinerary;
 
-    // Getters and Setters
-    public String getTravelName() {
-        return travelName;
-    }
+	public static TravelDTO convertToDTO(TravelEty travel) {
+		TravelDTO dto = new TravelDTO();
+		dto.setTravelId(travel.getId());
+		dto.setTravelName(travel.getTravelName());
+		
+		List<DailyItineraryDTO> dayDTOs = travel.getItinerary().stream()
+				.map(day -> {
+					DailyItineraryDTO dayDTO = new DailyItineraryDTO();
+					dayDTO.setDay(day.getDay());
+					dayDTO.setDate(day.getDate());
 
-    public void setTravelName(String travelName) {
-        this.travelName = travelName;
-    }
+					List<PointDTO> pointDTOs = day.getPoints().stream()
+							.map(point -> {
+								PointDTO pointDTO = new PointDTO();
+								pointDTO.setName(point.getName());
+								pointDTO.setType(point.getType());
+								pointDTO.setDescription(point.getDescription());
+								pointDTO.setCost(point.getCost());
+								CoordsDto coords = new CoordsDto(point.getCoord().getLat(),point.getCoord().getLng());
+								pointDTO.setCoord(coords);
+								pointDTO.setCountry(point.getCountry());
+								pointDTO.setRegion(point.getRegion());
+								pointDTO.setCity(point.getCity());
+								return pointDTO;
+							}).collect(Collectors.toList());
 
-    public List<DailyItineraryDTO> getItinerary() {
-        return itinerary;
-    }
+					dayDTO.setPoints(pointDTOs);
+					return dayDTO;
+				}).collect(Collectors.toList());
 
-    public void setItinerary(List<DailyItineraryDTO> itinerary) {
-        this.itinerary = itinerary;
-    }
+		dto.setItinerary(dayDTOs);
+		return dto;
+	}
 }

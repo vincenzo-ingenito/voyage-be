@@ -18,7 +18,7 @@ import com.google.firebase.auth.FirebaseToken;
 
 import it.voyage.ms.dto.response.FriendRequestDto;
 import it.voyage.ms.enums.FriendRelationshipStatusEnum;
-import it.voyage.ms.repository.entity.FriendRelationship;
+import it.voyage.ms.repository.entity.FriendRelationshipEty;
 import it.voyage.ms.repository.impl.IFriendRelationshipRepository;
 
 
@@ -38,12 +38,12 @@ public class FriendRelationshipCtl {
 			return ResponseEntity.badRequest().body("Non puoi inviare una richiesta di amicizia a te stesso.");
 		}
 
-		Optional<FriendRelationship> existingRelationships = friendRelationshipRepository.findByRequesterIdAndReceiverIdOrReceiverIdAndRequesterId(userFirebase.getUid(), receiverId, userFirebase.getUid(), receiverId);
+		Optional<FriendRelationshipEty> existingRelationships = friendRelationshipRepository.findByRequesterIdAndReceiverIdOrReceiverIdAndRequesterId(userFirebase.getUid(), receiverId, userFirebase.getUid(), receiverId);
 		if (!existingRelationships.isEmpty()) {
 			return ResponseEntity.status(409).body("Una richiesta di amicizia con questo utente esiste già.");
 		}
 
-		FriendRelationship newRequest = new FriendRelationship();
+		FriendRelationshipEty newRequest = new FriendRelationshipEty();
 		newRequest.setRequesterId(userFirebase.getUid());
 		newRequest.setReceiverId(receiverId);
 		newRequest.setStatus(FriendRelationshipStatusEnum.PENDING_REQUEST_SENT.name());

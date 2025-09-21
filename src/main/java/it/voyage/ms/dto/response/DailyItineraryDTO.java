@@ -12,6 +12,4 @@ public class DailyItineraryDTO {
     private int day;
     private String date;
     private List<PointDTO> points;
-
-    // Getters and Setters...
 }

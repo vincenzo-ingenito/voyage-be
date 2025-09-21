@@ -9,6 +9,6 @@ public class RegionVisit {
 
 	 private String id;
      private String name;
-     private Coords coord;
-     private List<DailyItinerary> itinerary;
+     private CoordsDto coord;
+     private List<DailyItineraryDTO> itinerary;
 }
