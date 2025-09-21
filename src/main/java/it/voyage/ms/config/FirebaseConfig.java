@@ -3,6 +3,7 @@ package it.voyage.ms.config;
 import java.io.FileInputStream;
 import java.io.IOException;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -12,10 +13,13 @@ import com.google.firebase.FirebaseOptions;
 
 @Configuration
 public class FirebaseConfig {
-
+	
+	@Value("${firebase.service-account.path}")
+	private String pathServiceAccount;
+	
     @Bean
     public FirebaseApp firebaseApp() throws IOException {
-        FileInputStream serviceAccount = new FileInputStream("/Users/vincenzoingenito/eclipse-workspace-2025/voyage-be/src/main/resources/voyage-ed2d0-firebase-adminsdk-fbsvc-7d741f97ec.json");
+        FileInputStream serviceAccount = new FileInputStream(pathServiceAccount);
 
         FirebaseOptions options = FirebaseOptions.builder()
             .setCredentials(GoogleCredentials.fromStream(serviceAccount))
@@ -24,5 +28,3 @@ public class FirebaseConfig {
         return FirebaseApp.initializeApp(options);
     }
 }
-
-//TODO Configurare props per passare chiave firebase da props

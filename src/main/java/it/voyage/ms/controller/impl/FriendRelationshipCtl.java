@@ -4,7 +4,6 @@ import java.util.Date;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -44,18 +43,14 @@ public class FriendRelationshipCtl {
 			return ResponseEntity.status(409).body("Una richiesta di amicizia con questo utente esiste già.");
 		}
 
-		try {
-			FriendRelationship newRequest = new FriendRelationship();
-			newRequest.setRequesterId(userFirebase.getUid());
-			newRequest.setReceiverId(receiverId);
-			newRequest.setStatus(FriendRelationshipStatusEnum.PENDING_REQUEST_SENT.name());
-			newRequest.setCreatedAt(new Date());
+		FriendRelationship newRequest = new FriendRelationship();
+		newRequest.setRequesterId(userFirebase.getUid());
+		newRequest.setReceiverId(receiverId);
+		newRequest.setStatus(FriendRelationshipStatusEnum.PENDING_REQUEST_SENT.name());
+		newRequest.setCreatedAt(new Date());
 
-			friendRelationshipRepository.save(newRequest);
-			return ResponseEntity.ok("Richiesta di amicizia inviata con successo.");
-		} catch (Exception e) {
-			return ResponseEntity.status(500).body("Errore nell'invio della richiesta: " + e.getMessage());
-		}
+		friendRelationshipRepository.save(newRequest);
+		return ResponseEntity.ok("Richiesta di amicizia inviata con successo.");
 	}
 
 	@PutMapping("/{requesterId}/{action}")
@@ -78,12 +73,8 @@ public class FriendRelationshipCtl {
 
 	@DeleteMapping("/remove/{friendId}")
 	public ResponseEntity<String> deleteFriend(@PathVariable String friendId, @AuthenticationPrincipal FirebaseToken user) {
-	    try {
-	        friendRelationshipRepository.deleteFriendship(user.getUid(), friendId);
-	        return ResponseEntity.ok("Amico rimosso con successo.");
-	    } catch (Exception e) {
-	        return new ResponseEntity<>("Errore durante la rimozione dell'amico.", HttpStatus.INTERNAL_SERVER_ERROR);
-	    }
+		friendRelationshipRepository.deleteFriendship(user.getUid(), friendId);
+		return ResponseEntity.ok("Amico rimosso con successo.");
 	}
 
 

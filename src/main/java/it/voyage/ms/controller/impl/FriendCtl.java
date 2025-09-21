@@ -70,22 +70,6 @@ public class FriendCtl {
 			this.friendId = friendId;
 		}
 	}
- 
-
-//	@PostMapping("/accept")
-//	public ResponseEntity<String> acceptFriendRequest(@RequestBody FriendRequestDTO requestDTO, @AuthenticationPrincipal FirebaseToken user) {
-//		Optional<FriendRelationship> relationship = friendRelationshipRepository
-//				.findByRequesterIdAndReceiverId(requestDTO.getFriendId(), user.getUid());
-//
-//		if (relationship.isPresent() && relationship.get().getStatus().equals(FriendshipStatus.PENDING.name())) {
-//			FriendRelationship rel = relationship.get();
-//			rel.setStatus(FriendshipStatus.ACCEPTED.name());
-//			friendRelationshipRepository.save(rel);
-//			return ResponseEntity.ok("Richiesta di amicizia accettata.");
-//		}
-//
-//		return ResponseEntity.badRequest().body("Richiesta di amicizia non trovata o non in stato di attesa.");
-//	}
 
 	@GetMapping("/accepted")
 	public ResponseEntity<List<UserEty>> getAcceptedFriends(@AuthenticationPrincipal FirebaseToken user) {

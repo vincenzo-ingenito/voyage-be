@@ -28,7 +28,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
  */
 @RestController
 @Tag(name = "Health check Status Actuator")
-public class LivenessCheckCTL implements HealthIndicator {
+public class LivenessCheckCtl implements HealthIndicator {
 
 	/**
 	 * Return system state.
