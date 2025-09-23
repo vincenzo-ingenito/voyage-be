@@ -1,13 +1,15 @@
-FROM eclipse-temurin:21-jre
-
+# 1. Stage build
+FROM maven:3.9.4-eclipse-temurin-21 AS build
 WORKDIR /app
+COPY . .
+RUN mvn clean package -DskipTests
 
-# Copia il JAR buildato
-COPY target/*.jar app.jar
+# 2. Stage runtime
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
 
-# Opzioni JVM (puoi passarle anche da Render come ENV)
 ENV JAVA_OPTS="-Xms512m -Xmx1024m"
-
 EXPOSE 8080
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
