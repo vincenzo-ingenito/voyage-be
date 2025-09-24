@@ -20,9 +20,11 @@ import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.repository.entity.UserEty;
 import it.voyage.ms.repository.impl.UserRepository;
 import it.voyage.ms.service.IUserService;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/auth")
+@Slf4j
 public class AuthCtl {
 
 	@Autowired
@@ -33,6 +35,7 @@ public class AuthCtl {
 
 	@PostMapping("/login")
 	public ResponseEntity<UserDto> login(@AuthenticationPrincipal FirebaseToken firebaseToken) {
+		log.info("Login called");
 		UserDto userDto = userService.login(firebaseToken);
 		return new ResponseEntity<>(userDto, HttpStatus.OK);
 	}
