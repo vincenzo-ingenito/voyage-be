@@ -35,6 +35,7 @@ public class UserService implements IUserService {
 			user.setAvatar(firebaseToken.getPicture());
 			user.setCreatedAt(new Date());
 			user.setLastLogin(new Date());
+			user.setPrivate(true);
 		}
 
 		UserEty savedUser = userRepository.save(user);
