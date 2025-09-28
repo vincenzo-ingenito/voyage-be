@@ -36,6 +36,7 @@ public class UserService implements IUserService {
 			user.setCreatedAt(new Date());
 			user.setLastLogin(new Date());
 			user.setPrivate(true);
+			user.setBio("Nessuna biografia disponibile");
 		}
 
 		UserEty savedUser = userRepository.save(user);
