@@ -14,6 +14,7 @@ public class UserDto {
 	private String avatar;
 	private Date lastLogin;
 	private boolean isCurrentUser;
+	private String bio;
 
 	public static UserDto fromEntity(UserEty user) {
 		UserDto dto = new UserDto();
@@ -23,6 +24,7 @@ public class UserDto {
 		dto.setAvatar(user.getAvatar());
 		dto.setLastLogin(user.getLastLogin());
 		dto.setCurrentUser(false);
+		dto.setBio(user.getBio());
 		return dto;
 	}
 
@@ -34,6 +36,7 @@ public class UserDto {
 		dto.setAvatar(user.getAvatar());
 		dto.setLastLogin(user.getLastLogin());
 		dto.setCurrentUser(user.getId().equals(loggedInUid));
+		dto.setBio(user.getBio());
 		return dto;
 	}
 

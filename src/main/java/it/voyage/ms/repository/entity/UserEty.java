@@ -18,5 +18,6 @@ public class UserEty {
     private String avatar;
     private Date createdAt;
     private Date lastLogin;
-    private boolean isPrivate = false; 
+    private boolean isPrivate = false;
+    private String bio;
 }
