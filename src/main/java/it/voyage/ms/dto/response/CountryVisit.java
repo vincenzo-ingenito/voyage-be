@@ -5,6 +5,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -25,11 +26,29 @@ public class CountryVisit {
             return null;
         }
 
-        CountryVisit cv = new CountryVisit();
-        cv.setIso(travel.getId());          // oppure iso da travelName/userId se hai mapping
-        cv.setName(travel.getTravelName());
+        List<PointDTO> allPoints = travel.getItinerary().stream()
+                .flatMap(di -> di.getPoints().stream())
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
 
-        // tutte le date visitate
+        if (allPoints.isEmpty()) {
+            return null;
+        }
+        
+        Optional<PointDTO> firstPoint = allPoints.stream().findFirst();
+
+        CountryVisit cv = new CountryVisit();
+        
+        String countryName = firstPoint.map(PointDTO::getCountry).orElse("Nazione Sconosciuta");
+        
+        // USIAMO IL NOME DELLA NAZIONE (senza spazi) COME ISO TEMPORANEO PER L'AGGREGAZIONE
+        // Successivamente, nel frontend, potrai usare una mappa per convertire il nome nel codice ISO a due lettere.
+        String countryIdentifier = countryName.replaceAll("\\s", "_").toUpperCase();
+        
+        cv.setIso(countryIdentifier); // Esempio: "FRANCIA", "STATI_UNITI"
+        cv.setName(countryName);
+
+        // tutte le date visitate (Logica invariata)
         Set<String> visitedDates = travel.getItinerary().stream()
                 .map(DailyItineraryDTO::getDate)
                 .filter(Objects::nonNull)
@@ -37,22 +56,17 @@ public class CountryVisit {
         cv.setVisitedDates(visitedDates);
 
         // coord principale: prima disponibile
-        cv.setCoord(
-            travel.getItinerary().stream()
-                .flatMap(di -> di.getPoints().stream())
-                .map(PointDTO::getCoord)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null)
-        );
+        cv.setCoord(firstPoint.map(PointDTO::getCoord).orElse(null));
 
-        // Raggruppo per regione
-        Map<String, List<PointDTO>> pointsByRegion = travel.getItinerary().stream()
-                .flatMap(di -> di.getPoints().stream())
+        // Raggruppo per regione (Logica invariata)
+        Map<String, List<PointDTO>> pointsByRegion = allPoints.stream()
+                .filter(p -> p.getRegion() != null) // Assicurati di scartare i punti senza regione se necessario
                 .collect(Collectors.groupingBy(PointDTO::getRegion));
 
         List<RegionVisit> regions = new ArrayList<>();
         for (Map.Entry<String, List<PointDTO>> regionEntry : pointsByRegion.entrySet()) {
+            // ... (il codice per mappare RegionVisit rimane invariato e corretto) ...
+            
             String regionName = regionEntry.getKey();
             List<PointDTO> regionPoints = regionEntry.getValue();
 
@@ -90,7 +104,6 @@ public class CountryVisit {
 
         return cv;
     }
-
-
+    
 }
 

@@ -15,6 +15,7 @@ public class UserDto {
 	private Date lastLogin;
 	private boolean isCurrentUser;
 	private String bio;
+	private Boolean privateProfile; 
 
 	public static UserDto fromEntity(UserEty user) {
 		UserDto dto = new UserDto();
@@ -25,6 +26,7 @@ public class UserDto {
 		dto.setLastLogin(user.getLastLogin());
 		dto.setCurrentUser(false);
 		dto.setBio(user.getBio());
+		dto.setPrivateProfile(user.isPrivate());
 		return dto;
 	}
 
@@ -37,6 +39,7 @@ public class UserDto {
 		dto.setLastLogin(user.getLastLogin());
 		dto.setCurrentUser(user.getId().equals(loggedInUid));
 		dto.setBio(user.getBio());
+		dto.setPrivateProfile(user.isPrivate());
 		return dto;
 	}
 
