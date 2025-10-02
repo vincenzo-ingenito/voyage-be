@@ -265,6 +265,8 @@ public class FriendCtl {
 	private TravelEty convertToDocument(TravelDTO dto) {
 		TravelEty travel = new TravelEty();
 		travel.setTravelName(dto.getTravelName());
+		travel.setDateFrom(dto.getDateFrom());
+		travel.setDateTo(dto.getDateTo());
 
 		List<DailyItineraryDTO> itineraryDocuments = dto.getItinerary().stream()
 				.map(dayDTO -> {

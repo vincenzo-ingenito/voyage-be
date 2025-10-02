@@ -13,12 +13,16 @@ public class TravelDTO {
 	private String travelId;
 	private String travelName; 
 	private List<DailyItineraryDTO> itinerary;
+	private String dateFrom; 
+	private String dateTo;   
 
 	public static TravelDTO convertToDTO(TravelEty travel) {
 		TravelDTO dto = new TravelDTO();
 		dto.setTravelId(travel.getId());
 		dto.setTravelName(travel.getTravelName());
-		
+		dto.setDateFrom(travel.getDateFrom());
+		dto.setDateTo(travel.getDateTo());
+
 		List<DailyItineraryDTO> dayDTOs = travel.getItinerary().stream()
 				.map(day -> {
 					DailyItineraryDTO dayDTO = new DailyItineraryDTO();

@@ -16,5 +16,7 @@ public class TravelEty {
     private String travelName;
     private String userId;
     private List<DailyItineraryDTO> itinerary;
+    private String dateFrom; 
+    private String dateTo;   
 
 }
