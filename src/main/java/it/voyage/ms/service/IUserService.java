@@ -7,4 +7,9 @@ import it.voyage.ms.dto.response.UserDto;
 public interface IUserService {
 
 	UserDto login(FirebaseToken firebaseToken);
+	
+	UserDto update(String firebaseId,UserDto userDto);
+	
+	boolean getPrivacyStatus(String firebaseId);
+	
 }
