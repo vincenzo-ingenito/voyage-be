@@ -1,5 +1,7 @@
 package it.voyage.ms.dto.response;
 
+import java.util.List;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -14,5 +16,7 @@ public class PointDTO {
 	private String country; 
 	private String region;  
 	private String city;    
- 
+	private List<Integer> attachmentIndices;
+	private List<String> attachmentUrls;
+
 }

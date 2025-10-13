@@ -1,5 +1,6 @@
 package it.voyage.ms.service.impl;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -19,60 +20,128 @@ public class TravelService {
 
 	@Autowired
 	private TravelRepository travelRepository;
+
+
+	@Autowired
+	private FirebaseStorageService storageService; 
 	
-	 public TravelDTO updateExistingTravel(String ownerUid, String travelId, TravelDTO newTravelData){
+	public TravelDTO updateExistingTravel(String ownerUid, String travelId, TravelDTO newTravelData){
 
-	        Optional<TravelEty> existingTravelOpt = travelRepository.findByIdAndUserId(travelId, ownerUid);
- 
+		Optional<TravelEty> existingTravelOpt = travelRepository.findByIdAndUserId(travelId, ownerUid);
 
-	        TravelEty existingTravel = existingTravelOpt.get();
 
-	        // 2. Aggiorna i campi dell'entità con i nuovi dati dal DTO
-	        // Poiché il frontend invia l'intera struttura, aggiorniamo tutto:
-	        
-	        existingTravel.setTravelName(newTravelData.getTravelName());
-	        existingTravel.setDateFrom(newTravelData.getDateFrom());
-	        existingTravel.setDateTo(newTravelData.getDateTo());
-	        
-	        // Mappiamo l'itinerario DTO in Entità (necessita di una funzione di mappatura)
-	        List<DailyItineraryDTO> updatedItinerary = mapDayDTOListToDayList(newTravelData.getItinerary());
-	        existingTravel.setItinerary(updatedItinerary);
-	        
-	        // 3. Salva l'entità aggiornata nel database
-	        TravelEty savedTravel = travelRepository.save(existingTravel);
+		TravelEty existingTravel = existingTravelOpt.get();
 
-	        // 4. Mappa l'entità salvata in DTO per la risposta al frontend
-	        return TravelDTO.convertToDTO(savedTravel);
-	    }
-	 
-	 protected List<DailyItineraryDTO> mapDayDTOListToDayList(List<DailyItineraryDTO> itineraryDTOs) {
-	        if (itineraryDTOs == null) {
-	            return List.of();
-	        }
-	        
-	        return itineraryDTOs.stream()
-	                .map(dayDTO -> {
-	                    // Questa logica è quasi identica a quella che hai in convertToDocument
-	                    DailyItineraryDTO dayEty = new DailyItineraryDTO(); 
-	                    dayEty.setDay(dayDTO.getDay());
-	                    dayEty.setDate(dayDTO.getDate());
+		// 2. Aggiorna i campi dell'entità con i nuovi dati dal DTO
+		// Poiché il frontend invia l'intera struttura, aggiorniamo tutto:
 
-	                    List<PointDTO> pointEties = dayDTO.getPoints().stream()
-	                            .map(pointDTO -> {
-	                                PointDTO pointEty = new PointDTO();
-	                                pointEty.setName(pointDTO.getName());
-	                                pointEty.setType(pointDTO.getType());
-	                                pointEty.setDescription(pointDTO.getDescription());
-	                                pointEty.setCost(pointDTO.getCost());
-	                                pointEty.setCoord(new CoordsDto(pointDTO.getCoord().getLat(), pointDTO.getCoord().getLng()));
-	                                pointEty.setCountry(pointDTO.getCountry());
-	                                pointEty.setRegion(pointDTO.getRegion());
-	                                pointEty.setCity(pointDTO.getCity());
-	                                return pointEty;
-	                            }).collect(Collectors.toList());
+		existingTravel.setTravelName(newTravelData.getTravelName());
+		existingTravel.setDateFrom(newTravelData.getDateFrom());
+		existingTravel.setDateTo(newTravelData.getDateTo());
 
-	                    dayEty.setPoints(pointEties);
-	                    return dayEty;
-	                }).collect(Collectors.toList());
-	    }
+		// Mappiamo l'itinerario DTO in Entità (necessita di una funzione di mappatura)
+		List<DailyItineraryDTO> updatedItinerary = mapDayDTOListToDayList(newTravelData.getItinerary());
+		existingTravel.setItinerary(updatedItinerary);
+
+		// 3. Salva l'entità aggiornata nel database
+		TravelEty savedTravel = travelRepository.save(existingTravel);
+
+		// 4. Mappa l'entità salvata in DTO per la risposta al frontend
+		return TravelDTO.convertToDTO(savedTravel);
+	}
+
+	protected List<DailyItineraryDTO> mapDayDTOListToDayList(List<DailyItineraryDTO> itineraryDTOs) {
+		if (itineraryDTOs == null) {
+			return List.of();
+		}
+
+		return itineraryDTOs.stream()
+				.map(dayDTO -> {
+					// Questa logica è quasi identica a quella che hai in convertToDocument
+					DailyItineraryDTO dayEty = new DailyItineraryDTO(); 
+					dayEty.setDay(dayDTO.getDay());
+					dayEty.setDate(dayDTO.getDate());
+
+					List<PointDTO> pointEties = dayDTO.getPoints().stream()
+							.map(pointDTO -> {
+								PointDTO pointEty = new PointDTO();
+								pointEty.setName(pointDTO.getName());
+								pointEty.setType(pointDTO.getType());
+								pointEty.setDescription(pointDTO.getDescription());
+								pointEty.setCost(pointDTO.getCost());
+								pointEty.setCoord(new CoordsDto(pointDTO.getCoord().getLat(), pointDTO.getCoord().getLng()));
+								pointEty.setCountry(pointDTO.getCountry());
+								pointEty.setRegion(pointDTO.getRegion());
+								pointEty.setCity(pointDTO.getCity());
+								return pointEty;
+							}).collect(Collectors.toList());
+
+					dayEty.setPoints(pointEties);
+					return dayEty;
+				}).collect(Collectors.toList());
+	}
+
+	public List<TravelDTO> getTravelsForUser(String userId) {
+        List<TravelEty> travelEntities = travelRepository.findByUserId(userId);
+        List<TravelDTO> travelDTOs = new ArrayList<>();
+
+        for (TravelEty entity : travelEntities) {
+            
+            TravelDTO dto = TravelDTO.convertToDTO(entity);
+            // NOTA: 'getAllFileIds()' è un metodo concettuale sul tuo TravelEty
+            List<String> allFileIds = entity.getAllFileIds(); 
+            
+            // Se non ci sono file IDs, non c'è nulla da risolvere
+            if (allFileIds == null || allFileIds.isEmpty()) {
+                 travelDTOs.add(dto);
+                 continue; 
+            }
+            
+            // 3. Itera e risolvi le URL usando gli indici
+            if (dto.getItinerary() != null) {
+                for (DailyItineraryDTO dayDto : dto.getItinerary()) {
+                    
+                    // A) Risoluzione Immagine Ricordo del Giorno
+                    if (dayDto.getMemoryImageIndex() != null) {
+                        try {
+                            int index = dayDto.getMemoryImageIndex();
+                            String fileId = allFileIds.get(index);
+                            
+                            String dayUrl = storageService.getPublicUrl(fileId);
+                            dayDto.setMemoryImageUrl(dayUrl); 
+
+                        } catch (IndexOutOfBoundsException e) {
+                            System.err.println("Indice immagine giorno fuori limite per Travel ID: " + dto.getTravelId());
+                            // Imposta URL a null o lascia non risolto
+                        }
+                    }
+                    
+                    // B) Risoluzione Allegati Punti
+                    if (dayDto.getPoints() != null) {
+                        for (PointDTO pointDto : dayDto.getPoints()) {
+                            
+                            if (pointDto.getAttachmentIndices() != null) {
+                                List<String> attachmentUrls = new ArrayList<>();
+                                
+                                for (Integer index : pointDto.getAttachmentIndices()) {
+                                    try {
+                                        String fileId = allFileIds.get(index);
+                                        String attachmentUrl = storageService.getPublicUrl(fileId);
+                                        attachmentUrls.add(attachmentUrl);
+                                    } catch (IndexOutOfBoundsException e) {
+                                        System.err.println("Indice allegato fuori limite per Travel ID: " + dto.getTravelId());
+                                    }
+                                }
+                                pointDto.setAttachmentUrls(attachmentUrls);
+                            }
+                        }
+                    }
+                }
+            }
+
+            travelDTOs.add(dto);
+        }
+
+        return travelDTOs;
+    }
 }

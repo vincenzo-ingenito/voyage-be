@@ -12,4 +12,6 @@ public class DailyItineraryDTO {
     private int day;
     private String date;
     private List<PointDTO> points;
+    private Integer memoryImageIndex;
+    private String memoryImageUrl;
 }

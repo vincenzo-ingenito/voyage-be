@@ -3,14 +3,16 @@ package it.voyage.ms.controller.impl;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,9 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 import com.google.firebase.auth.FirebaseToken;
 
@@ -31,7 +31,6 @@ import it.voyage.ms.dto.response.FriendRelationshipDto;
 import it.voyage.ms.dto.response.PointDTO;
 import it.voyage.ms.dto.response.RegionVisit;
 import it.voyage.ms.dto.response.SearchRequest;
-import it.voyage.ms.dto.response.TravelDTO;
 import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.dto.response.UserSearchResult;
 import it.voyage.ms.enums.FriendRelationshipStatusEnum;
@@ -57,6 +56,9 @@ public class FriendCtl {
 	@Autowired
 	private TravelRepository travelRepo;
 	
+	@Autowired
+	private FirebaseStorageService storageService; 
+
 
 
 	@GetMapping("/accepted")
@@ -186,61 +188,299 @@ public class FriendCtl {
 		return ResponseEntity.ok().build();
 	}
 
+//	@PostMapping
+//	public ResponseEntity<String> saveTravel(@RequestBody TravelDTO travelData,@AuthenticationPrincipal FirebaseToken userFirebase) {
+//		TravelEty travel = convertToDocument(travelData);
+//		travel.setUserId(userFirebase.getUid()); 
+//		travelRepo.save(travel);
+//
+//
+//		return ResponseEntity.ok("Travel data saved successfully!");
+//	}
+	
+
+//	@GetMapping("/{friendId}/visited")
+//	public ResponseEntity<List<CountryVisit>> getVisitedCountries(@PathVariable String friendId,@AuthenticationPrincipal FirebaseToken userFirebase) {
+//
+//		if(!friendId.equals(userFirebase.getUid())) {
+//			List<FriendRelationshipEty> relationships = friendRelationshipRepository.findByRequesterIdAndStatusOrReceiverIdAndStatus(
+//					userFirebase.getUid(), FriendRelationshipStatusEnum.ACCEPTED.name(),
+//					userFirebase.getUid(), FriendRelationshipStatusEnum.ACCEPTED.name()
+//					);
+//
+//			if(relationships.isEmpty()) {
+//				throw new NotFoundException("");
+//			}
+//		}  
+//		List<CountryVisit> countryVisit = getUniqueConsolidatedCountryVisits();
+//		return ResponseEntity.ok(countryVisit);
+//	}
+//
+//	public List<CountryVisit> getUniqueConsolidatedCountryVisits() {
+//
+//		List<TravelEty> allTravels = travelRepo.findAll(); 
+//
+//		List<CountryVisit> countryVisitsPerTravel = allTravels.stream()
+//				.map(CountryVisit::mapToCountryVisit) 
+//				.filter(Objects::nonNull)
+//				.collect(Collectors.toList());
+//
+//		// 3. RAGGRUPPAMENTO E CONSOLIDAMENTO (RISOLUZIONE DEL PROBLEMA DELLE CHIAVI DUPLICATE!)
+//		Map<String, CountryVisit> consolidatedMap = new HashMap<>();
+//
+//		for (CountryVisit cv : countryVisitsPerTravel) {
+//			// La chiave di raggruppamento è l'identificatore del Paese creato nel mapper (es. "FRANCIA")
+//			String countryIdentifier = cv.getIso(); 
+//
+//			if (!consolidatedMap.containsKey(countryIdentifier)) {
+//				// Primo incontro con questo Paese: lo aggiungo
+//				consolidatedMap.put(countryIdentifier, cv);
+//			} else {
+//				// Paese già presente: unisco i dati (consolidamento)
+//				CountryVisit existing = consolidatedMap.get(countryIdentifier);
+//
+//				// Unisci le date visitate
+//				existing.getVisitedDates().addAll(cv.getVisitedDates());
+//
+//				// Unisci le regioni, evitando duplicati
+//				Map<String, RegionVisit> existingRegions = existing.getRegions().stream()
+//						.collect(Collectors.toMap(RegionVisit::getName, r -> r, (a, b) -> a)); 
+//
+//				for (RegionVisit newRegion : cv.getRegions()) {
+//					if (!existingRegions.containsKey(newRegion.getName())) {
+//						existing.getRegions().add(newRegion);
+//					}
+//				}
+//			}
+//		}
+//
+//		// 4. Restituisci la lista di Paesi unici al frontend
+//		return new ArrayList<>(consolidatedMap.values());
+//	}
+	//END VI
+
+
 	@GetMapping("/{friendId}/visited")
-	public ResponseEntity<List<CountryVisit>> getVisitedCountries(@PathVariable String friendId,@AuthenticationPrincipal FirebaseToken userFirebase) {
+	public ResponseEntity<List<CountryVisit>> getVisitedCountries(@PathVariable String friendId, @AuthenticationPrincipal FirebaseToken userFirebase) {
 
-		if(!friendId.equals(userFirebase.getUid())) {
-			List<FriendRelationshipEty> relationships = friendRelationshipRepository.findByRequesterIdAndStatusOrReceiverIdAndStatus(
-					userFirebase.getUid(), FriendRelationshipStatusEnum.ACCEPTED.name(),
-					userFirebase.getUid(), FriendRelationshipStatusEnum.ACCEPTED.name()
-					);
+	    if (!friendId.equals(userFirebase.getUid())) {
+	        List<FriendRelationshipEty> relationships = friendRelationshipRepository.findByRequesterIdAndStatusOrReceiverIdAndStatus(
+	                userFirebase.getUid(), FriendRelationshipStatusEnum.ACCEPTED.name(),
+	                userFirebase.getUid(), FriendRelationshipStatusEnum.ACCEPTED.name()
+	        );
 
-			if(relationships.isEmpty()) {
-				throw new NotFoundException("");
-			}
-		}  
+	        if (relationships.isEmpty()) {
+	            throw new NotFoundException("");
+	        }
+	    }
+	    // Devi passare friendId al metodo di consolidamento.
+	    List<CountryVisit> countryVisit = getUniqueConsolidatedCountryVisits(friendId); 
+	    return ResponseEntity.ok(countryVisit);
+	}
+	
+	public List<CountryVisit> getUniqueConsolidatedCountryVisits(String userId) { // Aggiunto parametro userId
 
-		return ResponseEntity.ok(getUniqueConsolidatedCountryVisits());
+	    // Filtra per utente/amico
+	    List<TravelEty> allTravels = travelRepo.findByUserId(userId); 
+
+	    List<CountryVisit> countryVisitsPerTravel = allTravels.stream()
+	            // Usa il metodo di mappatura istanza per risolvere gli URL e correggere i bug
+	            .map(this::mapTravelEtyToCountryVisitWithPhotoUrl) 
+	            .filter(Objects::nonNull)
+	            .collect(Collectors.toList());
+
+	    Map<String, CountryVisit> consolidatedMap = new HashMap<>();
+
+	    for (CountryVisit cv : countryVisitsPerTravel) {
+	        String countryIdentifier = cv.getIso(); 
+
+	        if (!consolidatedMap.containsKey(countryIdentifier)) {
+	            consolidatedMap.put(countryIdentifier, cv);
+	        } else {
+	            CountryVisit existing = consolidatedMap.get(countryIdentifier);
+
+	            // Unisci le date visitate
+	            existing.getVisitedDates().addAll(cv.getVisitedDates());
+
+	            // Unisci le regioni usando gli helper per gestire gli itinerari
+	            mergeCountryRegions(existing, cv); 
+	        }
+	    }
+
+	    return new ArrayList<>(consolidatedMap.values());
+	}
+	
+	private List<DailyItineraryDTO> resolveTravelFileUrlsAndValidateCoords(
+		    List<DailyItineraryDTO> itinerary, 
+		    List<String> allFileIds,
+		    String travelId
+		) {
+		    if (allFileIds == null || allFileIds.isEmpty() || itinerary == null) {
+		        return itinerary; 
+		    }
+		    
+		    for (DailyItineraryDTO dayDto : itinerary) {
+		        
+		        // Risoluzione Immagine Ricordo del Giorno
+		        if (dayDto.getMemoryImageIndex() != null) {
+		            try {
+		                int index = dayDto.getMemoryImageIndex();
+		                String fileId = allFileIds.get(index);
+		                String dayUrl = storageService.getPublicUrl(fileId);
+		                dayDto.setMemoryImageUrl(dayUrl); 
+		            } catch (IndexOutOfBoundsException e) {
+		                System.err.println("Indice immagine giorno fuori limite per Travel ID: " + travelId);
+		            }
+		        }
+		        
+		        if (dayDto.getPoints() != null) {
+		            for (PointDTO pointDto : dayDto.getPoints()) {
+		                
+		                // CORREZIONE BUG COORD: Garantisce che 'coord' non sia mai null
+		                if (pointDto.getCoord() == null) {
+		                    pointDto.setCoord(new CoordsDto(null, null)); 
+		                }
+
+		                // Risoluzione Allegati Punti
+		                if (pointDto.getAttachmentIndices() != null) {
+		                    List<String> attachmentUrls = new ArrayList<>();
+		                    
+		                    for (Integer index : pointDto.getAttachmentIndices()) {
+		                        try {
+		                            String fileId = allFileIds.get(index);
+		                            String attachmentUrl = storageService.getPublicUrl(fileId);
+		                            attachmentUrls.add(attachmentUrl);
+		                        } catch (IndexOutOfBoundsException e) {
+		                            System.err.println("Indice allegato fuori limite per Travel ID: " + travelId);
+		                        }
+		                    }
+		                    pointDto.setAttachmentUrls(attachmentUrls);
+		                }
+		            }
+		        }
+		    }
+		    
+		    return itinerary;
+		}
+	
+	private void mergeCountryRegions(CountryVisit existing, CountryVisit newVisit) {
+	    Map<String, RegionVisit> existingRegionsMap = existing.getRegions().stream()
+	            .collect(Collectors.toMap(RegionVisit::getName, r -> r, (a, b) -> a));
+
+	    for (RegionVisit newRegion : newVisit.getRegions()) {
+	        String regionName = newRegion.getName();
+
+	        if (existingRegionsMap.containsKey(regionName)) {
+	            // Regione già presente: uniamo solo gli itinerari
+	            RegionVisit existingRegion = existingRegionsMap.get(regionName);
+	            mergeRegionItineraries(existingRegion, newRegion);
+	        } else {
+	            // Regione nuova: aggiungila
+	            existing.getRegions().add(newRegion);
+	        }
+	    }
 	}
 
-	public List<CountryVisit> getUniqueConsolidatedCountryVisits() {
+	private void mergeRegionItineraries(RegionVisit existingRegion, RegionVisit newRegion) {
+	    if (newRegion.getItinerary() != null) {
+	        if (existingRegion.getItinerary() == null) {
+	            existingRegion.setItinerary(new ArrayList<>());
+	        }
+	        existingRegion.getItinerary().addAll(newRegion.getItinerary());
+	    }
+	}
+	
+	private CountryVisit mapTravelEtyToCountryVisitWithPhotoUrl(TravelEty travelEty) {
+	    if (travelEty == null || travelEty.getItinerary() == null || travelEty.getItinerary().isEmpty()) {
+	        return null;
+	    }
 
-		List<TravelEty> allTravels = travelRepo.findAll(); 
+	    // 1. Pulizia dei dati e risoluzione degli URL (chiama l'helper)
+	    List<DailyItineraryDTO> resolvedItineraries = this.resolveTravelFileUrlsAndValidateCoords(
+	        travelEty.getItinerary(), 
+	        travelEty.getAllFileIds(),
+	        travelEty.getId()
+	    );
+	    
+	    // Raccogli tutti i punti
+	    List<PointDTO> allPoints = resolvedItineraries.stream()
+	            .flatMap(di -> di.getPoints().stream())
+	            .filter(Objects::nonNull)
+	            .collect(Collectors.toList());
 
-		List<CountryVisit> countryVisitsPerTravel = allTravels.stream()
-				.map(CountryVisit::mapToCountryVisit) // Usa il tuo metodo fornito
-				.filter(Objects::nonNull)
-				.collect(Collectors.toList());
+	    if (allPoints.isEmpty()) {
+	        return null;
+	    }
 
-		Map<String, CountryVisit> consolidatedMap = new HashMap<>();
+	    Optional<PointDTO> firstPoint = allPoints.stream().findFirst();
 
-		for (CountryVisit cv : countryVisitsPerTravel) {
-			String countryIdentifier = cv.getIso(); 
+	    CountryVisit cv = new CountryVisit();
 
-			if (!consolidatedMap.containsKey(countryIdentifier)) {
-				// Primo incontro con questo Paese: lo aggiungo
-				consolidatedMap.put(countryIdentifier, cv);
-			} else {
-				// Paese già presente: unisco i dati (consolidamento)
-				CountryVisit existing = consolidatedMap.get(countryIdentifier);
+	    // Mappatura del Paese
+	    String countryName = firstPoint.map(PointDTO::getCountry).orElse("Nazione Sconosciuta");
+	    String countryIdentifier = countryName.replaceAll("\\s", "_").toUpperCase();
+	    cv.setIso(countryIdentifier);
+	    cv.setName(countryName);
 
-				// Unisci le date visitate
-				existing.getVisitedDates().addAll(cv.getVisitedDates());
+	    // Mappatura delle date visitate
+	    Set<String> visitedDates = resolvedItineraries.stream()
+	            .map(DailyItineraryDTO::getDate)
+	            .filter(Objects::nonNull)
+	            .collect(Collectors.toCollection(LinkedHashSet::new));
+	    cv.setVisitedDates(visitedDates);
 
-				// Unisci le regioni, evitando duplicati
-				Map<String, RegionVisit> existingRegions = existing.getRegions().stream()
-						.collect(Collectors.toMap(RegionVisit::getName, r -> r, (a, b) -> a)); 
+	    // Mappatura delle coordinate principali
+	    cv.setCoord(firstPoint.map(PointDTO::getCoord).orElse(null));
 
-				for (RegionVisit newRegion : cv.getRegions()) {
-					if (!existingRegions.containsKey(newRegion.getName())) {
-						existing.getRegions().add(newRegion);
-					}
-				}
-			}
-		}
+	    // 2. Logica di Raggruppamento per Regione
+	    Map<String, List<PointDTO>> pointsByRegion = allPoints.stream()
+	            .filter(p -> p.getRegion() != null)
+	            .collect(Collectors.groupingBy(PointDTO::getRegion));
 
-		// 4. Restituisci la lista di Paesi unici al frontend
-		return new ArrayList<>(consolidatedMap.values());
+	    List<RegionVisit> regions = new ArrayList<>();
+	    for (Map.Entry<String, List<PointDTO>> regionEntry : pointsByRegion.entrySet()) {
+	        
+	        String regionName = regionEntry.getKey();
+	        List<PointDTO> regionPoints = regionEntry.getValue();
+
+	        RegionVisit rv = new RegionVisit();
+	        rv.setId(UUID.randomUUID().toString());
+	        rv.setName(regionName);
+	        rv.setCoord(regionPoints.stream()
+	                .map(PointDTO::getCoord)
+	                .filter(Objects::nonNull)
+	                .findFirst()
+	                .orElse(null));
+
+	        // Ricostruisco gli itinerari filtrati per la regione
+	        List<DailyItineraryDTO> regionItinerary = resolvedItineraries.stream()
+	                .map(di -> {
+	                    List<PointDTO> filtered = di.getPoints().stream()
+	                            .filter(p -> regionName.equals(p.getRegion()))
+	                            .collect(Collectors.toList());
+	                    if (filtered.isEmpty()) return null;
+
+	                    DailyItineraryDTO newDi = new DailyItineraryDTO();
+	                    newDi.setDay(di.getDay());
+	                    newDi.setDate(di.getDate());
+	                    newDi.setPoints(filtered);
+	                    
+	                    // Copiamo i campi risolti
+	                    newDi.setMemoryImageIndex(di.getMemoryImageIndex());
+	                    newDi.setMemoryImageUrl(di.getMemoryImageUrl()); 
+	                    
+	                    return newDi;
+	                })
+	                .filter(Objects::nonNull)
+	                .collect(Collectors.toList());
+
+	        rv.setItinerary(regionItinerary);
+	        regions.add(rv);
+	    }
+
+	    cv.setRegions(regions);
+
+	    return cv;
 	}
 
 }

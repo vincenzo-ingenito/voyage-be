@@ -14,41 +14,56 @@ public class TravelDTO {
 	private String travelName; 
 	private List<DailyItineraryDTO> itinerary;
 	private String dateFrom; 
-	private String dateTo;   
+	private String dateTo;
+	
 
 	public static TravelDTO convertToDTO(TravelEty travel) {
-		TravelDTO dto = new TravelDTO();
-		dto.setTravelId(travel.getId());
-		dto.setTravelName(travel.getTravelName());
-		dto.setDateFrom(travel.getDateFrom());
-		dto.setDateTo(travel.getDateTo());
+	    TravelDTO dto = new TravelDTO();
+	    // Assumendo che TravelEty.getId() ritorni l'ID del viaggio
+	    dto.setTravelId(travel.getId()); 
+	    dto.setTravelName(travel.getTravelName());
+	    dto.setDateFrom(travel.getDateFrom());
+	    dto.setDateTo(travel.getDateTo());
 
-		List<DailyItineraryDTO> dayDTOs = travel.getItinerary().stream()
-				.map(day -> {
-					DailyItineraryDTO dayDTO = new DailyItineraryDTO();
-					dayDTO.setDay(day.getDay());
-					dayDTO.setDate(day.getDate());
+	    List<DailyItineraryDTO> dayDTOs = travel.getItinerary().stream()
+	            .map(day -> {
+	                DailyItineraryDTO dayDTO = new DailyItineraryDTO();
+	                dayDTO.setDay(day.getDay());
+	                dayDTO.setDate(day.getDate());
 
-					List<PointDTO> pointDTOs = day.getPoints().stream()
-							.map(point -> {
-								PointDTO pointDTO = new PointDTO();
-								pointDTO.setName(point.getName());
-								pointDTO.setType(point.getType());
-								pointDTO.setDescription(point.getDescription());
-								pointDTO.setCost(point.getCost());
-								CoordsDto coords = new CoordsDto(point.getCoord().getLat(),point.getCoord().getLng());
-								pointDTO.setCoord(coords);
-								pointDTO.setCountry(point.getCountry());
-								pointDTO.setRegion(point.getRegion());
-								pointDTO.setCity(point.getCity());
-								return pointDTO;
-							}).collect(Collectors.toList());
+	                dayDTO.setMemoryImageIndex(day.getMemoryImageIndex());
 
-					dayDTO.setPoints(pointDTOs);
-					return dayDTO;
-				}).collect(Collectors.toList());
+	                List<PointDTO> pointDTOs = day.getPoints().stream()
+	                        .map(point -> {
+	                            // Assumendo che 'point' sia PointEty
+	                            PointDTO pointDTO = new PointDTO();
+	                            pointDTO.setName(point.getName());
+	                            pointDTO.setType(point.getType());
+	                            pointDTO.setDescription(point.getDescription());
+	                            // Assumendo che getCost() in PointEty restituisca String o che ci sia una conversione
+	                            pointDTO.setCost(point.getCost()); 
+	                            
+	                            CoordsDto coords = new CoordsDto(point.getCoord().getLat(),point.getCoord().getLng());
+	                            pointDTO.setCoord(coords);
+	                            pointDTO.setCountry(point.getCountry());
+	                            pointDTO.setRegion(point.getRegion());
+	                            pointDTO.setCity(point.getCity());
 
-		dto.setItinerary(dayDTOs);
-		return dto;
+	                            // 🌟 CORREZIONE 2: Mappa gli indici degli allegati
+	                            // Assumendo che PointEty abbia getAttachmentIndices()
+	                            pointDTO.setAttachmentIndices(point.getAttachmentIndices());
+	                            
+	                            // Lasciamo pointDTO.setAttachmentUrls() e dayDTO.setMemoryImageUrl() a null
+	                            // Saranno popolati nel TravelService
+
+	                            return pointDTO;
+	                        }).collect(Collectors.toList());
+
+	                dayDTO.setPoints(pointDTOs);
+	                return dayDTO;
+	            }).collect(Collectors.toList());
+
+	    dto.setItinerary(dayDTOs);
+	    return dto;
 	}
 }

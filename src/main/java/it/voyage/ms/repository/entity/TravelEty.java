@@ -11,12 +11,16 @@ import lombok.Data;
 @Document(collection = "travels")
 @Data
 public class TravelEty {
-    @Id
-    private String id;
-    private String travelName;
-    private String userId;
-    private List<DailyItineraryDTO> itinerary;
-    private String dateFrom; 
-    private String dateTo;   
+	@Id
+	private String id;
+	private String travelName;
+	private String userId;
+	private List<DailyItineraryDTO> itinerary;
+	private String dateFrom; 
+	private String dateTo;   
+	private String coverImageUri;
+	private List<String> allFileIds; 
+
+
 
 }

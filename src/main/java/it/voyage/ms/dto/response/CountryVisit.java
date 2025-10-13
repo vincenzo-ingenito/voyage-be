@@ -41,8 +41,6 @@ public class CountryVisit {
         
         String countryName = firstPoint.map(PointDTO::getCountry).orElse("Nazione Sconosciuta");
         
-        // USIAMO IL NOME DELLA NAZIONE (senza spazi) COME ISO TEMPORANEO PER L'AGGREGAZIONE
-        // Successivamente, nel frontend, potrai usare una mappa per convertire il nome nel codice ISO a due lettere.
         String countryIdentifier = countryName.replaceAll("\\s", "_").toUpperCase();
         
         cv.setIso(countryIdentifier); // Esempio: "FRANCIA", "STATI_UNITI"
@@ -65,7 +63,6 @@ public class CountryVisit {
 
         List<RegionVisit> regions = new ArrayList<>();
         for (Map.Entry<String, List<PointDTO>> regionEntry : pointsByRegion.entrySet()) {
-            // ... (il codice per mappare RegionVisit rimane invariato e corretto) ...
             
             String regionName = regionEntry.getKey();
             List<PointDTO> regionPoints = regionEntry.getValue();

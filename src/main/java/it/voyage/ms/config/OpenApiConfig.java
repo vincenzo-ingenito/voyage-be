@@ -1,11 +1,13 @@
 package it.voyage.ms.config;
 
 
+import java.util.Collections;
 import java.util.regex.Pattern;
 
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.extensions.Extension;
@@ -50,5 +52,13 @@ public class OpenApiConfig {
             }
 		};
 	}
+	
+	 @Bean
+	    public MappingJackson2HttpMessageConverter octetStreamJsonConverter() {
+	        MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter();
+	        converter.setSupportedMediaTypes(
+	                Collections.singletonList(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM));
+	        return converter;
+	    }
 }
 
