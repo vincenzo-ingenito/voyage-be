@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,7 +18,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.google.firebase.auth.FirebaseToken;
 
@@ -39,6 +42,7 @@ import it.voyage.ms.repository.entity.UserEty;
 import it.voyage.ms.repository.impl.IFriendRelationshipRepository;
 import it.voyage.ms.repository.impl.TravelRepository;
 import it.voyage.ms.repository.impl.UserRepository;
+import it.voyage.ms.service.impl.FirebaseStorageService;
 
 @RestController
 @RequestMapping("/api/friends")
@@ -52,6 +56,8 @@ public class FriendCtl {
 
 	@Autowired
 	private TravelRepository travelRepo;
+	
+
 
 	@GetMapping("/accepted")
 	public ResponseEntity<List<UserDto>> getAcceptedFriends(@AuthenticationPrincipal FirebaseToken user) {
@@ -180,17 +186,6 @@ public class FriendCtl {
 		return ResponseEntity.ok().build();
 	}
 
-	@PostMapping
-	public ResponseEntity<String> saveTravel(@RequestBody TravelDTO travelData,@AuthenticationPrincipal FirebaseToken userFirebase) {
-		TravelEty travel = convertToDocument(travelData);
-		travel.setUserId(userFirebase.getUid()); 
-		travelRepo.save(travel);
-
-
-		return ResponseEntity.ok("Travel data saved successfully!");
-	}
-
-
 	@GetMapping("/{friendId}/visited")
 	public ResponseEntity<List<CountryVisit>> getVisitedCountries(@PathVariable String friendId,@AuthenticationPrincipal FirebaseToken userFirebase) {
 
@@ -203,35 +198,23 @@ public class FriendCtl {
 			if(relationships.isEmpty()) {
 				throw new NotFoundException("");
 			}
-		} 
-
-//		List<TravelEty> travels = travelRepo.findByUserId(friendId);
-//		List<CountryVisit> output = new ArrayList<>();
-//		for(TravelEty travel : travels) {
-//			output.add(CountryVisit.mapToCountryVisit(travel));	
-//		}
+		}  
 
 		return ResponseEntity.ok(getUniqueConsolidatedCountryVisits());
 	}
 
-	//START VI
 	public List<CountryVisit> getUniqueConsolidatedCountryVisits() {
 
-		// 1. Ottieni tutti i viaggi dal database
-		// Assumiamo che travelRepository.findAll() restituisca List<TravelEty>
 		List<TravelEty> allTravels = travelRepo.findAll(); 
 
-		// 2. Mappa tutti i viaggi in oggetti CountryVisit (identificati dal nome del Paese)
 		List<CountryVisit> countryVisitsPerTravel = allTravels.stream()
 				.map(CountryVisit::mapToCountryVisit) // Usa il tuo metodo fornito
 				.filter(Objects::nonNull)
 				.collect(Collectors.toList());
 
-		// 3. RAGGRUPPAMENTO E CONSOLIDAMENTO (RISOLUZIONE DEL PROBLEMA DELLE CHIAVI DUPLICATE!)
 		Map<String, CountryVisit> consolidatedMap = new HashMap<>();
 
 		for (CountryVisit cv : countryVisitsPerTravel) {
-			// La chiave di raggruppamento è l'identificatore del Paese creato nel mapper (es. "FRANCIA")
 			String countryIdentifier = cv.getIso(); 
 
 			if (!consolidatedMap.containsKey(countryIdentifier)) {
@@ -258,43 +241,6 @@ public class FriendCtl {
 
 		// 4. Restituisci la lista di Paesi unici al frontend
 		return new ArrayList<>(consolidatedMap.values());
-	}
-	//END VI
-
-
-	private TravelEty convertToDocument(TravelDTO dto) {
-		TravelEty travel = new TravelEty();
-		travel.setTravelName(dto.getTravelName());
-		travel.setDateFrom(dto.getDateFrom());
-		travel.setDateTo(dto.getDateTo());
-
-		List<DailyItineraryDTO> itineraryDocuments = dto.getItinerary().stream()
-				.map(dayDTO -> {
-					DailyItineraryDTO day = new DailyItineraryDTO();
-					day.setDay(dayDTO.getDay());
-					day.setDate(dayDTO.getDate());
-
-
-					List<PointDTO> pointDocuments = dayDTO.getPoints().stream()
-							.map(pointDTO -> {
-								PointDTO point = new PointDTO();
-								point.setName(pointDTO.getName());
-								point.setType(pointDTO.getType());
-								point.setDescription(pointDTO.getDescription());
-								point.setCost(pointDTO.getCost());
-								point.setCoord(new CoordsDto(pointDTO.getCoord().getLat(),pointDTO.getCoord().getLng()));
-								point.setCountry(pointDTO.getCountry());
-								point.setRegion(pointDTO.getRegion());
-								point.setCity(pointDTO.getCity());
-								return point;
-							}).collect(Collectors.toList());
-
-					day.setPoints(pointDocuments);
-					return day;
-				}).collect(Collectors.toList());
-
-		travel.setItinerary(itineraryDocuments);
-		return travel;
 	}
 
 }
