@@ -1,4 +1,4 @@
-package it.voyage.ms.config;
+package it.voyage.ms.security.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -8,8 +8,10 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import it.voyage.ms.security.filter.AuthFilter;
+
 import static org.springframework.security.config.Customizer.withDefaults;
-import it.voyage.ms.filter.AuthFilter;
 
 @Configuration
 @EnableWebSecurity

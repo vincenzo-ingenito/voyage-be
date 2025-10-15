@@ -8,8 +8,6 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import com.google.firebase.auth.FirebaseToken;
-
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -18,6 +16,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.response.PrivacyStatusResponse;
+import it.voyage.ms.security.user.CustomUserDetails;
 
 /**
  * Controller user.
@@ -36,7 +35,7 @@ public interface IUserCtl {
 	    @ApiResponse(responseCode = "404", description = "Not found"),
 	    @ApiResponse(responseCode = "500", description = "Internal Server Error")
 	})
-	ResponseEntity<UserDto>  updateUserDetails(@RequestBody UserDto updateDTO,@AuthenticationPrincipal FirebaseToken firebaseToken);
+	ResponseEntity<UserDto>  updateUserDetails(@RequestBody UserDto updateDTO, @AuthenticationPrincipal CustomUserDetails customerUserDetail);
 
 	@GetMapping("/privacy-status")
 	@ApiResponse(content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = PrivacyStatusResponse.class)))
@@ -47,5 +46,5 @@ public interface IUserCtl {
 	    @ApiResponse(responseCode = "404", description = "Not found"),
 	    @ApiResponse(responseCode = "500", description = "Internal Server Error")
 	})
-	public ResponseEntity<PrivacyStatusResponse> getPrivacyStatus(@AuthenticationPrincipal FirebaseToken firebaseToken);
+	public ResponseEntity<PrivacyStatusResponse> getPrivacyStatus(@AuthenticationPrincipal CustomUserDetails customerUserDetail);
 }

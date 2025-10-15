@@ -7,12 +7,11 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.google.firebase.auth.FirebaseToken;
-
 import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.exceptions.NotFoundException;
 import it.voyage.ms.repository.entity.UserEty;
 import it.voyage.ms.repository.impl.UserRepository;
+import it.voyage.ms.security.user.CustomUserDetails;
 import it.voyage.ms.service.IUserService;
 
 @Service
@@ -22,8 +21,8 @@ public class UserService implements IUserService {
 	private UserRepository userRepository;
 
 	@Override
-	public UserDto login(FirebaseToken firebaseToken) {
-		Optional<UserEty> existingUser = userRepository.findById(firebaseToken.getUid());
+	public UserDto syncUserWithFirebase(CustomUserDetails customUserDetails) {
+		Optional<UserEty> existingUser = userRepository.findById(customUserDetails.getUserId());
 		UserEty user;
 
 		if (existingUser.isPresent()) {
@@ -31,10 +30,10 @@ public class UserService implements IUserService {
 			user.setLastLogin(new Date());
 		} else {
 			user = new UserEty();
-			user.setId(firebaseToken.getUid());
-			user.setName(firebaseToken.getName());
-			user.setEmail(firebaseToken.getEmail());
-			user.setAvatar(firebaseToken.getPicture());
+			user.setId(customUserDetails.getUserId());
+			user.setName(customUserDetails.getFullName());
+			user.setEmail(customUserDetails.getEmail());
+			user.setAvatar(customUserDetails.getAvatarUrl());
 			user.setCreatedAt(new Date());
 			user.setLastLogin(new Date());
 			user.setPrivate(true);

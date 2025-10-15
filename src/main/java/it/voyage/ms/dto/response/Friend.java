@@ -8,7 +8,6 @@ import lombok.Data;
 public class Friend {
     private String id;
     private String name;
-//    private String bio;
     private String avatar;  
  
 }

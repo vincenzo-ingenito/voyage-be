@@ -41,6 +41,7 @@ import it.voyage.ms.repository.entity.UserEty;
 import it.voyage.ms.repository.impl.IFriendRelationshipRepository;
 import it.voyage.ms.repository.impl.TravelRepository;
 import it.voyage.ms.repository.impl.UserRepository;
+import it.voyage.ms.security.user.CustomUserDetails;
 import it.voyage.ms.service.impl.FirebaseStorageService;
 
 @RestController
@@ -60,22 +61,21 @@ public class FriendCtl {
 	private FirebaseStorageService storageService; 
 
 
-
 	@GetMapping("/accepted")
-	public ResponseEntity<List<UserDto>> getAcceptedFriends(@AuthenticationPrincipal FirebaseToken user) {
+	public ResponseEntity<List<UserDto>> getAcceptedFriends(@AuthenticationPrincipal CustomUserDetails user) {
 
 		// Recupera le relazioni accettate
 		List<FriendRelationshipEty> relationships = friendRelationshipRepository
 				.findByRequesterIdAndStatusOrReceiverIdAndStatus(
-						user.getUid(),
+						user.getUserId(),
 						FriendRelationshipStatusEnum.ACCEPTED.name(),
-						user.getUid(),
+						user.getUserId(),
 						FriendRelationshipStatusEnum.ACCEPTED.name()
 						);
 
 		// Costruisce la lista degli ID amici
 		List<String> friendIds = relationships.stream()
-				.map(rel -> rel.getRequesterId().equals(user.getUid()) ? rel.getReceiverId() : rel.getRequesterId())
+				.map(rel -> rel.getRequesterId().equals(user.getUserId()) ? rel.getReceiverId() : rel.getRequesterId())
 				.collect(Collectors.toList());
 
 		// Recupera gli utenti amici
@@ -83,14 +83,14 @@ public class FriendCtl {
 
 		// Converte in DTO gli amici
 		List<UserDto> friendDtos = friends.stream()
-				.map(f -> UserDto.fromEntityWithUid(f, user.getUid()))
+				.map(f -> UserDto.fromEntityWithUid(f, user.getUserId()))
 				.collect(Collectors.toList());
 
 		// Recupera l'utente loggato e lo mette sempre primo
-		UserEty currentUser = userRepository.findById(user.getUid()).orElse(null);
+		UserEty currentUser = userRepository.findById(user.getUserId()).orElse(null);
 		List<UserDto> output = new ArrayList<>();
 		if (currentUser != null) {
-			output.add(UserDto.fromEntityWithUid(currentUser, user.getUid())); // Primo elemento
+			output.add(UserDto.fromEntityWithUid(currentUser, user.getUserId())); // Primo elemento
 		}
 		output.addAll(friendDtos); // Seguono tutti gli amici
 
@@ -100,8 +100,8 @@ public class FriendCtl {
 
 
 	@GetMapping("/requests/pending")
-	public ResponseEntity<List<FriendRelationshipDto>> getPendingRequests(@AuthenticationPrincipal FirebaseToken user) {
-		List<FriendRelationshipEty> pendingRequests = friendRelationshipRepository.findByReceiverIdAndStatus(user.getUid(), FriendRelationshipStatusEnum.PENDING.name());
+	public ResponseEntity<List<FriendRelationshipDto>> getPendingRequests(@AuthenticationPrincipal CustomUserDetails user) {
+		List<FriendRelationshipEty> pendingRequests = friendRelationshipRepository.findByReceiverIdAndStatus(user.getUserId(), FriendRelationshipStatusEnum.PENDING.name());
 		List<FriendRelationshipDto> dtos = new ArrayList<>();
 		for(FriendRelationshipEty f:pendingRequests) {
 			FriendRelationshipDto dto = new FriendRelationshipDto();
@@ -187,86 +187,15 @@ public class FriendCtl {
 
 		return ResponseEntity.ok().build();
 	}
-
-//	@PostMapping
-//	public ResponseEntity<String> saveTravel(@RequestBody TravelDTO travelData,@AuthenticationPrincipal FirebaseToken userFirebase) {
-//		TravelEty travel = convertToDocument(travelData);
-//		travel.setUserId(userFirebase.getUid()); 
-//		travelRepo.save(travel);
-//
-//
-//		return ResponseEntity.ok("Travel data saved successfully!");
-//	}
-	
-
-//	@GetMapping("/{friendId}/visited")
-//	public ResponseEntity<List<CountryVisit>> getVisitedCountries(@PathVariable String friendId,@AuthenticationPrincipal FirebaseToken userFirebase) {
-//
-//		if(!friendId.equals(userFirebase.getUid())) {
-//			List<FriendRelationshipEty> relationships = friendRelationshipRepository.findByRequesterIdAndStatusOrReceiverIdAndStatus(
-//					userFirebase.getUid(), FriendRelationshipStatusEnum.ACCEPTED.name(),
-//					userFirebase.getUid(), FriendRelationshipStatusEnum.ACCEPTED.name()
-//					);
-//
-//			if(relationships.isEmpty()) {
-//				throw new NotFoundException("");
-//			}
-//		}  
-//		List<CountryVisit> countryVisit = getUniqueConsolidatedCountryVisits();
-//		return ResponseEntity.ok(countryVisit);
-//	}
-//
-//	public List<CountryVisit> getUniqueConsolidatedCountryVisits() {
-//
-//		List<TravelEty> allTravels = travelRepo.findAll(); 
-//
-//		List<CountryVisit> countryVisitsPerTravel = allTravels.stream()
-//				.map(CountryVisit::mapToCountryVisit) 
-//				.filter(Objects::nonNull)
-//				.collect(Collectors.toList());
-//
-//		// 3. RAGGRUPPAMENTO E CONSOLIDAMENTO (RISOLUZIONE DEL PROBLEMA DELLE CHIAVI DUPLICATE!)
-//		Map<String, CountryVisit> consolidatedMap = new HashMap<>();
-//
-//		for (CountryVisit cv : countryVisitsPerTravel) {
-//			// La chiave di raggruppamento è l'identificatore del Paese creato nel mapper (es. "FRANCIA")
-//			String countryIdentifier = cv.getIso(); 
-//
-//			if (!consolidatedMap.containsKey(countryIdentifier)) {
-//				// Primo incontro con questo Paese: lo aggiungo
-//				consolidatedMap.put(countryIdentifier, cv);
-//			} else {
-//				// Paese già presente: unisco i dati (consolidamento)
-//				CountryVisit existing = consolidatedMap.get(countryIdentifier);
-//
-//				// Unisci le date visitate
-//				existing.getVisitedDates().addAll(cv.getVisitedDates());
-//
-//				// Unisci le regioni, evitando duplicati
-//				Map<String, RegionVisit> existingRegions = existing.getRegions().stream()
-//						.collect(Collectors.toMap(RegionVisit::getName, r -> r, (a, b) -> a)); 
-//
-//				for (RegionVisit newRegion : cv.getRegions()) {
-//					if (!existingRegions.containsKey(newRegion.getName())) {
-//						existing.getRegions().add(newRegion);
-//					}
-//				}
-//			}
-//		}
-//
-//		// 4. Restituisci la lista di Paesi unici al frontend
-//		return new ArrayList<>(consolidatedMap.values());
-//	}
-	//END VI
-
+ 
 
 	@GetMapping("/{friendId}/visited")
-	public ResponseEntity<List<CountryVisit>> getVisitedCountries(@PathVariable String friendId, @AuthenticationPrincipal FirebaseToken userFirebase) {
+	public ResponseEntity<List<CountryVisit>> getVisitedCountries(@PathVariable String friendId, @AuthenticationPrincipal CustomUserDetails user) {
 
-	    if (!friendId.equals(userFirebase.getUid())) {
+	    if (!friendId.equals(user.getUserId())) {
 	        List<FriendRelationshipEty> relationships = friendRelationshipRepository.findByRequesterIdAndStatusOrReceiverIdAndStatus(
-	                userFirebase.getUid(), FriendRelationshipStatusEnum.ACCEPTED.name(),
-	                userFirebase.getUid(), FriendRelationshipStatusEnum.ACCEPTED.name()
+	        		user.getUserId(), FriendRelationshipStatusEnum.ACCEPTED.name(),
+	        		user.getUserId(), FriendRelationshipStatusEnum.ACCEPTED.name()
 	        );
 
 	        if (relationships.isEmpty()) {

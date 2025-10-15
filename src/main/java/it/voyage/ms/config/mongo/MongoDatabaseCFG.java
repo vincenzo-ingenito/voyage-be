@@ -28,7 +28,5 @@ public class MongoDatabaseCFG {
         return new MongoTemplate(factory, converter);
     }
   
-    
-    
  
 }

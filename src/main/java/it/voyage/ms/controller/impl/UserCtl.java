@@ -5,11 +5,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.google.firebase.auth.FirebaseToken;
-
 import it.voyage.ms.controller.IUserCtl;
 import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.response.PrivacyStatusResponse;
+import it.voyage.ms.security.user.CustomUserDetails;
 import it.voyage.ms.service.IUserService;
 
 @RestController
@@ -19,17 +18,14 @@ public class UserCtl implements IUserCtl {
 	private IUserService userService;
 
 	@Override
-	public ResponseEntity<UserDto> updateUserDetails(UserDto updateDTO, FirebaseToken firebaseToken) {
-		 String firebaseId = firebaseToken.getUid();
-		 UserDto updatedUser = userService.update(firebaseId, updateDTO);
+	public ResponseEntity<UserDto> updateUserDetails(UserDto updateDTO, CustomUserDetails customerUserDetail) {
+		 UserDto updatedUser = userService.update(customerUserDetail.getUserId(), updateDTO);
 		 return new ResponseEntity<UserDto>(updatedUser,HttpStatus.OK);
 	}
 
 	@Override
-	public ResponseEntity<PrivacyStatusResponse> getPrivacyStatus(FirebaseToken firebaseToken) {
-		String firebaseId = firebaseToken.getUid();
-
-		boolean isPrivate = userService.getPrivacyStatus(firebaseId);
+	public ResponseEntity<PrivacyStatusResponse> getPrivacyStatus(CustomUserDetails customerUserDetail) {
+		boolean isPrivate = userService.getPrivacyStatus(customerUserDetail.getUserId());
 		return new ResponseEntity<>(new PrivacyStatusResponse(isPrivate), HttpStatus.OK);
 	}
 	
