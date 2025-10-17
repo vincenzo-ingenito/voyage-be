@@ -22,15 +22,14 @@ import it.voyage.ms.security.user.CustomUserDetails;
 @Tag(name = "Auth Management", description = "Endpoints per l'autenticazione tramite Firebase e il rilascio di token interni")
 public interface IAuthCtl {
 
-	 
-@PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
-    
+
+	@PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Login e Provisioning Utente", description = "Registra l'utente sul database interno e aggiorna i dati di accesso.")
 	@ApiResponses(value = { 
-	    @ApiResponse(responseCode = "200", description = "Utente sincronizzato e login completato. Restituisce i dati dell'utente interno.", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = UserDto.class))),
-	    @ApiResponse(responseCode = "401", description = "Unauthorized: Token Firebase non valido o scaduto (intercettato dal filtro di sicurezza)."),
-	    @ApiResponse(responseCode = "500", description = "Internal Server Error: Errore del server durante il provisioning o la sincronizzazione.")
+			@ApiResponse(responseCode = "200", description = "Utente sincronizzato e login completato. Restituisce i dati dell'utente interno.", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = UserDto.class))),
+			@ApiResponse(responseCode = "401", description = "Unauthorized: Token Firebase non valido o scaduto (intercettato dal filtro di sicurezza)."),
+			@ApiResponse(responseCode = "500", description = "Internal Server Error: Errore del server durante il provisioning o la sincronizzazione.")
 	})
 	ResponseEntity<UserDto> login(@AuthenticationPrincipal CustomUserDetails customUserDetail);
- 
+
 }

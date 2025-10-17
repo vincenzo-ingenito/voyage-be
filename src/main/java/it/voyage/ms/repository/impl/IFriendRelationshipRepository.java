@@ -30,4 +30,17 @@ public interface IFriendRelationshipRepository extends MongoRepository<FriendRel
 	@Query("{ 'requesterId' : ?0, 'receiverId' : ?1, 'status' : 'PENDING' }")
 	@Update("{ '$set' : { 'status' : ?2 } }")
 	void updateRequestStatus(String requesterId, String receiverId, String newStatus);
+
+	@Query("{$or: ["
+			+ "{ 'requesterId': ?0, 'receiverId': { '$in': ?1 } },"
+			+ "{ 'receiverId': ?0, 'requesterId': { '$in': ?1 } }"
+			+ "]}")
+	List<FriendRelationshipEty> findAllRelevantRelationships(String currentUserId, List<String> userIdsToCheck);
+
+
+	@Query("{$or: ["
+			+ "{ 'requesterId': ?0, 'receiverId': ?1, 'status': ?2 },"
+			+ "{ 'receiverId': ?0, 'requesterId': ?1, 'status': ?2 }"
+			+ "]}")
+	Optional<FriendRelationshipEty> findFriendshipByUsersAndStatus(String userId1, String userId2, String status);
 }

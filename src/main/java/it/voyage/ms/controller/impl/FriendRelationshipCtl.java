@@ -1,6 +1,7 @@
 package it.voyage.ms.controller.impl;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -93,6 +94,34 @@ public class FriendRelationshipCtl {
 		friendRelationshipRepository.deleteFriendship(user.getUid(), friendId);
 		return ResponseEntity.ok("Amico rimosso con successo.");
 	}
+	
+	
+	
+	
+	
+	
+//TODO - Sembra che non venga usato
+//
+//	@PostMapping("/unblock")
+//	public ResponseEntity<?> unblockUser(@RequestBody String userIdToUnblock, @AuthenticationPrincipal FirebaseToken userFirebase) {
+//
+//		if (userIdToUnblock == null || userIdToUnblock.trim().isEmpty()) {
+//			return ResponseEntity.badRequest().build();
+//		}
+//
+//		// Trova la relazione di blocco
+//		List<FriendRelationshipEty> relationships = friendRelationshipRepository.findByRequesterIdAndReceiverIdAndStatus(userFirebase.getUid(), userIdToUnblock, FriendRelationshipStatusEnum.BLOCKED.name());
+//
+//		if (relationships.isEmpty()) {
+//			return ResponseEntity.notFound().build();
+//		}
+//
+//		// Elimina la relazione di blocco
+//		friendRelationshipRepository.delete(relationships.get(0));
+//
+//		return ResponseEntity.ok().build();
+//	}
+ 
 
 
 }

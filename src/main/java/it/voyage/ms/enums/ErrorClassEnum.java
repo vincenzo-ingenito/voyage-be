@@ -13,9 +13,10 @@ public enum ErrorClassEnum {
 	/**
 	 * Generic class error.
 	 */
-	GENERIC("/errors", "Generic", "Errore generico", "/generic", HttpStatus.INTERNAL_SERVER_ERROR),
-	VALIDATION("/errors/validation", "Validation", "Validazione fallita", "/validation", HttpStatus.BAD_REQUEST),
-	NOT_FOUND("/errors/not-found", "Missing", "Record non presente", "/not-found", HttpStatus.NOT_FOUND);
+	GENERIC("/errors", "Generic Error", "Generic Error", "/generic", HttpStatus.INTERNAL_SERVER_ERROR),
+	VALIDATION("/errors/validation", "Validation", "Validation failure", "/validation", HttpStatus.BAD_REQUEST),
+	NOT_FOUND("/errors/not-found", "Missing", "Record not present", "/not-found", HttpStatus.NOT_FOUND),
+	ACCESS_DENIED("/errors/access-denied", "Access denied", "Access denied", "/access-denied", HttpStatus.FORBIDDEN);
 
 	/**
 	 * Error type.

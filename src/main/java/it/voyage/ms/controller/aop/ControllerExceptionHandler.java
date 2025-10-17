@@ -1,5 +1,7 @@
 package it.voyage.ms.controller.aop;
 
+import java.nio.file.AccessDeniedException;
+
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -64,6 +66,12 @@ public class ControllerExceptionHandler extends ResponseEntityExceptionHandler {
 	protected ResponseEntity<BaseResponse> handleValidationException(final NotFoundException ex, final WebRequest request) {
 		log.error("handleNotFOundException", ex);
 		return getErrorResponse(ErrorClassEnum.NOT_FOUND, ex);//404 NOT FOUND
+	}
+	
+	@ExceptionHandler(value = {AccessDeniedException.class})
+	protected ResponseEntity<BaseResponse> handleAccessDeniedException(final AccessDeniedException ex, final WebRequest request) {
+		log.error("handleAccessDeniedException", ex);
+		return getErrorResponse(ErrorClassEnum.ACCESS_DENIED, ex);//403 ACCESS DENIED
 	}
 
 }

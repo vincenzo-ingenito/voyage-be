@@ -4,7 +4,6 @@ import java.util.Date;
 import java.util.Optional;
 
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import it.voyage.ms.dto.response.UserDto;
@@ -13,12 +12,14 @@ import it.voyage.ms.repository.entity.UserEty;
 import it.voyage.ms.repository.impl.UserRepository;
 import it.voyage.ms.security.user.CustomUserDetails;
 import it.voyage.ms.service.IUserService;
+import lombok.AllArgsConstructor;
 
 @Service
+@AllArgsConstructor
 public class UserService implements IUserService {
 
-	@Autowired
-	private UserRepository userRepository;
+	private final UserRepository userRepository;
+ 
 
 	@Override
 	public UserDto syncUserWithFirebase(CustomUserDetails customUserDetails) {
@@ -66,7 +67,7 @@ public class UserService implements IUserService {
 		return UserDto.fromEntity(updatedUser);
 
 	}
-	
+
 	@Override
 	public boolean getPrivacyStatus(String firebaseId) {
 		Optional<UserEty> user = userRepository.findById(firebaseId);

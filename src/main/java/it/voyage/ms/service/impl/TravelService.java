@@ -3,8 +3,14 @@ package it.voyage.ms.service.impl;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
@@ -12,8 +18,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import it.voyage.ms.dto.response.CoordsDto;
+import it.voyage.ms.dto.response.CountryVisit;
 import it.voyage.ms.dto.response.DailyItineraryDTO;
 import it.voyage.ms.dto.response.PointDTO;
+import it.voyage.ms.dto.response.RegionVisit;
 import it.voyage.ms.dto.response.TravelDTO;
 import it.voyage.ms.exceptions.BusinessException;
 import it.voyage.ms.mapper.TravelMapper;
@@ -149,29 +157,7 @@ public class TravelService implements ITravelService {
 		long deletedCount = travelRepository.deleteByIdAndUserId(travelId, userId);
 		return deletedCount > 0;
 	}
-
-	//	@Override
-	//	public TravelEty saveTravel(TravelDTO travelData, List<MultipartFile> files, CustomUserDetails userDetails) { 
-	//	    TravelEty travel =  travelMapper.convertDtoToEty(travelData);  
-	//	    String userId = userDetails.getUserId();
-	//
-	//	    if (StringUtils.isBlank(travel.getId())) {
-	//	        travel.setId(UUID.randomUUID().toString());
-	//	    }
-	//	    travel.setUserId(userId);
-	//
-	//	    try {
-	//	        List<String> uploadedFileIds = processAndUploadAttachments(travel, files);
-	//	        travel.setAllFileIds(uploadedFileIds); 
-	//
-	//	    } catch (Exception e) {
-	//	        log.error("Errore generico durante l'upload per il viaggio {}: {}", travel.getId(), e.getMessage(), e);
-	//	        throw new BusinessException("Errore sconosciuto durante l'elaborazione dei file.", e);
-	//	    }
-	//
-	//	    return travelRepository.save(travel);
-	//	}
-
+ 
 	@Override
 	public TravelDTO saveTravel(TravelDTO travelData, List<MultipartFile> files, CustomUserDetails userDetails) {
 		TravelEty travel = travelMapper.convertDtoToEty(travelData);  
@@ -179,7 +165,6 @@ public class TravelService implements ITravelService {
 		TravelEty savedTravel;
 
 		try {
-
 			if (StringUtils.isBlank(travel.getId())) {
 				savedTravel = travelRepository.save(travel); 
 			} else {
@@ -196,72 +181,7 @@ public class TravelService implements ITravelService {
 			throw new BusinessException("Errore sconosciuto durante il salvataggio del viaggio.", e);
 		}
 	}
-
-	//	private List<String> processAndUploadAttachments(TravelEty travelEty, List<MultipartFile> files) throws IOException {
-	//
-	//		List<String> allFileIds = new ArrayList<>();
-	//		int fileCounter = 0; // Contatore globale per l'indice finale (0, 1, 2, ...)
-	//
-	//		String userId = travelEty.getUserId();
-	//		String travelId = travelEty.getId();
-	//
-	//		List<DailyItineraryDTO> itinerary = travelEty.getItinerary();
-	//
-	//		if (itinerary != null) {
-	//
-	//			for (DailyItineraryDTO dayDto : itinerary) {
-	//
-	//				// 1. Processa l'Immagine Ricordo del Giorno
-	//				if (dayDto.getMemoryImageIndex() != null) {
-	//
-	//					int tempFileIndex = dayDto.getMemoryImageIndex();
-	//
-	//					if (tempFileIndex >= 0 && tempFileIndex < files.size()) {
-	//						MultipartFile fileToUpload = files.get(tempFileIndex);
-	//
-	//						// 🌟 CHIAMATA ALL'UPLOAD: Restituisce il PATH (ID) del file in Storage
-	//						String fileId = storageService.uploadFile(fileToUpload, userId, travelId, "day-memory"); 
-	//
-	//						// 🌟 IMPOSTA L'INDICE FINALE
-	//						dayDto.setMemoryImageIndex(fileCounter);
-	//
-	//						allFileIds.add(fileId);
-	//						fileCounter++;
-	//					}
-	//				}
-	//
-	//				// 2. Processa gli Allegati dei Punti
-	//				if (dayDto.getPoints() != null) {
-	//					for (PointDTO pointDto : dayDto.getPoints()) {
-	//
-	//						if (pointDto.getAttachmentIndices() != null && !pointDto.getAttachmentIndices().isEmpty()) {
-	//
-	//							List<Integer> finalAttachmentIndices = new ArrayList<>();
-	//
-	//							for (Integer tempFileIndex : pointDto.getAttachmentIndices()) {
-	//
-	//								if (tempFileIndex >= 0 && tempFileIndex < files.size()) {
-	//									MultipartFile fileToUpload = files.get(tempFileIndex);
-	//
-	//									String fileId = storageService.uploadFile(fileToUpload, userId, travelId, "point-attachment"); 
-	//
-	//									finalAttachmentIndices.add(fileCounter);
-	//
-	//									allFileIds.add(fileId);
-	//									fileCounter++;
-	//								}
-	//							}
-	//							// Sostituisce la lista di indici temporanei con quelli permanenti
-	//							pointDto.setAttachmentIndices(finalAttachmentIndices);
-	//						}
-	//					}
-	//				}
-	//			}
-	//		}
-	//
-	//		return allFileIds;
-	//	}
-
+ 
 	private List<String> processAndUploadAttachments(TravelEty travelEty, List<MultipartFile> files) throws IOException {
 
 		if (travelEty.getItinerary() == null) {
@@ -333,4 +253,289 @@ public class TravelService implements ITravelService {
 	        return fileCounter++;
 	    }
 	}
+  
+
+    private void mergeCountryRegions(CountryVisit existing, CountryVisit newVisit) {
+	    Map<String, RegionVisit> existingRegionsMap = existing.getRegions().stream()
+	            .collect(Collectors.toMap(RegionVisit::getName, r -> r, (a, b) -> a));
+
+	    for (RegionVisit newRegion : newVisit.getRegions()) {
+	        String regionName = newRegion.getName();
+
+	        if (existingRegionsMap.containsKey(regionName)) {
+	            // Regione già presente: uniamo solo gli itinerari
+	            RegionVisit existingRegion = existingRegionsMap.get(regionName);
+	            mergeRegionItineraries(existingRegion, newRegion);
+	        } else {
+	            // Regione nuova: aggiungila
+	            existing.getRegions().add(newRegion);
+	        }
+	    }
+	}
+    
+    
+    /**
+     * Risolve tutti gli URL dei file nell'itinerario e valida le coordinate
+     */
+    public List<DailyItineraryDTO> resolveFileUrls(
+            List<DailyItineraryDTO> itinerary,
+            List<String> allFileIds,
+            String travelId
+    ) {
+        if (allFileIds == null || allFileIds.isEmpty() || itinerary == null) {
+            return itinerary;
+        }
+
+        for (DailyItineraryDTO dayDto : itinerary) {
+            resolveMemoryImageUrl(dayDto, allFileIds, travelId);
+            resolvePointAttachments(dayDto, allFileIds, travelId);
+        }
+
+        return itinerary;
+    }
+
+    /**
+     * Risolve l'URL dell'immagine ricordo del giorno
+     */
+    private void resolveMemoryImageUrl(DailyItineraryDTO dayDto, List<String> allFileIds, String travelId) {
+        if (dayDto.getMemoryImageIndex() != null) {
+            try {
+                int index = dayDto.getMemoryImageIndex();
+                String fileId = allFileIds.get(index);
+                String dayUrl = storageService.getPublicUrl(fileId);
+                dayDto.setMemoryImageUrl(dayUrl);
+            } catch (IndexOutOfBoundsException e) {
+                log.error("Indice immagine giorno fuori limite per Travel ID: {}", travelId);
+            }
+        }
+    }
+
+    /**
+     * Risolve gli URL degli allegati per tutti i punti di un giorno
+     */
+    private void resolvePointAttachments(DailyItineraryDTO dayDto, List<String> allFileIds, String travelId) {
+        if (dayDto.getPoints() == null) {
+            return;
+        }
+
+        for (PointDTO pointDto : dayDto.getPoints()) {
+            // Garantisce che 'coord' non sia mai null
+            ensureValidCoordinates(pointDto);
+
+            // Risolve gli allegati del punto
+            resolveAttachmentUrls(pointDto, allFileIds, travelId);
+        }
+    }
+
+    /**
+     * Garantisce che un punto abbia coordinate valide (anche se vuote)
+     */
+    private void ensureValidCoordinates(PointDTO pointDto) {
+        if (pointDto.getCoord() == null) {
+            pointDto.setCoord(new CoordsDto(null, null));
+        }
+    }
+
+    /**
+     * Risolve gli URL degli allegati di un singolo punto
+     */
+    private void resolveAttachmentUrls(PointDTO pointDto, List<String> allFileIds, String travelId) {
+        if (pointDto.getAttachmentIndices() == null) {
+            return;
+        }
+
+        List<String> attachmentUrls = new ArrayList<>();
+
+        for (Integer index : pointDto.getAttachmentIndices()) {
+            try {
+                String fileId = allFileIds.get(index);
+                String attachmentUrl = storageService.getPublicUrl(fileId);
+                attachmentUrls.add(attachmentUrl);
+            } catch (IndexOutOfBoundsException e) {
+                log.error("Indice allegato fuori limite per Travel ID: {}", travelId);
+            }
+        }
+
+        pointDto.setAttachmentUrls(attachmentUrls);
+    }
+    
+    public List<CountryVisit> getConsolidatedCountryVisits(String userId) {
+        List<TravelEty> allTravels = travelRepository.findByUserId(userId);
+
+        List<CountryVisit> countryVisitsPerTravel = allTravels.stream()
+                .map(this::mapTravelToCountryVisit)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        return consolidateCountryVisits(countryVisitsPerTravel);
+    }
+
+    /**
+     * Consolida multiple visite allo stesso paese
+     */
+    private List<CountryVisit> consolidateCountryVisits(List<CountryVisit> countryVisits) {
+        Map<String, CountryVisit> consolidatedMap = new HashMap<>();
+
+        for (CountryVisit cv : countryVisits) {
+            String countryIdentifier = cv.getIso();
+
+            if (!consolidatedMap.containsKey(countryIdentifier)) {
+                consolidatedMap.put(countryIdentifier, cv);
+            } else {
+                CountryVisit existing = consolidatedMap.get(countryIdentifier);
+                mergeCountryVisits(existing, cv);
+            }
+        }
+
+        return new ArrayList<>(consolidatedMap.values());
+    }
+
+    /**
+     * Unisce due visite allo stesso paese
+     */
+    private void mergeCountryVisits(CountryVisit existing, CountryVisit newVisit) {
+        // Unisci le date visitate
+        existing.getVisitedDates().addAll(newVisit.getVisitedDates());
+
+        // Unisci le regioni
+        mergeCountryRegions(existing, newVisit);
+    }
+
+
+    /**
+     * Unisce gli itinerari di due visite alla stessa regione
+     */
+    private void mergeRegionItineraries(RegionVisit existingRegion, RegionVisit newRegion) {
+        if (newRegion.getItinerary() != null) {
+            if (existingRegion.getItinerary() == null) {
+                existingRegion.setItinerary(new ArrayList<>());
+            }
+            existingRegion.getItinerary().addAll(newRegion.getItinerary());
+        }
+    }
+
+    /**
+     * Mappa un TravelEty in un CountryVisit con URL delle foto risolti
+     */
+    private CountryVisit mapTravelToCountryVisit(TravelEty travelEty) {
+        if (travelEty == null || travelEty.getItinerary() == null || travelEty.getItinerary().isEmpty()) {
+            return null;
+        }
+
+        // Risolvi gli URL dei file nell'itinerario
+        List<DailyItineraryDTO> resolvedItineraries = resolveFileUrls(
+                travelEty.getItinerary(),
+                travelEty.getAllFileIds(),
+                travelEty.getId()
+        );
+
+        // Raccogli tutti i punti
+        List<PointDTO> allPoints = resolvedItineraries.stream()
+                .flatMap(di -> di.getPoints().stream())
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        if (allPoints.isEmpty()) {
+            return null;
+        }
+
+        return buildCountryVisit(resolvedItineraries, allPoints);
+    }
+
+    /**
+     * Costruisce un oggetto CountryVisit dai dati dell'itinerario
+     */
+    private CountryVisit buildCountryVisit(List<DailyItineraryDTO> itineraries, List<PointDTO> allPoints) {
+        Optional<PointDTO> firstPoint = allPoints.stream().findFirst();
+
+        CountryVisit cv = new CountryVisit();
+
+        // Mappatura del Paese
+        String countryName = firstPoint.map(PointDTO::getCountry).orElse("Nazione Sconosciuta");
+        String countryIdentifier = countryName.replaceAll("\\s", "_").toUpperCase();
+        cv.setIso(countryIdentifier);
+        cv.setName(countryName);
+
+        // Mappatura delle date visitate
+        Set<String> visitedDates = itineraries.stream()
+                .map(DailyItineraryDTO::getDate)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        cv.setVisitedDates(visitedDates);
+
+        // Mappatura delle coordinate principali
+        cv.setCoord(firstPoint.map(PointDTO::getCoord).orElse(null));
+
+        // Mappatura delle regioni
+        List<RegionVisit> regions = buildRegionVisits(itineraries, allPoints);
+        cv.setRegions(regions);
+
+        return cv;
+    }
+
+    /**
+     * Costruisce la lista di RegionVisit raggruppando i punti per regione
+     */
+    private List<RegionVisit> buildRegionVisits(List<DailyItineraryDTO> itineraries, List<PointDTO> allPoints) {
+        Map<String, List<PointDTO>> pointsByRegion = allPoints.stream()
+                .filter(p -> p.getRegion() != null)
+                .collect(Collectors.groupingBy(PointDTO::getRegion));
+
+        List<RegionVisit> regions = new ArrayList<>();
+
+        for (Map.Entry<String, List<PointDTO>> regionEntry : pointsByRegion.entrySet()) {
+            String regionName = regionEntry.getKey();
+            List<PointDTO> regionPoints = regionEntry.getValue();
+
+            RegionVisit rv = buildRegionVisit(regionName, regionPoints, itineraries);
+            regions.add(rv);
+        }
+
+        return regions;
+    }
+
+    /**
+     * Costruisce un singolo RegionVisit per una regione specifica
+     */
+    private RegionVisit buildRegionVisit(String regionName, List<PointDTO> regionPoints, List<DailyItineraryDTO> allItineraries) {
+        RegionVisit rv = new RegionVisit();
+        rv.setId(UUID.randomUUID().toString());
+        rv.setName(regionName);
+        rv.setCoord(regionPoints.stream()
+                .map(PointDTO::getCoord)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null));
+
+        // Filtra gli itinerari per includere solo i punti di questa regione
+        List<DailyItineraryDTO> regionItinerary = allItineraries.stream()
+                .map(di -> filterItineraryByRegion(di, regionName))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        rv.setItinerary(regionItinerary);
+        return rv;
+    }
+
+    /**
+     * Filtra un itinerario giornaliero per includere solo i punti di una specifica regione
+     */
+    private DailyItineraryDTO filterItineraryByRegion(DailyItineraryDTO dayItinerary, String regionName) {
+        List<PointDTO> filtered = dayItinerary.getPoints().stream()
+                .filter(p -> regionName.equals(p.getRegion()))
+                .collect(Collectors.toList());
+
+        if (filtered.isEmpty()) {
+            return null;
+        }
+
+        DailyItineraryDTO newDi = new DailyItineraryDTO();
+        newDi.setDay(dayItinerary.getDay());
+        newDi.setDate(dayItinerary.getDate());
+        newDi.setPoints(filtered);
+        newDi.setMemoryImageIndex(dayItinerary.getMemoryImageIndex());
+        newDi.setMemoryImageUrl(dayItinerary.getMemoryImageUrl());
+
+        return newDi;
+    }
 }
