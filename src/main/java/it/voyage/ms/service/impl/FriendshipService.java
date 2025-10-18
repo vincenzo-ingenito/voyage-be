@@ -247,7 +247,7 @@ public class FriendshipService implements IFriendshipService {
             successMessage = "Richiesta di amicizia accettata.";
         } else if ("decline".equalsIgnoreCase(action)) {
             successMessage = "Richiesta di amicizia rifiutata.";
-            updatedCount = (int)friendRelationshipRepository.deleteFriendship(receiverId, successMessage);
+            updatedCount = (int)friendRelationshipRepository.deleteFriendship(receiverId, requesterId);
         } else {
             throw new IllegalArgumentException("Azione non valida. Usa 'accept' o 'decline'.");
         }
