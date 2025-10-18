@@ -15,4 +15,10 @@ public interface IFriendshipService {
 	List<UserSearchResult> searchUsersAndDetermineStatus(String query, String currentUserId);
 	
 	boolean checkIfUserAreFriends(String userId, String friendId);
+	
+	String sendFriendRequest(String requesterId, String receiverId);
+
+	String handleFriendRequest(String requesterId, String receiverId, String action);
+	
+	void deleteFriendship(String requesterId, String friendId);
 }

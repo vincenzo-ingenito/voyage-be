@@ -7,7 +7,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,7 +19,6 @@ import it.voyage.ms.security.user.CustomUserDetails;
 import it.voyage.ms.service.ITravelService;
 
 @RestController
-@RequestMapping("/api/travels")
 public class TravelCtl implements ITravelCtl {
 
 	@Autowired

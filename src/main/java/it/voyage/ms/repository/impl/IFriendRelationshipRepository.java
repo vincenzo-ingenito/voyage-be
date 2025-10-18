@@ -29,7 +29,7 @@ public interface IFriendRelationshipRepository extends MongoRepository<FriendRel
 
 	@Query("{ 'requesterId' : ?0, 'receiverId' : ?1, 'status' : 'PENDING' }")
 	@Update("{ '$set' : { 'status' : ?2 } }")
-	void updateRequestStatus(String requesterId, String receiverId, String newStatus);
+	int updateRequestStatus(String requesterId, String receiverId, String newStatus);
 
 	@Query("{$or: ["
 			+ "{ 'requesterId': ?0, 'receiverId': { '$in': ?1 } },"

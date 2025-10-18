@@ -14,6 +14,8 @@ import it.voyage.ms.dto.response.FriendRelationshipDto;
 import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.dto.response.UserSearchResult;
 import it.voyage.ms.enums.FriendRelationshipStatusEnum;
+import it.voyage.ms.exceptions.ConflictException;
+import it.voyage.ms.exceptions.NotFoundException;
 import it.voyage.ms.mapper.FriendrelationshipMapper;
 import it.voyage.ms.mapper.UserMapper;
 import it.voyage.ms.repository.entity.FriendRelationshipEty;
@@ -201,4 +203,68 @@ public class FriendshipService implements IFriendshipService {
         return userMapper.mapToSearchResult(user, status); 
     }
 	
+    @Override
+    public String sendFriendRequest(String requesterId, String receiverId) {
+        Optional<FriendRelationshipEty> existingRelationship = friendRelationshipRepository.findByRequesterIdAndReceiverIdOrReceiverIdAndRequesterId(requesterId, receiverId,requesterId, receiverId);
+
+        if (existingRelationship.isPresent()) {
+            throw new ConflictException("Una richiesta o una relazione di amicizia con questo utente esiste già.");
+        }
+
+        // 3. Controllo esistenza del destinatario
+        // .orElseThrow funziona sia con JpaRepository che con MongoRepository.
+        UserEty receiverUser = userRepository.findById(receiverId)
+            .orElseThrow(() -> new NotFoundException("Utente destinatario non trovato."));
+
+        
+        // 4. Creazione e determinazione dello stato
+        FriendRelationshipEty newRequest = new FriendRelationshipEty();
+        newRequest.setRequesterId(requesterId);
+        newRequest.setReceiverId(receiverId);
+
+        if (receiverUser.isPrivate()) {
+            // Profilo privato -> Richiesta PENDING
+            newRequest.setStatus(FriendRelationshipStatusEnum.PENDING.name());
+            friendRelationshipRepository.save(newRequest);
+            return "Richiesta di amicizia inviata con successo.";
+        } else {
+            // Profilo pubblico -> Accettazione automatica
+            newRequest.setStatus(FriendRelationshipStatusEnum.ACCEPTED.name());
+            friendRelationshipRepository.save(newRequest);
+            return "Amico aggiunto con successo! Il profilo è pubblico.";
+        }
+    }
+    
+    @Override
+    public String handleFriendRequest(String requesterId, String receiverId, String action) {
+        
+        String newStatus;
+        String successMessage;
+
+        if ("accept".equalsIgnoreCase(action)) {
+            newStatus = FriendRelationshipStatusEnum.ACCEPTED.name();
+            successMessage = "Richiesta di amicizia accettata.";
+        } else if ("decline".equalsIgnoreCase(action)) {
+            newStatus = FriendRelationshipStatusEnum.DECLINED.name();
+            successMessage = "Richiesta di amicizia rifiutata.";
+        } else {
+            throw new IllegalArgumentException("Azione non valida. Usa 'accept' o 'decline'.");
+        }
+
+        // 2. Aggiornamento dello stato nel repository
+        // (Presumiamo che updateRequestStatus restituisca il numero di righe/documenti modificati)
+        int updatedCount = friendRelationshipRepository.updateRequestStatus(requesterId, receiverId, newStatus);
+        
+        // 3. Verifica del successo dell'aggiornamento (la richiesta deve esistere)
+        if (updatedCount == 0) {
+            throw new NotFoundException("Richiesta di amicizia in sospeso non trovata.");
+        }
+
+        return successMessage;
+    }
+    
+    @Override
+    public void deleteFriendship(String requesterId, String friendId) {
+    	friendRelationshipRepository.deleteFriendship(requesterId, friendId);
+    }
 }
