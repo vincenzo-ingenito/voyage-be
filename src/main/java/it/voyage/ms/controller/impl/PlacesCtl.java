@@ -2,7 +2,6 @@ package it.voyage.ms.controller.impl;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import it.voyage.ms.controller.IPlacesCtl;
@@ -16,7 +15,7 @@ public class PlacesCtl implements IPlacesCtl {
 	private IPlacesService placesService; 
 
 	@Override
-	public ResponseEntity<String> autocomplete(@RequestParam String input) {
+	public ResponseEntity<String> autocomplete(String input) {
 		if (input == null || input.length() < 3) {
 			return ResponseEntity.badRequest().body("{\"error\": \"Input must be at least 3 characters\"}");
 		}
@@ -27,7 +26,7 @@ public class PlacesCtl implements IPlacesCtl {
 
 
 	@Override
-	public ResponseEntity<String> getPlaceDetails(@RequestParam String placeId) {
+	public ResponseEntity<String> getPlaceDetails(String placeId) {
 		if (placeId == null || placeId.isEmpty()) {
 			return ResponseEntity.badRequest().body("{\"error\": \"Place ID is required\"}");
 		}

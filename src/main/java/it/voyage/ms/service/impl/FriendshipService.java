@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import it.voyage.ms.dto.response.FriendRelationshipDto;
 import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.dto.response.UserSearchResult;
+import it.voyage.ms.enums.BlockActionEnum;
 import it.voyage.ms.enums.FriendRelationshipStatusEnum;
 import it.voyage.ms.exceptions.ConflictException;
 import it.voyage.ms.exceptions.NotFoundException;
@@ -238,24 +239,20 @@ public class FriendshipService implements IFriendshipService {
     @Override
     public String handleFriendRequest(String requesterId, String receiverId, String action) {
         
-        String newStatus;
         String successMessage;
 
+        int updatedCount = 0;
         if ("accept".equalsIgnoreCase(action)) {
-            newStatus = FriendRelationshipStatusEnum.ACCEPTED.name();
+            updatedCount = friendRelationshipRepository.updateRequestStatus(requesterId, receiverId, FriendRelationshipStatusEnum.ACCEPTED.name());
             successMessage = "Richiesta di amicizia accettata.";
         } else if ("decline".equalsIgnoreCase(action)) {
-            newStatus = FriendRelationshipStatusEnum.DECLINED.name();
             successMessage = "Richiesta di amicizia rifiutata.";
+            updatedCount = (int)friendRelationshipRepository.deleteFriendship(receiverId, successMessage);
         } else {
             throw new IllegalArgumentException("Azione non valida. Usa 'accept' o 'decline'.");
         }
-
-        // 2. Aggiornamento dello stato nel repository
-        // (Presumiamo che updateRequestStatus restituisca il numero di righe/documenti modificati)
-        int updatedCount = friendRelationshipRepository.updateRequestStatus(requesterId, receiverId, newStatus);
+ 
         
-        // 3. Verifica del successo dell'aggiornamento (la richiesta deve esistere)
         if (updatedCount == 0) {
             throw new NotFoundException("Richiesta di amicizia in sospeso non trovata.");
         }
@@ -267,4 +264,27 @@ public class FriendshipService implements IFriendshipService {
     public void deleteFriendship(String requesterId, String friendId) {
     	friendRelationshipRepository.deleteFriendship(requesterId, friendId);
     }
+    
+    
+    @Override
+    public void executeBlockAction(String currentUserId, String friendId, BlockActionEnum action) {
+        
+        if (action == BlockActionEnum.BLOCK) {
+            blockUser(currentUserId, friendId);
+        } else if (action == BlockActionEnum.UNBLOCK) {
+            unblockUser(currentUserId, friendId);
+        } else {
+             // In teoria non dovrebbe mai succedere grazie all'enum, ma utile per robustezza.
+            throw new IllegalArgumentException("Azione di blocco non valida: " + action);
+        }
+    }
+    
+    private void blockUser(String currentUserId, String userToBlockId) {
+    	friendRelationshipRepository.updateRelationshipStatus(currentUserId, userToBlockId, FriendRelationshipStatusEnum.BLOCKED.name());
+    }
+    
+    private void unblockUser(String currentUserId, String userToUnblockId) {
+    	friendRelationshipRepository.updateRelationshipStatus(currentUserId, userToUnblockId, FriendRelationshipStatusEnum.AVAILABLE.name());
+    }
+
 }

@@ -10,7 +10,6 @@ import org.springframework.stereotype.Repository;
 
 import it.voyage.ms.repository.entity.FriendRelationshipEty;
 
-
 @Repository
 public interface IFriendRelationshipRepository extends MongoRepository<FriendRelationshipEty, String> {
 	List<FriendRelationshipEty> findByRequesterIdAndStatus(String requesterId, String status);
@@ -23,7 +22,7 @@ public interface IFriendRelationshipRepository extends MongoRepository<FriendRel
 			"{ 'requesterId': ?0, 'receiverId': ?1 }, " +
 			"{ 'requesterId': ?1, 'receiverId': ?0 } " +
 			"] }", delete = true)
-	void deleteFriendship(String userId, String friendId);
+	long deleteFriendship(String userId, String friendId);
 
 	List<FriendRelationshipEty> findByRequesterIdAndReceiverIdAndStatus(String requesterId, String receiverId, String status);
 
@@ -43,4 +42,11 @@ public interface IFriendRelationshipRepository extends MongoRepository<FriendRel
 			+ "{ 'receiverId': ?0, 'requesterId': ?1, 'status': ?2 }"
 			+ "]}")
 	Optional<FriendRelationshipEty> findFriendshipByUsersAndStatus(String userId1, String userId2, String status);
+
+	@Query("{ $or: [ " +
+		       "{ 'requesterId': ?0, 'receiverId': ?1 }, " +
+		       "{ 'requesterId': ?1, 'receiverId': ?0 } " +
+		       "] }")
+	@Update("{ '$set': { 'status': ?2 } }")
+	void updateRelationshipStatus(String user1Id, String user2Id, String status);
 }

@@ -32,38 +32,38 @@ import it.voyage.ms.security.user.CustomUserDetails;
 public interface ITravelCtl {
 
 	@GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(summary = "Recupera i viaggi", description = "Restituisce l'elenco dei viaggi creati dall'utente autenticato.")
-    @ApiResponses(value = { 
-	    @ApiResponse(responseCode = "200", description = "Elenco dei viaggi recuperato con successo.", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = TravelDTO.class))),
-	    @ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato."),
-	    @ApiResponse(responseCode = "500", description = "Internal Server Error")
+	@Operation(summary = "Recupera i viaggi", description = "Restituisce l'elenco dei viaggi creati dall'utente autenticato.")
+	@ApiResponses(value = { 
+			@ApiResponse(responseCode = "200", description = "Elenco dei viaggi recuperato con successo.", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = TravelDTO.class))),
+			@ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato."),
+			@ApiResponse(responseCode = "500", description = "Internal Server Error")
 	})
 	ResponseEntity<List<TravelDTO>> getTravels(@AuthenticationPrincipal CustomUserDetails userDetails);
-	
-	
+
+
 	@DeleteMapping(value = "/{travelId}", produces = MediaType.TEXT_PLAIN_VALUE)
-    @Operation(summary = "Elimina un viaggio", description = "Elimina il viaggio specificato, solo se appartenente all'utente autenticato.")
-    @ApiResponses(value = { 
-	    @ApiResponse(responseCode = "200", description = "Viaggio eliminato con successo. (Messaggio: Viaggio eliminato con successo)", content = @Content(mediaType = MediaType.TEXT_PLAIN_VALUE, schema = @Schema(implementation = DeleteUserResponse.class))),
-	    @ApiResponse(responseCode = "404", description = "Not Found: Il viaggio non esiste o non appartiene all'utente."),
-	    @ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato.")
+	@Operation(summary = "Elimina un viaggio", description = "Elimina il viaggio specificato, solo se appartenente all'utente autenticato.")
+	@ApiResponses(value = { 
+			@ApiResponse(responseCode = "200", description = "Viaggio eliminato con successo. (Messaggio: Viaggio eliminato con successo)", content = @Content(mediaType = MediaType.TEXT_PLAIN_VALUE, schema = @Schema(implementation = DeleteUserResponse.class))),
+			@ApiResponse(responseCode = "404", description = "Not Found: Il viaggio non esiste o non appartiene all'utente."),
+			@ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato.")
 	})
 	ResponseEntity<DeleteUserResponse> deleteTravelById(
-        @Parameter(description = "ID del viaggio da eliminare") @PathVariable String travelId, 
-        @AuthenticationPrincipal CustomUserDetails userDetails
-    );
-	
-	
+			@Parameter(description = "ID del viaggio da eliminare") @PathVariable String travelId, 
+			@AuthenticationPrincipal CustomUserDetails userDetails
+			);
+
+
 	@PostMapping(consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
-    @Operation(summary = "Crea un nuovo viaggio con file allegati", description = "Permette di salvare un nuovo viaggio, accettando i dati del viaggio come parte JSON e un elenco di file (immagini) come parte binaria.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", 
-                     description = "Viaggio creato con successo.", 
-                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = TravelDTO.class))),
-        @ApiResponse(responseCode = "400", description = "Bad Request: Dati mancanti o formato non valido."),
-        @ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato."),
-        @ApiResponse(responseCode = "415", description = "Unsupported Media Type: Formato di richiesta non multipart/form-data.")
-    })
-    ResponseEntity<?> saveTravel(@RequestPart("travelData") TravelDTO travelData, @RequestPart("files") List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails userDetails);
-	
+	@Operation(summary = "Crea un nuovo viaggio con file allegati", description = "Permette di salvare un nuovo viaggio, accettando i dati del viaggio come parte JSON e un elenco di file (immagini) come parte binaria.")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", 
+					description = "Viaggio creato con successo.", 
+					content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = TravelDTO.class))),
+			@ApiResponse(responseCode = "400", description = "Bad Request: Dati mancanti o formato non valido."),
+			@ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato."),
+			@ApiResponse(responseCode = "415", description = "Unsupported Media Type: Formato di richiesta non multipart/form-data.")
+	})
+	ResponseEntity<?> saveTravel(@RequestPart("travelData") TravelDTO travelData, @RequestPart("files") List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails userDetails);
+
 }

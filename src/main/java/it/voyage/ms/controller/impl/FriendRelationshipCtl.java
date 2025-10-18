@@ -2,15 +2,11 @@ package it.voyage.ms.controller.impl;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
-
-import com.google.firebase.auth.FirebaseToken;
 
 import it.voyage.ms.controller.IFriendRelationshipCtl;
 import it.voyage.ms.dto.response.FriendRequestDto;
+import it.voyage.ms.enums.BlockActionEnum;
 import it.voyage.ms.security.user.CustomUserDetails;
 import it.voyage.ms.service.IFriendshipService;
 
@@ -40,10 +36,17 @@ public class FriendRelationshipCtl implements IFriendRelationshipCtl {
 		return ResponseEntity.ok(output);
 	}
 
-	@DeleteMapping("/remove/{friendId}")
-	public ResponseEntity<String> deleteFriend(@PathVariable String friendId, @AuthenticationPrincipal FirebaseToken user) {
-		friendshipService.deleteFriendship(user.getUid(), friendId);
+	@Override
+	public ResponseEntity<String> deleteFriend(String friendId, CustomUserDetails user) {
+		friendshipService.deleteFriendship(user.getUserId(), friendId);
 		return ResponseEntity.ok("Amico rimosso con successo.");
+	}
+
+	@Override
+	public ResponseEntity<String> manageBlockStatus(String friendId, BlockActionEnum action, CustomUserDetails user) {
+		friendshipService.executeBlockAction(user.getUserId(),friendId, action);
+		return ResponseEntity.ok("Successo.");
+
 	}
 
 

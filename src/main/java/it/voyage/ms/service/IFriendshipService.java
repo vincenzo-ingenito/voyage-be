@@ -5,6 +5,7 @@ import java.util.List;
 import it.voyage.ms.dto.response.FriendRelationshipDto;
 import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.dto.response.UserSearchResult;
+import it.voyage.ms.enums.BlockActionEnum;
 
 public interface IFriendshipService {
 	
@@ -21,4 +22,6 @@ public interface IFriendshipService {
 	String handleFriendRequest(String requesterId, String receiverId, String action);
 	
 	void deleteFriendship(String requesterId, String friendId);
+	
+	void executeBlockAction(String currentUserId, String friendId, BlockActionEnum action);
 }
