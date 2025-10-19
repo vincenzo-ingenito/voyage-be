@@ -3,6 +3,7 @@ package it.voyage.ms.repository.impl;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.mongodb.repository.DeleteQuery;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.data.mongodb.repository.Update;
@@ -44,9 +45,22 @@ public interface IFriendRelationshipRepository extends MongoRepository<FriendRel
 	Optional<FriendRelationshipEty> findFriendshipByUsersAndStatus(String userId1, String userId2, String status);
 
 	@Query("{ $or: [ " +
-		       "{ 'requesterId': ?0, 'receiverId': ?1 }, " +
-		       "{ 'requesterId': ?1, 'receiverId': ?0 } " +
-		       "] }")
-	@Update("{ '$set': { 'status': ?2 } }")
-	void updateRelationshipStatus(String user1Id, String user2Id, String status);
+			"{ 'requesterId': ?0, 'receiverId': ?1 }, " +
+			"{ 'requesterId': ?1, 'receiverId': ?0 } " +
+			"] }")
+	@Update("{ '$set': { 'status': ?2, 'blockerName': ?3 } }")
+	void updateRelationshipStatus(String user1Id, String user2Id, String status, String blockerName);
+
+
+	@Query("{ 'blockerName': ?0, 'status' : 'BLOCKED' }")
+	List<FriendRelationshipEty> findMyBlockedRelationships(String currentUserId);
+
+	@DeleteQuery("{ " +
+			"$or: [ " +
+			"{ 'requesterId': ?0, 'receiverId': ?1 }, " +
+			"{ 'requesterId': ?1, 'receiverId': ?0 } " +
+			"], " +
+			"'blockerName': ?2 " +
+			"}")
+	void deleteRelationship(String user1Id, String user2Id, String blockerName);
 }

@@ -1,10 +1,13 @@
 package it.voyage.ms.controller.impl;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 import it.voyage.ms.controller.IFriendRelationshipCtl;
+import it.voyage.ms.dto.response.BlockedUserDTO;
 import it.voyage.ms.dto.response.FriendRequestDto;
 import it.voyage.ms.enums.BlockActionEnum;
 import it.voyage.ms.security.user.CustomUserDetails;
@@ -46,6 +49,12 @@ public class FriendRelationshipCtl implements IFriendRelationshipCtl {
 	public ResponseEntity<String> manageBlockStatus(String friendId, BlockActionEnum action, CustomUserDetails user) {
 		friendshipService.executeBlockAction(user.getUserId(),friendId, action);
 		return ResponseEntity.ok("Successo.");
+
+	}
+
+	@Override
+	public ResponseEntity<List<BlockedUserDTO>> getBlockedUsers(CustomUserDetails user) {
+		return ResponseEntity.ok(friendshipService.getBlockedUsers(user.getUserId()));
 
 	}
 

@@ -1,9 +1,12 @@
 package it.voyage.ms.controller;
 
+import java.util.List;
+
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -17,6 +20,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import it.voyage.ms.dto.response.BlockedUserDTO;
 import it.voyage.ms.dto.response.FriendRequestDto;
 import it.voyage.ms.enums.BlockActionEnum;
 import it.voyage.ms.security.user.CustomUserDetails;
@@ -75,10 +79,16 @@ public interface IFriendRelationshipCtl {
         @ApiResponse(responseCode = "400", description = "Bad Request (Azione o ID non validi)."),
         @ApiResponse(responseCode = "401", description = "Non autorizzato.")
     })
-    ResponseEntity<String> manageBlockStatus(
-        @PathVariable String friendId, // Variabile di percorso (Path Variable)
-        @RequestParam BlockActionEnum action, // Parametro di query (Query Parameter)
-        @AuthenticationPrincipal CustomUserDetails user
-    );
+    ResponseEntity<String> manageBlockStatus(@PathVariable String friendId, @RequestParam BlockActionEnum action, @AuthenticationPrincipal CustomUserDetails user);
+	
+	@GetMapping("/blocked-users")
+    @Operation(summary = "Recupera la lista degli utenti bloccati",
+               description = "Restituisce l'elenco di tutti gli utenti bloccati dall'utente autenticato.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Lista degli utenti bloccati recuperata con successo."),
+        @ApiResponse(responseCode = "401", description = "Non autorizzato (Autenticazione mancante o non valida)"),
+        @ApiResponse(responseCode = "500", description = "Errore interno del server")
+    })
+    ResponseEntity<List<BlockedUserDTO>> getBlockedUsers(@AuthenticationPrincipal CustomUserDetails user);
 	 
 }

@@ -2,6 +2,7 @@ package it.voyage.ms.service;
 
 import java.util.List;
 
+import it.voyage.ms.dto.response.BlockedUserDTO;
 import it.voyage.ms.dto.response.FriendRelationshipDto;
 import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.dto.response.UserSearchResult;
@@ -24,4 +25,6 @@ public interface IFriendshipService {
 	void deleteFriendship(String requesterId, String friendId);
 	
 	void executeBlockAction(String currentUserId, String friendId, BlockActionEnum action);
+	
+	List<BlockedUserDTO> getBlockedUsers(String currentUserId);
 }
