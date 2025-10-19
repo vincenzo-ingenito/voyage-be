@@ -287,8 +287,6 @@ public class FriendshipService implements IFriendshipService {
 
 	private void unblockUser(String currentUserId, String userToUnblockId,String blockerName) {
 		friendRelationshipRepository.deleteRelationship(currentUserId, userToUnblockId, blockerName);
-//		friendRelationshipRepository.updateRelationshipStatus(currentUserId, userToUnblockId, FriendRelationshipStatusEnum.AVAILABLE.name(),
-//				blockerName);
 	}
 	
 
