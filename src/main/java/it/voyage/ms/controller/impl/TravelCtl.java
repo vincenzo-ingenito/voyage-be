@@ -17,8 +17,10 @@ import it.voyage.ms.dto.response.TravelDTO;
 import it.voyage.ms.response.DeleteUserResponse;
 import it.voyage.ms.security.user.CustomUserDetails;
 import it.voyage.ms.service.ITravelService;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
+@Slf4j
 public class TravelCtl implements ITravelCtl {
 
 	@Autowired
@@ -26,12 +28,14 @@ public class TravelCtl implements ITravelCtl {
 
 	@Override
 	public ResponseEntity<TravelDTO> saveTravel(TravelDTO travelData, List<MultipartFile> files, CustomUserDetails userDetails) {
+		log.info("Called save travel ep");
 		TravelDTO savedEntity = travelService.saveTravel(travelData, files, userDetails);
 		return ResponseEntity.ok( savedEntity); 
 	}
 	
 	@Override
 	public ResponseEntity<DeleteUserResponse> deleteTravelById(String travelId, CustomUserDetails userDetails) {
+		log.info("Called delete trave by id ep");
 		Boolean deleted = travelService.deleteTravelById(travelId, userDetails.getUserId()); 
 		if (deleted) {
 			return ResponseEntity.ok(new DeleteUserResponse(true, "Viaggio eliminato con successo."));
@@ -42,12 +46,14 @@ public class TravelCtl implements ITravelCtl {
 	
 	@Override
 	public ResponseEntity<List<TravelDTO>> getTravels(CustomUserDetails userDetails) {
+		log.info("Called get travels ep");
 		List<TravelDTO> travels = travelService.getTravelsForUser(userDetails.getUserId());
 		return ResponseEntity.ok(travels);
 	}
 	
 	@PutMapping("/{travelId}") //TODO 
 	public ResponseEntity<TravelDTO> updateTravel(String travelId, TravelDTO travelDTO, @AuthenticationPrincipal FirebaseToken userFirebase) {
+		log.info("Called update travel ep");
 		TravelDTO updatedTravel = travelService.updateExistingTravel(userFirebase.getUid(), travelId, travelDTO);
 		return ResponseEntity.ok(updatedTravel); 
 	}

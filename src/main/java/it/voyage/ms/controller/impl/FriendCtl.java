@@ -17,8 +17,10 @@ import it.voyage.ms.dto.response.UserSearchResult;
 import it.voyage.ms.security.user.CustomUserDetails;
 import it.voyage.ms.service.IFriendshipService;
 import it.voyage.ms.service.ITravelService;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
+@Slf4j
 public class FriendCtl implements IFriendCtl {
 
 	@Autowired
@@ -30,6 +32,7 @@ public class FriendCtl implements IFriendCtl {
 
 	@Override
 	public ResponseEntity<List<UserDto>> getAcceptedFriends(CustomUserDetails user) {
+		log.info("Called get accepted friend ep");
 		List<UserDto> output = friendshipService.getAcceptedFriendsList(user.getUserId());
 		return ResponseEntity.ok(output);
 	}
@@ -37,12 +40,14 @@ public class FriendCtl implements IFriendCtl {
 
 	@Override
 	public ResponseEntity<List<FriendRelationshipDto>> getPendingRequests(CustomUserDetails user) {
+		log.info("Called get pending requests ep");
 		List<FriendRelationshipDto> pendingRequests = friendshipService.getPendingRequests(user.getUserId());
 		return ResponseEntity.ok(pendingRequests);
 	}
 
 	@Override
 	public ResponseEntity<List<UserSearchResult>> searchUsers(SearchRequest searchRequest, CustomUserDetails userFirebase) {
+		log.info("Called search users ep");
 		String query = searchRequest.getQuery();
 
 		if (query == null || query.trim().isEmpty()) {
@@ -56,6 +61,7 @@ public class FriendCtl implements IFriendCtl {
 
 	@Override
 	public ResponseEntity<List<CountryVisit>> getVisitedCountries(String friendId, CustomUserDetails user) {
+		log.info("Called get visited countries");
 		if (!friendId.equals(user.getUserId())) {
 			boolean areFriends = friendshipService.checkIfUserAreFriends(user.getUserId(), friendId);
 			if (!areFriends) {
