@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
@@ -65,5 +66,18 @@ public interface ITravelCtl {
 			@ApiResponse(responseCode = "415", description = "Unsupported Media Type: Formato di richiesta non multipart/form-data.")
 	})
 	ResponseEntity<?> saveTravel(@RequestPart("travelData") TravelDTO travelData, @RequestPart("files") List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails userDetails);
+
+	@PutMapping(value = "/{travelId}", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
+	@Operation(summary = "Aggiorna un viaggio esistente", description = "Permette di modificare un viaggio esistente, accettando i dati del viaggio come parte JSON e un elenco di file (immagini) come parte binaria.")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", 
+					description = "Viaggio aggiornato con successo.", 
+					content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = TravelDTO.class))),
+			@ApiResponse(responseCode = "400", description = "Bad Request: Dati mancanti o formato non valido."),
+			@ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato."),
+			@ApiResponse(responseCode = "404", description = "Not Found: Il viaggio non esiste o non appartiene all'utente."),
+			@ApiResponse(responseCode = "415", description = "Unsupported Media Type: Formato di richiesta non multipart/form-data.")
+	})
+	ResponseEntity<TravelDTO> updateTravel(@Parameter(description = "ID del viaggio da aggiornare") @PathVariable String travelId, @RequestPart("travelData") TravelDTO travelData, @RequestPart(value = "files", required = false) List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails userDetails);
 
 }

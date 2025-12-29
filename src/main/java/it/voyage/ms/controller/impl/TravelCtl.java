@@ -6,11 +6,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-
-import com.google.firebase.auth.FirebaseToken;
 
 import it.voyage.ms.controller.ITravelCtl;
 import it.voyage.ms.dto.response.TravelDTO;
@@ -51,10 +50,10 @@ public class TravelCtl implements ITravelCtl {
 		return ResponseEntity.ok(travels);
 	}
 	
-	@PutMapping("/{travelId}") //TODO 
-	public ResponseEntity<TravelDTO> updateTravel(String travelId, TravelDTO travelDTO, @AuthenticationPrincipal FirebaseToken userFirebase) {
+	@Override
+	public ResponseEntity<TravelDTO> updateTravel(@PathVariable String travelId, @RequestPart("travelData") TravelDTO travelData, @RequestPart(value = "files", required = false) List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails userDetails) {
 		log.info("Called update travel ep");
-		TravelDTO updatedTravel = travelService.updateExistingTravel(userFirebase.getUid(), travelId, travelDTO);
+		TravelDTO updatedTravel = travelService.updateExistingTravel(userDetails.getUserId(), travelId, travelData, files);
 		return ResponseEntity.ok(updatedTravel); 
 	}
 }

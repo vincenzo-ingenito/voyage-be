@@ -43,14 +43,40 @@ public class TravelService implements ITravelService {
 
 
 	@Override
-	public TravelDTO updateExistingTravel(String ownerUid, String travelId, TravelDTO newTravelData){
+	public TravelDTO updateExistingTravel(String ownerUid, String travelId, TravelDTO newTravelData, List<MultipartFile> files){
 		Optional<TravelEty> existingTravelOpt = travelRepository.findByIdAndUserId(travelId, ownerUid);
+		if (!existingTravelOpt.isPresent()) {
+		    throw new BusinessException("Viaggio non trovato o non autorizzato.");
+		}
+
 		TravelEty existingTravel = existingTravelOpt.get();
+		
+		// ✅ FIX: Preserva l'array dei file esistenti PRIMA di aggiornare l'itinerario
+		List<String> existingFileIds = existingTravel.getAllFileIds() != null 
+		    ? new ArrayList<>(existingTravel.getAllFileIds()) 
+		    : new ArrayList<>();
+		
 		existingTravel.setTravelName(newTravelData.getTravelName());
 		existingTravel.setDateFrom(newTravelData.getDateFrom());
 		existingTravel.setDateTo(newTravelData.getDateTo());
 		List<DailyItineraryDTO> updatedItinerary = mapDayDTOListToDayList(newTravelData.getItinerary());
 		existingTravel.setItinerary(updatedItinerary);
+		
+		// Gestisci i nuovi file se presenti
+		if (files != null && !files.isEmpty()) {
+		    try {
+		        // ✅ FIX: Processa gli upload E aggiorna gli indici nell'itinerario
+		        List<String> uploadedFileIds = processAndUploadAttachmentsForUpdate(existingTravel, files, existingFileIds);
+		        existingTravel.setAllFileIds(uploadedFileIds);
+		    } catch (IOException e) {
+		        log.error("Errore durante il caricamento dei file per il viaggio {}: {}", travelId, e.getMessage(), e);
+		        throw new BusinessException("Errore durante il caricamento dei file.", e);
+		    }
+		} else {
+		    // ✅ FIX: Se non ci sono nuovi file, mantieni i file esistenti
+		    existingTravel.setAllFileIds(existingFileIds);
+		}
+		
 		TravelEty savedTravel = travelRepository.save(existingTravel);
 		return travelMapper.convertEtyToDTO(savedTravel);
 	}
@@ -66,6 +92,9 @@ public class TravelService implements ITravelService {
 					DailyItineraryDTO dayEty = new DailyItineraryDTO(); 
 					dayEty.setDay(dayDTO.getDay());
 					dayEty.setDate(dayDTO.getDate());
+					
+					// ✅ FIX: Preserva l'indice dell'immagine ricordo durante l'aggiornamento
+					dayEty.setMemoryImageIndex(dayDTO.getMemoryImageIndex());
 
 					List<PointDTO> pointEties = dayDTO.getPoints().stream()
 							.map(pointDTO -> {
@@ -78,6 +107,10 @@ public class TravelService implements ITravelService {
 								pointEty.setCountry(pointDTO.getCountry());
 								pointEty.setRegion(pointDTO.getRegion());
 								pointEty.setCity(pointDTO.getCity());
+								
+								// ✅ FIX: Preserva gli indici degli allegati durante l'aggiornamento
+								pointEty.setAttachmentIndices(pointDTO.getAttachmentIndices());
+								
 								return pointEty;
 							}).collect(Collectors.toList());
 
@@ -104,6 +137,7 @@ public class TravelService implements ITravelService {
 			}
 
 			// 3. Itera e risolvi le URL usando gli indici
+			// ✅ FIX: Mantieni gli indici E aggiungi gli URL per permettere al frontend di preservare i riferimenti
 			if (dto.getItinerary() != null) {
 				for (DailyItineraryDTO dayDto : dto.getItinerary()) {
 
@@ -114,7 +148,8 @@ public class TravelService implements ITravelService {
 							String fileId = allFileIds.get(index);
 
 							String dayUrl = storageService.getPublicUrl(fileId);
-							dayDto.setMemoryImageUrl(dayUrl); 
+							dayDto.setMemoryImageUrl(dayUrl);
+							// ✅ Mantieni l'indice così il frontend può preservarlo durante l'update
 
 						} catch (IndexOutOfBoundsException e) {
 							System.err.println("Indice immagine giorno fuori limite per Travel ID: " + dto.getTravelId());
@@ -139,6 +174,7 @@ public class TravelService implements ITravelService {
 									}
 								}
 								pointDto.setAttachmentUrls(attachmentUrls);
+								// ✅ Mantieni gli indici così il frontend può preservarli durante l'update
 							}
 						}
 					}
@@ -201,6 +237,88 @@ public class TravelService implements ITravelService {
 		}
 
 		return allFileIds;
+	}
+
+	/**
+	 * Processa e carica gli allegati per un aggiornamento di viaggio esistente.
+	 * Sostituisce i file modificati e mantiene quelli non modificati.
+	 */
+	private List<String> processAndUploadAttachmentsForUpdate(TravelEty travelEty, List<MultipartFile> files, List<String> existingFileIds) throws IOException {
+		if (travelEty.getItinerary() == null) {
+			return existingFileIds;
+		}
+
+		List<String> updatedFileIds = new ArrayList<>(existingFileIds);
+		
+		for (DailyItineraryDTO dayDto : travelEty.getItinerary()) {
+			// Processa l'immagine ricordo del giorno
+			processDayMemoryImageForUpdate(dayDto, files, updatedFileIds, travelEty.getUserId(), travelEty.getId());
+			
+			// Processa gli allegati dei punti
+			processPointAttachmentsForUpdate(dayDto, files, updatedFileIds, travelEty.getUserId(), travelEty.getId());
+		}
+
+		return updatedFileIds;
+	}
+
+	/**
+	 * Processa l'immagine ricordo del giorno durante un aggiornamento.
+	 * Se memoryImageIndex punta a un nuovo file (indice < files.size), carica il nuovo file e sostituisce il vecchio.
+	 * Se memoryImageIndex punta a un file esistente (indice >= files.size), mantiene il riferimento esistente.
+	 */
+	private void processDayMemoryImageForUpdate(DailyItineraryDTO dayDto, List<MultipartFile> files, 
+	                                             List<String> updatedFileIds, String userId, String travelId) throws IOException {
+		Integer memoryImageIndex = dayDto.getMemoryImageIndex();
+		
+		if (memoryImageIndex == null) {
+			return;
+		}
+		
+		// Se l'indice è < files.size(), significa che è un nuovo file da caricare
+		if (memoryImageIndex >= 0 && memoryImageIndex < files.size()) {
+			MultipartFile fileToUpload = files.get(memoryImageIndex);
+			String newFileId = storageService.uploadFile(fileToUpload, userId, travelId, "day-memory");
+			
+			// Trova il primo slot libero o aggiunge alla fine
+			int newIndex = updatedFileIds.size();
+			updatedFileIds.add(newFileId);
+			dayDto.setMemoryImageIndex(newIndex);
+		}
+		// Altrimenti l'indice punta già a un file esistente, lo manteniamo così com'è
+	}
+
+	/**
+	 * Processa gli allegati dei punti durante un aggiornamento.
+	 */
+	private void processPointAttachmentsForUpdate(DailyItineraryDTO dayDto, List<MultipartFile> files, 
+	                                               List<String> updatedFileIds, String userId, String travelId) throws IOException {
+		if (dayDto.getPoints() == null) {
+			return;
+		}
+
+		for (PointDTO pointDto : dayDto.getPoints()) {
+			List<Integer> attachmentIndices = pointDto.getAttachmentIndices();
+			if (attachmentIndices != null && !attachmentIndices.isEmpty()) {
+				List<Integer> updatedIndices = new ArrayList<>();
+				
+				for (Integer index : attachmentIndices) {
+					// Se l'indice è < files.size(), è un nuovo file
+					if (index >= 0 && index < files.size()) {
+						MultipartFile fileToUpload = files.get(index);
+						String newFileId = storageService.uploadFile(fileToUpload, userId, travelId, "point-attachment");
+						
+						int newIndex = updatedFileIds.size();
+						updatedFileIds.add(newFileId);
+						updatedIndices.add(newIndex);
+					} else {
+						// Altrimenti mantieni l'indice esistente
+						updatedIndices.add(index);
+					}
+				}
+				
+				pointDto.setAttachmentIndices(updatedIndices);
+			}
+		}
 	}
 
 	private void processDayMemoryImage(DailyItineraryDTO dayDto, List<MultipartFile> files, FileSyncState state) throws IOException {
