@@ -56,16 +56,16 @@ public interface ITravelCtl {
 
 
 	@PostMapping(consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
-	@Operation(summary = "Crea un nuovo viaggio con file allegati", description = "Permette di salvare un nuovo viaggio, accettando i dati del viaggio come parte JSON e un elenco di file (immagini) come parte binaria.")
+	@Operation(summary = "Crea un nuovo viaggio con file allegati", description = "Permette di salvare un nuovo viaggio con multipart/form-data e file allegati.")
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "200", 
 					description = "Viaggio creato con successo.", 
 					content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = TravelDTO.class))),
 			@ApiResponse(responseCode = "400", description = "Bad Request: Dati mancanti o formato non valido."),
 			@ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato."),
-			@ApiResponse(responseCode = "415", description = "Unsupported Media Type: Formato di richiesta non multipart/form-data.")
+			@ApiResponse(responseCode = "415", description = "Unsupported Media Type: Formato di richiesta non supportato.")
 	})
-	ResponseEntity<?> saveTravel(@RequestPart("travelData") TravelDTO travelData, @RequestPart("files") List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails userDetails);
+	ResponseEntity<?> saveTravel(@RequestPart(value = "travelData") TravelDTO travelData, @RequestPart(value = "files", required = false) List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails userDetails);
 
 	@PutMapping(value = "/{travelId}", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
 	@Operation(summary = "Aggiorna un viaggio esistente", description = "Permette di modificare un viaggio esistente, accettando i dati del viaggio come parte JSON e un elenco di file (immagini) come parte binaria.")

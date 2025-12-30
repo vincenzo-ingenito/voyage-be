@@ -28,8 +28,14 @@ public class TravelCtl implements ITravelCtl {
 	@Override
 	public ResponseEntity<TravelDTO> saveTravel(TravelDTO travelData, List<MultipartFile> files, CustomUserDetails userDetails) {
 		log.info("Called save travel ep");
+		
+		if (travelData == null) {
+			log.error("Nessun dato viaggio fornito");
+			return ResponseEntity.badRequest().build();
+		}
+		
 		TravelDTO savedEntity = travelService.saveTravel(travelData, files, userDetails);
-		return ResponseEntity.ok( savedEntity); 
+		return ResponseEntity.ok(savedEntity); 
 	}
 	
 	@Override

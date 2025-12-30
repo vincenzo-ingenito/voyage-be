@@ -207,7 +207,13 @@ public class TravelService implements ITravelService {
 				savedTravel = travel; 
 			}
 
-			List<String> uploadedFileIds = processAndUploadAttachments(savedTravel, files);
+			// Gestisci i file solo se presenti
+			List<String> uploadedFileIds;
+			if (files != null && !files.isEmpty()) {
+				uploadedFileIds = processAndUploadAttachments(savedTravel, files);
+			} else {
+				uploadedFileIds = Collections.emptyList();
+			}
 			savedTravel.setAllFileIds(uploadedFileIds); 
 
 			return travelMapper.convertEtyToDTO(travelRepository.save(savedTravel)); 
