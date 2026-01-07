@@ -13,5 +13,7 @@ public class TravelDTO {
 	private List<DailyItineraryDTO> itinerary;
 	private String dateFrom; 
 	private String dateTo;
+	private Boolean isCopied; // Indica se il viaggio è stato copiato da un altro utente
+	private Boolean needsDateConfirmation; // Indica se le date devono essere confermate/aggiornate
 	 
 }

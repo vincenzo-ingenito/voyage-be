@@ -20,7 +20,7 @@ public class TravelEty {
 	private String dateTo;   
 	private String coverImageUri;
 	private List<String> allFileIds; 
-
-
+	private Boolean isCopied; // Indica se il viaggio è stato copiato da un altro utente
+	private Boolean needsDateConfirmation; // Indica se le date devono essere confermate/aggiornate
 
 }

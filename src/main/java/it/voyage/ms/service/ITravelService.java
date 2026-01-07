@@ -18,6 +18,8 @@ public interface ITravelService {
 	
 	TravelDTO saveTravel(TravelDTO travelData, List<MultipartFile> files, CustomUserDetails userDetails);
 	
+	TravelDTO confirmTravelDates(String userId, String travelId);
+	
 //	List<CountryVisit> getUniqueConsolidatedCountryVisits(String userId);;
 	
 	List<CountryVisit> getConsolidatedCountryVisits(String userId);

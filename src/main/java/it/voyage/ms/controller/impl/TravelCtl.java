@@ -62,4 +62,11 @@ public class TravelCtl implements ITravelCtl {
 		TravelDTO updatedTravel = travelService.updateExistingTravel(userDetails.getUserId(), travelId, travelData, files);
 		return ResponseEntity.ok(updatedTravel); 
 	}
+	
+	@Override
+	public ResponseEntity<TravelDTO> confirmTravelDates(@PathVariable String travelId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+		log.info("Called confirm travel dates ep for travelId: {}", travelId);
+		TravelDTO confirmedTravel = travelService.confirmTravelDates(userDetails.getUserId(), travelId);
+		return ResponseEntity.ok(confirmedTravel);
+	}
 }

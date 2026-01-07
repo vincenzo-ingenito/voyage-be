@@ -80,4 +80,18 @@ public interface ITravelCtl {
 	})
 	ResponseEntity<TravelDTO> updateTravel(@Parameter(description = "ID del viaggio da aggiornare") @PathVariable String travelId, @RequestPart("travelData") TravelDTO travelData, @RequestPart(value = "files", required = false) List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails userDetails);
 
+	@PutMapping(value = "/{travelId}/confirm-dates", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "Conferma le date di un viaggio copiato", description = "Rimuove i flag isCopied e needsDateConfirmation da un viaggio copiato, attivandolo per la modifica.")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", 
+					description = "Viaggio attivato con successo.", 
+					content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = TravelDTO.class))),
+			@ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato."),
+			@ApiResponse(responseCode = "404", description = "Not Found: Il viaggio non esiste o non appartiene all'utente.")
+	})
+	ResponseEntity<TravelDTO> confirmTravelDates(
+			@Parameter(description = "ID del viaggio da attivare") @PathVariable String travelId,
+			@AuthenticationPrincipal CustomUserDetails userDetails
+	);
+
 }

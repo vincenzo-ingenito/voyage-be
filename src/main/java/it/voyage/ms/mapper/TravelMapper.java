@@ -22,6 +22,8 @@ public class TravelMapper {
 	    dto.setTravelName(travel.getTravelName());
 	    dto.setDateFrom(travel.getDateFrom());
 	    dto.setDateTo(travel.getDateTo());
+	    dto.setIsCopied(travel.getIsCopied());
+	    dto.setNeedsDateConfirmation(travel.getNeedsDateConfirmation());
 
 	    if (travel.getItinerary() != null) {
 	        List<DailyItineraryDTO> dayDTOs = travel.getItinerary().stream()
@@ -85,6 +87,8 @@ public class TravelMapper {
 	    travel.setTravelName(dto.getTravelName());
 	    travel.setDateFrom(dto.getDateFrom());
 	    travel.setDateTo(dto.getDateTo());
+	    travel.setIsCopied(dto.getIsCopied());
+	    travel.setNeedsDateConfirmation(dto.getNeedsDateConfirmation());
 
 	    if (dto.getItinerary() != null) {
 	        List<DailyItineraryDTO> itineraryDocuments = dto.getItinerary().stream()

@@ -496,6 +496,28 @@ public class TravelService implements ITravelService {
         pointDto.setAttachmentUrls(attachmentUrls);
     }
     
+	@Override
+	public TravelDTO confirmTravelDates(String userId, String travelId) {
+		// Recupera il viaggio
+		Optional<TravelEty> travelOpt = travelRepository.findByIdAndUserId(travelId, userId);
+		
+		if (!travelOpt.isPresent()) {
+			throw new BusinessException("Viaggio non trovato o non autorizzato.");
+		}
+		
+		TravelEty travel = travelOpt.get();
+		
+		// Rimuovi i flag di viaggio copiato
+		travel.setIsCopied(false);
+		travel.setNeedsDateConfirmation(false);
+		
+		// Salva le modifiche
+		TravelEty savedTravel = travelRepository.save(travel);
+		
+		// Restituisci il DTO aggiornato
+		return travelMapper.convertEtyToDTO(savedTravel);
+	}
+
     public List<CountryVisit> getConsolidatedCountryVisits(String userId) {
         List<TravelEty> allTravels = travelRepository.findByUserId(userId);
 
