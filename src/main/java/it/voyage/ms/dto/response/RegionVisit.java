@@ -11,4 +11,6 @@ public class RegionVisit {
      private String name;
      private CoordsDto coord;
      private List<DailyItineraryDTO> itinerary;
+     private String travelId; // ID del viaggio originale per i bookmark
+     private String travelName; // Nome del viaggio originale
 }

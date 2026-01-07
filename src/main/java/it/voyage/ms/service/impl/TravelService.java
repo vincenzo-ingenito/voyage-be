@@ -40,6 +40,7 @@ public class TravelService implements ITravelService {
 	private final TravelRepository travelRepository;
 	private final FirebaseStorageService storageService;
 	private final TravelMapper travelMapper;
+	private final it.voyage.ms.service.IBookmarkService bookmarkService;
 
 
 	@Override
@@ -191,6 +192,18 @@ public class TravelService implements ITravelService {
 	@Override
 	public Boolean deleteTravelById(String travelId, String userId) {
 		long deletedCount = travelRepository.deleteByIdAndUserId(travelId, userId);
+		
+		// Se il viaggio è stato eliminato, elimina anche tutti i bookmark associati
+		if (deletedCount > 0) {
+			try {
+				bookmarkService.deleteBookmarksByTravel(travelId);
+				log.info("Bookmarks eliminati per il viaggio: {}", travelId);
+			} catch (Exception e) {
+				log.error("Errore durante l'eliminazione dei bookmarks per il viaggio {}: {}", travelId, e.getMessage());
+				// Non blocchiamo l'eliminazione del viaggio se fallisce l'eliminazione dei bookmark
+			}
+		}
+		
 		return deletedCount > 0;
 	}
  
@@ -563,13 +576,13 @@ public class TravelService implements ITravelService {
             return null;
         }
 
-        return buildCountryVisit(resolvedItineraries, allPoints);
+        return buildCountryVisit(resolvedItineraries, allPoints, travelEty.getId(), travelEty.getTravelName());
     }
 
     /**
      * Costruisce un oggetto CountryVisit dai dati dell'itinerario
      */
-    private CountryVisit buildCountryVisit(List<DailyItineraryDTO> itineraries, List<PointDTO> allPoints) {
+    private CountryVisit buildCountryVisit(List<DailyItineraryDTO> itineraries, List<PointDTO> allPoints, String travelId, String travelName) {
         Optional<PointDTO> firstPoint = allPoints.stream().findFirst();
 
         CountryVisit cv = new CountryVisit();
@@ -590,8 +603,8 @@ public class TravelService implements ITravelService {
         // Mappatura delle coordinate principali
         cv.setCoord(firstPoint.map(PointDTO::getCoord).orElse(null));
 
-        // Mappatura delle regioni
-        List<RegionVisit> regions = buildRegionVisits(itineraries, allPoints);
+        // Mappatura delle regioni con travelId e travelName
+        List<RegionVisit> regions = buildRegionVisits(itineraries, allPoints, travelId, travelName);
         cv.setRegions(regions);
 
         return cv;
@@ -600,7 +613,7 @@ public class TravelService implements ITravelService {
     /**
      * Costruisce la lista di RegionVisit raggruppando i punti per regione
      */
-    private List<RegionVisit> buildRegionVisits(List<DailyItineraryDTO> itineraries, List<PointDTO> allPoints) {
+    private List<RegionVisit> buildRegionVisits(List<DailyItineraryDTO> itineraries, List<PointDTO> allPoints, String travelId, String travelName) {
         Map<String, List<PointDTO>> pointsByRegion = allPoints.stream()
                 .filter(p -> p.getRegion() != null)
                 .collect(Collectors.groupingBy(PointDTO::getRegion));
@@ -611,7 +624,7 @@ public class TravelService implements ITravelService {
             String regionName = regionEntry.getKey();
             List<PointDTO> regionPoints = regionEntry.getValue();
 
-            RegionVisit rv = buildRegionVisit(regionName, regionPoints, itineraries);
+            RegionVisit rv = buildRegionVisit(regionName, regionPoints, itineraries, travelId, travelName);
             regions.add(rv);
         }
 
@@ -621,7 +634,7 @@ public class TravelService implements ITravelService {
     /**
      * Costruisce un singolo RegionVisit per una regione specifica
      */
-    private RegionVisit buildRegionVisit(String regionName, List<PointDTO> regionPoints, List<DailyItineraryDTO> allItineraries) {
+    private RegionVisit buildRegionVisit(String regionName, List<PointDTO> regionPoints, List<DailyItineraryDTO> allItineraries, String travelId, String travelName) {
         RegionVisit rv = new RegionVisit();
         rv.setId(UUID.randomUUID().toString());
         rv.setName(regionName);
@@ -638,6 +651,11 @@ public class TravelService implements ITravelService {
                 .collect(Collectors.toList());
 
         rv.setItinerary(regionItinerary);
+        
+        // Popola travelId e travelName per supportare i bookmark
+        rv.setTravelId(travelId);
+        rv.setTravelName(travelName);
+        
         return rv;
     }
 
