@@ -17,6 +17,6 @@ public class PointDTO {
 	private String region;  
 	private String city;    
 	private List<Integer> attachmentIndices;
-	private List<String> attachmentUrls;
+	private List<AttachmentUrlDTO> attachmentUrls;
 
 }

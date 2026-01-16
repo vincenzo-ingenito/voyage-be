@@ -80,6 +80,20 @@ public interface ITravelCtl {
 	})
 	ResponseEntity<TravelDTO> updateTravel(@Parameter(description = "ID del viaggio da aggiornare") @PathVariable String travelId, @RequestPart("travelData") TravelDTO travelData, @RequestPart(value = "files", required = false) List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails userDetails);
 
+	@GetMapping(value = "/{travelId}/with-urls", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "Recupera un viaggio con URL signed", description = "Restituisce un singolo viaggio con gli URL firmati per allegati e immagini. Chiamata on-demand per ridurre il payload iniziale.")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", 
+					description = "Viaggio recuperato con successo con URL signed.", 
+					content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = TravelDTO.class))),
+			@ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato."),
+			@ApiResponse(responseCode = "404", description = "Not Found: Il viaggio non esiste o non appartiene all'utente.")
+	})
+	ResponseEntity<TravelDTO> getTravelWithUrls(
+			@Parameter(description = "ID del viaggio") @PathVariable String travelId,
+			@AuthenticationPrincipal CustomUserDetails userDetails
+	);
+
 	@PutMapping(value = "/{travelId}/confirm-dates", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Conferma le date di un viaggio copiato", description = "Rimuove i flag isCopied e needsDateConfirmation da un viaggio copiato, attivandolo per la modifica.")
 	@ApiResponses(value = {
@@ -91,6 +105,21 @@ public interface ITravelCtl {
 	})
 	ResponseEntity<TravelDTO> confirmTravelDates(
 			@Parameter(description = "ID del viaggio da attivare") @PathVariable String travelId,
+			@AuthenticationPrincipal CustomUserDetails userDetails
+	);
+
+	@DeleteMapping(value = "/{travelId}/day/{dayNumber}/memory-photo", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "Elimina la foto ricordo di un giorno", description = "Rimuove la foto ricordo (memoryImage) associata a un giorno specifico dell'itinerario.")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", 
+					description = "Foto ricordo eliminata con successo.", 
+					content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = TravelDTO.class))),
+			@ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato."),
+			@ApiResponse(responseCode = "404", description = "Not Found: Il viaggio o il giorno non esistono.")
+	})
+	ResponseEntity<TravelDTO> deleteMemoryPhoto(
+			@Parameter(description = "ID del viaggio") @PathVariable String travelId,
+			@Parameter(description = "Numero del giorno") @PathVariable int dayNumber,
 			@AuthenticationPrincipal CustomUserDetails userDetails
 	);
 

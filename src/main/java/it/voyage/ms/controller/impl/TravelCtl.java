@@ -64,9 +64,23 @@ public class TravelCtl implements ITravelCtl {
 	}
 	
 	@Override
+	public ResponseEntity<TravelDTO> getTravelWithUrls(@PathVariable String travelId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+		log.info("Called get travel with URLs ep for travelId: {}", travelId);
+		TravelDTO travel = travelService.getTravelWithUrls(userDetails.getUserId(), travelId);
+		return ResponseEntity.ok(travel);
+	}
+
+	@Override
 	public ResponseEntity<TravelDTO> confirmTravelDates(@PathVariable String travelId, @AuthenticationPrincipal CustomUserDetails userDetails) {
 		log.info("Called confirm travel dates ep for travelId: {}", travelId);
 		TravelDTO confirmedTravel = travelService.confirmTravelDates(userDetails.getUserId(), travelId);
 		return ResponseEntity.ok(confirmedTravel);
+	}
+
+	@Override
+	public ResponseEntity<TravelDTO> deleteMemoryPhoto(@PathVariable String travelId, @PathVariable int dayNumber, @AuthenticationPrincipal CustomUserDetails userDetails) {
+		log.info("Called delete memory photo ep for travelId: {}, day: {}", travelId, dayNumber);
+		TravelDTO updatedTravel = travelService.deleteMemoryPhoto(userDetails.getUserId(), travelId, dayNumber);
+		return ResponseEntity.ok(updatedTravel);
 	}
 }
