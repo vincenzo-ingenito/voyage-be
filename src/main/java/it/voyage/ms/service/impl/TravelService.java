@@ -266,18 +266,44 @@ public class TravelService implements ITravelService {
 
 	@Override
 	public Boolean deleteTravelById(String travelId, String userId) {
+		// 1. Recupera il viaggio PRIMA di eliminarlo per ottenere i fileIds
+		Optional<TravelEty> travelOpt = travelRepository.findByIdAndUserId(travelId, userId);
+		
+		if (!travelOpt.isPresent()) {
+			log.warn("⚠️ Tentativo di eliminare viaggio non esistente o non autorizzato: travelId={}, userId={}", travelId, userId);
+			return false;
+		}
+		
+		TravelEty travel = travelOpt.get();
+		List<String> fileIds = travel.getAllFileIds();
+		
+		// 2. Elimina i file da Firebase Storage (se presenti)
+		if (fileIds != null && !fileIds.isEmpty()) {
+			log.info("🗑️ Eliminazione di {} file associati al viaggio {}", fileIds.size(), travelId);
+			int deletedFilesCount = storageService.deleteFiles(fileIds);
+			log.info("✅ Eliminati {}/{} file da Firebase Storage per il viaggio {}", deletedFilesCount, fileIds.size(), travelId);
+		} else {
+			log.info("ℹ️ Nessun file da eliminare per il viaggio {}", travelId);
+		}
+		
+		// 3. Elimina il viaggio da MongoDB
 		long deletedCount = travelRepository.deleteByIdAndUserId(travelId, userId);
 		
-		// Se il viaggio è stato eliminato, elimina anche tutti i bookmark associati
-//		if (deletedCount > 0) {
-//			try {
-//				bookmarkService.deleteBookmarksByTravel(travelId);
-//				log.info("Bookmarks eliminati per il viaggio: {}", travelId);
-//			} catch (Exception e) {
-//				log.error("Errore durante l'eliminazione dei bookmarks per il viaggio {}: {}", travelId, e.getMessage());
-//				// Non blocchiamo l'eliminazione del viaggio se fallisce l'eliminazione dei bookmark
-//			}
-//		}
+		// 4. Elimina i bookmark associati (commentato nel codice originale)
+		// if (deletedCount > 0) {
+		//     try {
+		//         bookmarkService.deleteBookmarksByTravel(travelId);
+		//         log.info("Bookmarks eliminati per il viaggio: {}", travelId);
+		//     } catch (Exception e) {
+		//         log.error("Errore durante l'eliminazione dei bookmarks per il viaggio {}: {}", travelId, e.getMessage());
+		//     }
+		// }
+		
+		if (deletedCount > 0) {
+			log.info("✅ Viaggio {} eliminato con successo (viaggi eliminati: {})", travelId, deletedCount);
+		} else {
+			log.warn("⚠️ Nessun viaggio eliminato per travelId={}, userId={}", travelId, userId);
+		}
 		
 		return deletedCount > 0;
 	}
