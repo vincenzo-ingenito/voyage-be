@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import it.voyage.ms.config.RateLimitConfig.PlacesRateLimiter;
 import it.voyage.ms.controller.IPlacesCtl;
 import it.voyage.ms.service.IPlacesService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,8 +21,8 @@ public class PlacesCtl implements IPlacesCtl {
 	@Autowired
 	private IPlacesService placesService;
 	
-	@Autowired
-	private PlacesRateLimiter rateLimiter;
+//	@Autowired
+//	private PlacesRateLimiter rateLimiter;
 
 	@Override
 	public ResponseEntity<String> autocomplete(String input) {
@@ -44,27 +43,27 @@ public class PlacesCtl implements IPlacesCtl {
 		}
 
 		// Verifica Rate Limit per utente
-		if (!rateLimiter.allowUserRequest(userId)) {
-			int remaining = rateLimiter.getRemainingRequests(userId);
-			log.warn("🚫 Rate Limit superato per user: {}", userId);
-			return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-				.header("X-RateLimit-Remaining", String.valueOf(remaining))
-				.body("{\"error\": \"Rate limit exceeded. Max 50 requests per day.\", \"remaining\": " + remaining + "}");
-		}
+//		if (!rateLimiter.allowUserRequest(userId)) {
+//			int remaining = rateLimiter.getRemainingRequests(userId);
+//			log.warn("🚫 Rate Limit superato per user: {}", userId);
+//			return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+//				.header("X-RateLimit-Remaining", String.valueOf(remaining))
+//				.body("{\"error\": \"Rate limit exceeded. Max 50 requests per day.\", \"remaining\": " + remaining + "}");
+//		}
 
 		// Verifica Rate Limit per IP (protezione DDoS)
 		String clientIp = getClientIpAddress();
-		if (!rateLimiter.allowIpRequest(clientIp)) {
-			log.warn("🚫 Rate Limit IP superato per: {}", clientIp);
-			return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-				.body("{\"error\": \"Too many requests from your IP. Please try again later.\"}");
-		}
+//		if (!rateLimiter.allowIpRequest(clientIp)) {
+//			log.warn("🚫 Rate Limit IP superato per: {}", clientIp);
+//			return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+//				.body("{\"error\": \"Too many requests from your IP. Please try again later.\"}");
+//		}
 
 		// Esegui la richiesta Places API
 		String responseBody = placesService.getAutocompleteResults(input);
 		
 		// Aggiungi header con richieste rimanenti
-		int remaining = rateLimiter.getRemainingRequests(userId);
+		int remaining = 100;//rateLimiter.getRemainingRequests(userId);
 		return ResponseEntity.ok()
 			.header("X-RateLimit-Remaining", String.valueOf(remaining))
 			.body(responseBody);
@@ -89,27 +88,27 @@ public class PlacesCtl implements IPlacesCtl {
 		}
 
 		// Verifica Rate Limit per utente
-		if (!rateLimiter.allowUserRequest(userId)) {
-			int remaining = rateLimiter.getRemainingRequests(userId);
-			log.warn("🚫 Rate Limit superato per user: {}", userId);
-			return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-				.header("X-RateLimit-Remaining", String.valueOf(remaining))
-				.body("{\"error\": \"Rate limit exceeded. Max 50 requests per day.\", \"remaining\": " + remaining + "}");
-		}
+//		if (!rateLimiter.allowUserRequest(userId)) {
+//			int remaining = rateLimiter.getRemainingRequests(userId);
+//			log.warn("🚫 Rate Limit superato per user: {}", userId);
+//			return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+//				.header("X-RateLimit-Remaining", String.valueOf(remaining))
+//				.body("{\"error\": \"Rate limit exceeded. Max 50 requests per day.\", \"remaining\": " + remaining + "}");
+//		}
 
 		// Verifica Rate Limit per IP (protezione DDoS)
-		String clientIp = getClientIpAddress();
-		if (!rateLimiter.allowIpRequest(clientIp)) {
-			log.warn("🚫 Rate Limit IP superato per: {}", clientIp);
-			return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-				.body("{\"error\": \"Too many requests from your IP. Please try again later.\"}");
-		}
+//		String clientIp = getClientIpAddress();
+//		if (!rateLimiter.allowIpRequest(clientIp)) {
+//			log.warn("🚫 Rate Limit IP superato per: {}", clientIp);
+//			return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+//				.body("{\"error\": \"Too many requests from your IP. Please try again later.\"}");
+//		}
 
 		// Esegui la richiesta Places API
 		String responseBody = placesService.getPlaceDetails(placeId);
 		
 		// Aggiungi header con richieste rimanenti
-		int remaining = rateLimiter.getRemainingRequests(userId);
+		int remaining = 100;//rateLimiter.getRemainingRequests(userId);
 		return ResponseEntity.ok()
 			.header("X-RateLimit-Remaining", String.valueOf(remaining))
 			.body(responseBody);
