@@ -26,7 +26,7 @@ public class PlacesCtl implements IPlacesCtl {
 
 	@Override
 	public ResponseEntity<String> autocomplete(String input) {
-		log.info("📍 Places API: autocomplete chiamato");
+		log.info("Places API: autocomplete chiamato");
 		
 		// Validazione input
 		if (input == null || input.length() < 3) {
@@ -37,7 +37,7 @@ public class PlacesCtl implements IPlacesCtl {
 		// Ottieni userId dall'autenticazione
 		String userId = getUserIdFromAuth();
 		if (userId == null) {
-			log.warn("⚠️ Places API: Utente non autenticato");
+			log.warn("Places API: Utente non autenticato");
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 				.body("{\"error\": \"Authentication required\"}");
 		}

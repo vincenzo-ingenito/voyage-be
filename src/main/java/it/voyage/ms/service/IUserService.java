@@ -11,4 +11,11 @@ public interface IUserService {
 	
 	boolean getPrivacyStatus(String firebaseId);
 	
+	/**
+	 * Elimina l'account utente e tutti i dati associati
+	 * @param userId ID dell'utente da eliminare
+	 * @return true se l'eliminazione è avvenuta con successo
+	 */
+	boolean deleteAccount(String userId);
+	
 }
