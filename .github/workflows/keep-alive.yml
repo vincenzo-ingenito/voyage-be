@@ -1,0 +1,39 @@
+name: Keep Render Instance Alive
+
+on:
+  schedule:
+    # Esegui ogni 12 minuti (meno dei 15 minuti di timeout di Render)
+    - cron: '*/12 * * * *'
+  workflow_dispatch: # Permette esecuzione manuale
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Wake up call (primary)
+        run: |
+          echo "☕ [$(date)] Sending wake-up call..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://voyage-be.onrender.com/health/wake)
+          echo "Response: HTTP $response"
+          
+      - name: Health ping (secondary)
+        run: |
+          echo "🏓 [$(date)] Pinging health endpoint..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://voyage-be.onrender.com/health/ping)
+          
+          if [ $response -eq 200 ]; then
+            echo "✅ Server is alive (HTTP $response)"
+          else
+            echo "⚠️ Server responded with HTTP $response"
+          fi
+          
+      - name: Full health check
+        run: |
+          echo "💊 [$(date)] Getting detailed health status..."
+          curl -s --max-time 30 https://voyage-be.onrender.com/health || echo "Health check failed"
+          
+      - name: Log completion
+        run: |
+          echo "✅ Keep-alive cycle completed at $(date)"
+          echo "Next run in ~12 minutes"
