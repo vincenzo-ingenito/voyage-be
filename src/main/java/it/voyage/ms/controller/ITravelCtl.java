@@ -22,7 +22,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import it.voyage.ms.dto.response.TravelDTO;
-import it.voyage.ms.response.DeleteUserResponse;
 import it.voyage.ms.security.user.CustomUserDetails; 
 
 /**

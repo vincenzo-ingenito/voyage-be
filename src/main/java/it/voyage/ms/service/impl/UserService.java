@@ -36,7 +36,6 @@ public class UserService implements IUserService {
 	private final TravelRepository travelRepository;
 	private final BookmarkRepository bookmarkRepository;
 	private final IFriendRelationshipRepository friendRelationshipRepository;
- 
 
 	@Override
 	public UserDto syncUserWithFirebase(CustomUserDetails customUserDetails) {
@@ -82,7 +81,6 @@ public class UserService implements IUserService {
 
 		UserEty updatedUser = userRepository.save(user);
 		return UserDto.fromEntity(updatedUser);
-
 	}
 
 	@Override
@@ -98,19 +96,19 @@ public class UserService implements IUserService {
 	@Override
 	@Transactional
 	public boolean deleteAccount(String userId) {
-		log.info("🗑️ Iniziando eliminazione account per userId: {}", userId);
+		log.info("Iniziando eliminazione account per userId: {}", userId);
 		
 		try {
 			// 1. Verifica che l'utente esista
 			Optional<UserEty> userOptional = userRepository.findById(userId);
 			if (userOptional.isEmpty()) {
-				log.warn("❌ Utente non trovato: {}", userId);
+				log.warn("Utente non trovato: {}", userId);
 				throw new NotFoundException("Utente non trovato");
 			}
 			
 			// 2. Elimina tutti i viaggi dell'utente e le relative foto
 			List<TravelEty> userTravels = travelRepository.findByUserId(userId);
-			log.info("📍 Trovati {} viaggi da eliminare", userTravels.size());
+			log.info("Trovati {} viaggi da eliminare", userTravels.size());
 			
 			for (TravelEty travel : userTravels) {
 				// Elimina foto dal Firebase Storage
@@ -118,54 +116,46 @@ public class UserService implements IUserService {
 				
 				// Elimina i bookmark associati a questo viaggio
 				bookmarkRepository.deleteByTravelId(travel.getId());
-				log.info("🔖 Eliminati bookmark per viaggio: {}", travel.getId());
+				log.info("Eliminati bookmark per viaggio: {}", travel.getId());
 			}
 			
 			// Elimina tutti i viaggi
 			travelRepository.deleteAll(userTravels);
-			log.info("✅ Eliminati {} viaggi", userTravels.size());
+			log.info("Eliminati {} viaggi", userTravels.size());
 			
 			// 3. Elimina tutti i bookmark creati dall'utente
 			List<it.voyage.ms.repository.entity.BookmarkEty> userBookmarks = bookmarkRepository.findByUserId(userId);
 			bookmarkRepository.deleteAll(userBookmarks);
-			log.info("🔖 Eliminati {} bookmark dell'utente", userBookmarks.size());
+			log.info("Eliminati {} bookmark dell'utente", userBookmarks.size());
 			
 			// 4. Elimina tutte le relazioni di amicizia (come richiedente o ricevente)
 			friendRelationshipRepository.deleteAll(
-				friendRelationshipRepository.findByRequesterIdAndStatusOrReceiverIdAndStatus(
-					userId, "ACCEPTED", userId, "ACCEPTED"
-				)
+				friendRelationshipRepository.findByRequesterIdAndStatusOrReceiverIdAndStatus(userId, "ACCEPTED", userId, "ACCEPTED")
 			);
 			friendRelationshipRepository.deleteAll(
-				friendRelationshipRepository.findByRequesterIdAndStatusOrReceiverIdAndStatus(
-					userId, "PENDING", userId, "PENDING"
-				)
+				friendRelationshipRepository.findByRequesterIdAndStatusOrReceiverIdAndStatus(userId, "PENDING", userId, "PENDING")
 			);
 			friendRelationshipRepository.deleteAll(
-				friendRelationshipRepository.findByRequesterIdAndStatusOrReceiverIdAndStatus(
-					userId, "BLOCKED", userId, "BLOCKED"
-				)
+				friendRelationshipRepository.findByRequesterIdAndStatusOrReceiverIdAndStatus(userId, "BLOCKED", userId, "BLOCKED")
 			);
-			log.info("👥 Eliminate tutte le relazioni di amicizia");
+			log.info("Eliminate tutte le relazioni di amicizia");
 			
-			// 5. Elimina l'utente dal database MongoDB
 			userRepository.deleteById(userId);
-			log.info("📝 Eliminato utente dal database MongoDB");
+			log.info("Eliminato utente dal database MongoDB");
 			
 			// 6. Elimina l'utente da Firebase Authentication
 			try {
 				FirebaseAuth.getInstance().deleteUser(userId);
-				log.info("🔥 Eliminato utente da Firebase Authentication");
+				log.info("Eliminato utente da Firebase Authentication");
 			} catch (FirebaseAuthException e) {
-				log.error("❌ Errore durante l'eliminazione da Firebase Auth: {}", e.getMessage());
-				// Non blocchiamo l'operazione se Firebase fallisce
+				log.error("Errore durante l'eliminazione da Firebase Auth: {}", e.getMessage());
 			}
 			
-			log.info("✅ Account eliminato con successo per userId: {}", userId);
+			log.info("Account eliminato con successo per userId: {}", userId);
 			return true;
 			
 		} catch (Exception e) {
-			log.error("❌ Errore durante l'eliminazione dell'account: {}", e.getMessage(), e);
+			log.error("Errore durante l'eliminazione dell'account: {}", e.getMessage(), e);
 			throw new RuntimeException("Errore durante l'eliminazione dell'account", e);
 		}
 	}
@@ -198,7 +188,7 @@ public class UserService implements IUserService {
 							Blob blob = bucket.get(photoPath);
 							if (blob != null) {
 								blob.delete();
-								log.info("📸 Eliminata foto ricordo giorno {}: {}", day.getDay(), photoPath);
+								log.info("Eliminata foto ricordo giorno {}: {}", day.getDay(), photoPath);
 							}
 						}
 					}
@@ -215,13 +205,13 @@ public class UserService implements IUserService {
 							log.info("📁 Eliminato file: {}", fileId);
 						}
 					} catch (Exception e) {
-						log.warn("⚠️ Impossibile eliminare file {}: {}", fileId, e.getMessage());
+						log.warn("Impossibile eliminare file {}: {}", fileId, e.getMessage());
 					}
 				}
 			}
 			
 		} catch (Exception e) {
-			log.error("❌ Errore durante l'eliminazione delle foto dal storage: {}", e.getMessage());
+			log.error("Errore durante l'eliminazione delle foto dal storage: {}", e.getMessage());
 			// Non blocchiamo l'operazione se la cancellazione delle foto fallisce
 		}
 	}
@@ -248,7 +238,7 @@ public class UserService implements IUserService {
 			}
 			return null;
 		} catch (Exception e) {
-			log.error("❌ Errore durante l'estrazione del path: {}", e.getMessage());
+			log.error("Errore durante l'estrazione del path: {}", e.getMessage());
 			return null;
 		}
 	}

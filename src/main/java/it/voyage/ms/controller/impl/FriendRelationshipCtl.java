@@ -65,5 +65,4 @@ public class FriendRelationshipCtl implements IFriendRelationshipCtl {
 
 	}
 
-
 }
