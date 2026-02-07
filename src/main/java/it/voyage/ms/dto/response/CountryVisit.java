@@ -43,7 +43,7 @@ public class CountryVisit {
 
 		String countryIdentifier = countryName.replaceAll("\\s", "_").toUpperCase();
 
-		cv.setIso(countryIdentifier); // Esempio: "FRANCIA", "STATI_UNITI"
+		cv.setIso(countryIdentifier); 
 		cv.setName(countryName);
 
 		// tutte le date visitate (Logica invariata)
@@ -103,4 +103,3 @@ public class CountryVisit {
 	}
 
 }
-

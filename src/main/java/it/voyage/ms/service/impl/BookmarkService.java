@@ -1,22 +1,22 @@
 package it.voyage.ms.service.impl;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import it.voyage.ms.dto.response.BookmarkDTO;
 import it.voyage.ms.exceptions.ConflictException;
 import it.voyage.ms.exceptions.NotFoundException;
 import it.voyage.ms.repository.entity.BookmarkEty;
 import it.voyage.ms.repository.entity.TravelEty;
-import it.voyage.ms.repository.entity.UserEty;
 import it.voyage.ms.repository.impl.BookmarkRepository;
 import it.voyage.ms.repository.impl.TravelRepository;
 import it.voyage.ms.repository.impl.UserRepository;
 import it.voyage.ms.service.IBookmarkService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Implementazione del servizio per la gestione dei segnalibri
@@ -35,27 +35,19 @@ public class BookmarkService implements IBookmarkService {
     public BookmarkDTO addBookmark(String userId, String travelId) {
         log.info("Aggiunta bookmark per userId={} e travelId={}", userId, travelId);
         
-        // Verifica che il viaggio esista
-        TravelEty travel = travelRepository.findById(travelId)
-                .orElseThrow(() -> new NotFoundException("Viaggio non trovato"));
+        TravelEty travel = travelRepository.findById(travelId).orElseThrow(() -> new NotFoundException("Viaggio non trovato"));
         
-        // Verifica che l'utente non stia cercando di salvare il proprio viaggio
         if (travel.getUserId().equals(userId)) {
             throw new ConflictException("Non puoi salvare i tuoi viaggi nei segnalibri");
         }
         
-        // Verifica che il bookmark non esista già
         if (bookmarkRepository.existsByUserIdAndTravelId(userId, travelId)) {
             throw new ConflictException("Viaggio già salvato nei segnalibri");
         }
-        
-        // Crea e salva il bookmark
+
         BookmarkEty bookmark = new BookmarkEty(userId, travelId, travel.getUserId());
         bookmark = bookmarkRepository.save(bookmark);
-        
         log.info("Bookmark creato con successo: {}", bookmark.getId());
-        
-        // Costruisci e ritorna il DTO
         return buildBookmarkDTO(bookmark, travel);
     }
     
@@ -64,7 +56,6 @@ public class BookmarkService implements IBookmarkService {
     public void removeBookmark(String userId, String travelId) {
         log.info("Rimozione bookmark per userId={} e travelId={}", userId, travelId);
         
-        // Verifica che il bookmark esista
         if (!bookmarkRepository.existsByUserIdAndTravelId(userId, travelId)) {
             throw new NotFoundException("Segnalibro non trovato");
         }
@@ -87,8 +78,7 @@ public class BookmarkService implements IBookmarkService {
         return bookmarks.stream()
                 .map(bookmark -> {
                     // Recupera il viaggio associato
-                    TravelEty travel = travelRepository.findById(bookmark.getTravelId())
-                            .orElse(null);
+                    TravelEty travel = travelRepository.findById(bookmark.getTravelId()).orElse(null);
                     
                     if (travel == null) {
                         // Se il viaggio non esiste più, elimina il bookmark orfano
