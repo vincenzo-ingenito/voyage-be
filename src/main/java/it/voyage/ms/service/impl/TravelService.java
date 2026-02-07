@@ -42,7 +42,6 @@ public class TravelService implements ITravelService {
 	private final TravelRepository travelRepository;
 	private final FirebaseStorageService storageService;
 	private final TravelMapper travelMapper;
-	private final it.voyage.ms.service.IBookmarkService bookmarkService;
 
 
 	@Override
@@ -372,15 +371,6 @@ public class TravelService implements ITravelService {
 	}
 
 	/**
-	 * Metodo legacy mantenuto per compatibilità
-	 */
-	@Deprecated
-	private List<String> processAndUploadAttachments(TravelEty travelEty, List<MultipartFile> files) throws IOException {
-		FileUploadResult result = processAndUploadAttachmentsWithMetadata(travelEty, files);
-		return result.fileIds;
-	}
-
-	/**
 	 * ✅ FIX: Nuova versione con metadati per aggiornamenti
 	 * Tiene traccia dei file consumati dall'array files[] per gestire correttamente
 	 * la numerazione sequenziale quando ci sono sia foto ricordo che allegati
@@ -426,52 +416,9 @@ public class TravelService implements ITravelService {
 		FileConsumptionTracker(int totalFiles) {
 			this.totalFiles = totalFiles;
 		}
-		
-		/**
-		 * Calcola l'indice reale nell'array files[] dato l'indice globale del frontend
-		 * @param globalIndex L'indice assegnato dal frontend (può essere per foto o allegato)
-		 * @param existingFilesCount Il numero di file già esistenti in DB
-		 * @return L'indice reale nell'array files[], o -1 se è un file esistente
-		 */
-		int getFileArrayIndex(int globalIndex, int existingFilesCount) {
-			if (globalIndex < existingFilesCount) {
-				// File esistente
-				return -1;
-			}
-			// File nuovo: l'indice nell'array è semplicemente la posizione dopo i file esistenti
-			return globalIndex - existingFilesCount;
-		}
-		
-		void markConsumed() {
-			consumedCount++;
-		}
-		
-		int getConsumedCount() {
-			return consumedCount;
-		}
+		  
 	}
 
-	/**
-	 * Metodo legacy mantenuto per compatibilità
-	 */
-	@Deprecated
-	private List<String> processAndUploadAttachmentsForUpdate(TravelEty travelEty, List<MultipartFile> files, List<String> existingFileIds) throws IOException {
-		if (travelEty.getItinerary() == null) {
-			return existingFileIds;
-		}
-
-		List<String> updatedFileIds = new ArrayList<>(existingFileIds);
-		
-		for (DailyItineraryDTO dayDto : travelEty.getItinerary()) {
-			// Processa l'immagine ricordo del giorno
-			processDayMemoryImageForUpdate(dayDto, files, updatedFileIds, travelEty.getUserId(), travelEty.getId());
-			
-			// Processa gli allegati dei punti
-			processPointAttachmentsForUpdate(dayDto, files, updatedFileIds, travelEty.getUserId(), travelEty.getId());
-		}
-
-		return updatedFileIds;
-	}
 
 	/**
 	 * ✅ FIX DEFINITIVO: Processa immagine ricordo durante update CON metadati
@@ -586,102 +533,6 @@ public class TravelService implements ITravelService {
 			}
 		}
 	}
-
-	/**
-	 * Processa l'immagine ricordo del giorno durante un aggiornamento.
-	 * Se memoryImageIndex punta a un nuovo file (indice < files.size), carica il nuovo file e sostituisce il vecchio.
-	 * Se memoryImageIndex punta a un file esistente (indice >= files.size), mantiene il riferimento esistente.
-	 */
-	@Deprecated
-	private void processDayMemoryImageForUpdate(DailyItineraryDTO dayDto, List<MultipartFile> files, 
-	                                             List<String> updatedFileIds, String userId, String travelId) throws IOException {
-		Integer memoryImageIndex = dayDto.getMemoryImageIndex();
-		
-		if (memoryImageIndex == null) {
-			return;
-		}
-		
-		// Se l'indice è < files.size(), significa che è un nuovo file da caricare
-		if (memoryImageIndex >= 0 && memoryImageIndex < files.size()) {
-			MultipartFile fileToUpload = files.get(memoryImageIndex);
-			String newFileId = storageService.uploadFile(fileToUpload, userId, travelId, "day-memory");
-			
-			// Trova il primo slot libero o aggiunge alla fine
-			int newIndex = updatedFileIds.size();
-			updatedFileIds.add(newFileId);
-			dayDto.setMemoryImageIndex(newIndex);
-		}
-		// Altrimenti l'indice punta già a un file esistente, lo manteniamo così com'è
-	}
-
-	/**
-	 * Processa gli allegati dei punti durante un aggiornamento.
-	 */
-	@Deprecated
-	private void processPointAttachmentsForUpdate(DailyItineraryDTO dayDto, List<MultipartFile> files, 
-	                                               List<String> updatedFileIds, String userId, String travelId) throws IOException {
-		if (dayDto.getPoints() == null) {
-			return;
-		}
-
-		for (PointDTO pointDto : dayDto.getPoints()) {
-			List<Integer> attachmentIndices = pointDto.getAttachmentIndices();
-			if (attachmentIndices != null && !attachmentIndices.isEmpty()) {
-				List<Integer> updatedIndices = new ArrayList<>();
-				
-				for (Integer index : attachmentIndices) {
-					// Se l'indice è < files.size(), è un nuovo file
-					if (index >= 0 && index < files.size()) {
-						MultipartFile fileToUpload = files.get(index);
-						String newFileId = storageService.uploadFile(fileToUpload, userId, travelId, "point-attachment");
-						
-						int newIndex = updatedFileIds.size();
-						updatedFileIds.add(newFileId);
-						updatedIndices.add(newIndex);
-					} else {
-						// Altrimenti mantieni l'indice esistente
-						updatedIndices.add(index);
-					}
-				}
-				
-				pointDto.setAttachmentIndices(updatedIndices);
-			}
-		}
-	}
-
-	private void processDayMemoryImage(DailyItineraryDTO dayDto, List<MultipartFile> files, FileSyncState state) throws IOException {
-		Integer tempFileIndex = dayDto.getMemoryImageIndex();
-		if (tempFileIndex != null && tempFileIndex >= 0 && tempFileIndex < files.size()) {
-			MultipartFile fileToUpload = files.get(tempFileIndex);
-			String fileId = storageService.uploadFile(fileToUpload, state.userId, state.travelId, "day-memory"); 
-			dayDto.setMemoryImageIndex(state.getAndIncrementIndex());
-			state.allFileIds.add(fileId);
-		}
-	}
-
-	private void processPointAttachments(DailyItineraryDTO dayDto, List<MultipartFile> files, FileSyncState state) throws IOException {
-
-		if (dayDto.getPoints() == null) {
-			return;
-		}
-
-		for (PointDTO pointDto : dayDto.getPoints()) {
-			List<Integer> tempIndices = pointDto.getAttachmentIndices();
-			if (tempIndices != null && !tempIndices.isEmpty()) {
-				List<Integer> finalAttachmentIndices = new ArrayList<>();
-				for (Integer tempFileIndex : tempIndices) {
-					// Controlla se l'indice è valido
-					if (tempFileIndex >= 0 && tempFileIndex < files.size()) {
-						MultipartFile fileToUpload = files.get(tempFileIndex);
-						String fileId = storageService.uploadFile(fileToUpload, state.userId, state.travelId, "point-attachment"); 
-						finalAttachmentIndices.add(state.getAndIncrementIndex());
-						state.allFileIds.add(fileId);
-					}
-				}
-				pointDto.setAttachmentIndices(finalAttachmentIndices);
-			}
-		}
-	}
 	
 	/**
 	 * ✅ FIX: Nuova classe helper per tracciare anche i metadati
@@ -704,27 +555,7 @@ public class TravelService implements ITravelService {
 	        return fileCounter++;
 	    }
 	}
-
-	/**
-	 * Classe legacy mantenuta per compatibilità
-	 */
-	private static class FileSyncState {
-	    int fileCounter = 0; 
-	    final String userId;
-	    final String travelId;
-	    final List<String> allFileIds;
-
-	    FileSyncState(String userId, String travelId, List<String> allFileIds) {
-	        this.userId = userId;
-	        this.travelId = travelId;
-	        this.allFileIds = allFileIds;
-	    }
-
-	    int getAndIncrementIndex() {
-	        return fileCounter++;
-	    }
-	}
-
+ 
 	/**
 	 * ✅ FIX: Processa immagine ricordo con metadati
 	 */
@@ -820,35 +651,6 @@ public class TravelService implements ITravelService {
             }
         }
     }
-
-    /**
-     * ✅ FIX: Popola gli URL delle immagini ricordo dopo il salvataggio
-     * Questo metodo genera gli URL signed solo per le foto ricordo dei giorni,
-     * permettendo al frontend di visualizzarle immediatamente dopo il salvataggio
-     */
-    private void populateMemoryImageUrls(TravelDTO travelDTO, List<String> allFileIds) {
-        if (travelDTO == null || travelDTO.getItinerary() == null || allFileIds == null || allFileIds.isEmpty()) {
-            return;
-        }
-
-        for (DailyItineraryDTO dayDto : travelDTO.getItinerary()) {
-            if (dayDto.getMemoryImageIndex() != null) {
-                try {
-                    int index = dayDto.getMemoryImageIndex();
-                    if (index >= 0 && index < allFileIds.size()) {
-                        String fileId = allFileIds.get(index);
-                        String dayUrl = storageService.getPublicUrl(fileId);
-                        dayDto.setMemoryImageUrl(dayUrl);
-                        log.debug("URL foto ricordo popolato per giorno {}: {}", dayDto.getDay(), dayUrl.substring(0, Math.min(50, dayUrl.length())));
-                    }
-                } catch (IndexOutOfBoundsException e) {
-                    log.error("Indice immagine giorno fuori limite for Travel ID: {}, index: {}", 
-                        travelDTO.getTravelId(), dayDto.getMemoryImageIndex());
-                }
-            }
-        }
-    }
-
     /**
      * ✅ NUOVO: Popola TUTTI gli URL (foto ricordo E allegati) dopo il salvataggio
      * Questo assicura che il frontend riceva tutti gli URL quando riapre il dialog di modifica

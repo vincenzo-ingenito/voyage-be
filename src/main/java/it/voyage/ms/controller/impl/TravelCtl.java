@@ -42,10 +42,8 @@ public class TravelCtl implements ITravelCtl {
 	    Boolean deleted = travelService.deleteTravelById(travelId, userDetails.getUserId()); 
 	    
 	    if (deleted) {
-	        // 204 No Content = successo senza body (standard REST)
 	        return ResponseEntity.noContent().build();
 	    } else {
-	        // 404 Not Found per viaggio non trovato
 	        return ResponseEntity.notFound().build();
 	    }
 	}
