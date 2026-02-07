@@ -45,11 +45,11 @@ public interface ITravelCtl {
 	@DeleteMapping(value = "/{travelId}", produces = MediaType.TEXT_PLAIN_VALUE)
 	@Operation(summary = "Elimina un viaggio", description = "Elimina il viaggio specificato, solo se appartenente all'utente autenticato.")
 	@ApiResponses(value = { 
-			@ApiResponse(responseCode = "200", description = "Viaggio eliminato con successo. (Messaggio: Viaggio eliminato con successo)", content = @Content(mediaType = MediaType.TEXT_PLAIN_VALUE, schema = @Schema(implementation = DeleteUserResponse.class))),
+			@ApiResponse(responseCode = "200", description = "Viaggio eliminato con successo. (Messaggio: Viaggio eliminato con successo)", content = @Content(mediaType = MediaType.TEXT_PLAIN_VALUE, schema = @Schema(implementation = Void.class))),
 			@ApiResponse(responseCode = "404", description = "Not Found: Il viaggio non esiste o non appartiene all'utente."),
 			@ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato.")
 	})
-	ResponseEntity<DeleteUserResponse> deleteTravelById(
+	ResponseEntity<Void> deleteTravelById(
 			@Parameter(description = "ID del viaggio da eliminare") @PathVariable String travelId, 
 			@AuthenticationPrincipal CustomUserDetails userDetails
 			);

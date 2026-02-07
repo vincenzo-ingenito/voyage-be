@@ -3,7 +3,6 @@ package it.voyage.ms.controller.impl;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -13,7 +12,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import it.voyage.ms.controller.ITravelCtl;
 import it.voyage.ms.dto.response.TravelDTO;
-import it.voyage.ms.response.DeleteUserResponse;
 import it.voyage.ms.security.user.CustomUserDetails;
 import it.voyage.ms.service.ITravelService;
 import lombok.extern.slf4j.Slf4j;
@@ -39,14 +37,17 @@ public class TravelCtl implements ITravelCtl {
 	}
 	
 	@Override
-	public ResponseEntity<DeleteUserResponse> deleteTravelById(String travelId, CustomUserDetails userDetails) {
-		log.info("Called delete trave by id ep");
-		Boolean deleted = travelService.deleteTravelById(travelId, userDetails.getUserId()); 
-		if (deleted) {
-			return ResponseEntity.ok(new DeleteUserResponse(true, "Viaggio eliminato con successo."));
-		} else {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new DeleteUserResponse(false, "Viaggio non trovato o non autorizzato all'eliminazione."));
-		}
+	public ResponseEntity<Void> deleteTravelById(String travelId, CustomUserDetails userDetails) {
+	    log.info("Called delete travel by id ep");
+	    Boolean deleted = travelService.deleteTravelById(travelId, userDetails.getUserId()); 
+	    
+	    if (deleted) {
+	        // 204 No Content = successo senza body (standard REST)
+	        return ResponseEntity.noContent().build();
+	    } else {
+	        // 404 Not Found per viaggio non trovato
+	        return ResponseEntity.notFound().build();
+	    }
 	}
 	
 	@Override
