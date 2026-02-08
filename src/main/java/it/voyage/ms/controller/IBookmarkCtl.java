@@ -46,7 +46,7 @@ public interface IBookmarkCtl {
         @ApiResponse(responseCode = "404", description = "Bookmark non trovato")
     })
     @DeleteMapping("/{travelId}")
-    ResponseEntity<Map<String, String>> removeBookmark(
+    ResponseEntity<Void> removeBookmark(
         @Parameter(description = "ID del viaggio da rimuovere", required = true)
         @PathVariable String travelId,
         @AuthenticationPrincipal CustomUserDetails userDetails

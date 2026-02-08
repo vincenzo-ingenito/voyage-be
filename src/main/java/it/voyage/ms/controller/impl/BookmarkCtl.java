@@ -25,29 +25,23 @@ public class BookmarkCtl implements IBookmarkCtl {
     @Override
     public ResponseEntity<BookmarkDTO> addBookmark(String travelId, CustomUserDetails userDetails) {
         log.info("Richiesta di aggiunta bookmark per travelId={} da userId={}", travelId, userDetails.getUserId());
-        
         BookmarkDTO bookmark = bookmarkService.addBookmark(userDetails.getUserId(), travelId);
-        
         log.info("Bookmark aggiunto con successo");
         return ResponseEntity.ok(bookmark);
     }
     
     @Override
-    public ResponseEntity<Map<String, String>> removeBookmark(String travelId, CustomUserDetails userDetails) {
+    public ResponseEntity<Void> removeBookmark(String travelId, CustomUserDetails userDetails) {
         log.info("Richiesta di rimozione bookmark per travelId={} da userId={}", travelId, userDetails.getUserId());
-        
         bookmarkService.removeBookmark(userDetails.getUserId(), travelId);
-        
         log.info("Bookmark rimosso con successo");
-        return ResponseEntity.ok(Map.of("message", "Segnalibro rimosso con successo"));
+        return ResponseEntity.noContent().build();
     }
     
     @Override
     public ResponseEntity<List<BookmarkDTO>> getUserBookmarks(CustomUserDetails userDetails) {
         log.info("Richiesta lista bookmarks per userId={}", userDetails.getUserId());
-        
         List<BookmarkDTO> bookmarks = bookmarkService.getUserBookmarks(userDetails.getUserId());
-        
         log.info("Trovati {} bookmarks", bookmarks.size());
         return ResponseEntity.ok(bookmarks);
     }
@@ -55,9 +49,7 @@ public class BookmarkCtl implements IBookmarkCtl {
     @Override
     public ResponseEntity<Map<String, Boolean>> isBookmarked(String travelId, CustomUserDetails userDetails) {
         log.info("Verifica bookmark per travelId={} da userId={}", travelId, userDetails.getUserId());
-        
         boolean isBookmarked = bookmarkService.isBookmarked(userDetails.getUserId(), travelId);
-        
         return ResponseEntity.ok(Map.of("isBookmarked", isBookmarked));
     }
 }
