@@ -16,15 +16,13 @@ public interface ITravelService {
 	
 	List<TravelDTO> getTravelsForUser(String userId);
 	
-	TravelDTO getTravelWithUrls(String userId, String travelId);
+	TravelDTO getTravelWithUrls(String userId, Long travelId);
 	
 	TravelDTO saveTravel(TravelDTO travelData, List<MultipartFile> files, CustomUserDetails userDetails);
 	
 	TravelDTO confirmTravelDates(String userId, String travelId);
 	
 	TravelDTO deleteMemoryPhoto(String userId, String travelId, int dayNumber);
-	
-//	List<CountryVisit> getUniqueConsolidatedCountryVisits(String userId);;
 	
 	List<CountryVisit> getConsolidatedCountryVisits(String userId);
 }

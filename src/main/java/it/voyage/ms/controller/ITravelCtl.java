@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -94,7 +95,7 @@ public interface ITravelCtl {
 	ResponseEntity<TravelDTO> updateTravel(@Parameter(description = "ID del viaggio da aggiornare") @PathVariable String travelId, @RequestPart("travelData") TravelDTO travelData, @RequestPart(value = "files", required = false) List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails userDetails);
 
 	@GetMapping(value = "/{travelId}/with-urls", produces = MediaType.APPLICATION_JSON_VALUE)
-	@Operation(summary = "Recupera un viaggio con URL signed", description = "Restituisce un singolo viaggio con gli URL firmati per allegati e immagini. Chiamata on-demand per ridurre il payload iniziale.")
+	@Operation(summary = "Recupera un viaggio con URL signed", description = "Restituisce un singolo viaggio con gli URL firmati per allegati e immagini. Chiamata on-demand per ridurre il payload iniziale. Può essere usato per visualizzare viaggi di amici passando il parametro userId.")
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "200", 
 					description = "Viaggio recuperato con successo con URL signed.", 
@@ -103,7 +104,8 @@ public interface ITravelCtl {
 			@ApiResponse(responseCode = "404", description = "Not Found: Il viaggio non esiste o non appartiene all'utente.")
 	})
 	ResponseEntity<TravelDTO> getTravelWithUrls(
-			@Parameter(description = "ID del viaggio") @PathVariable String travelId,
+			@Parameter(description = "ID del viaggio") @PathVariable Long travelId,
+			@Parameter(description = "ID dell'utente (opzionale, per visualizzare viaggi di amici)") @RequestParam(required = false) String userId,
 			@AuthenticationPrincipal CustomUserDetails userDetails
 	);
 

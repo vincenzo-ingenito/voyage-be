@@ -91,9 +91,11 @@ public class TravelCtl implements ITravelCtl {
 	}
 	
 	@Override
-	public ResponseEntity<TravelDTO> getTravelWithUrls(@PathVariable String travelId, @AuthenticationPrincipal CustomUserDetails userDetails) {
-		log.info("Called get travel with URLs ep for travelId: {}", travelId);
-		TravelDTO travel = travelService.getTravelWithUrls(userDetails.getUserId(), travelId);
+	public ResponseEntity<TravelDTO> getTravelWithUrls(@PathVariable Long travelId, String userId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+		log.info("Called get travel with URLs ep for travelId: {}, userId: {}", travelId, userId);
+		// Use the provided userId if present (for viewing friend's travel), otherwise use authenticated user
+		String targetUserId = (userId != null && !userId.isEmpty()) ? userId : userDetails.getUserId();
+		TravelDTO travel = travelService.getTravelWithUrls(targetUserId, travelId);
 		return ResponseEntity.ok(travel);
 	}
 

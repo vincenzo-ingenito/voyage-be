@@ -15,7 +15,7 @@ public interface IBookmarkService {
      * @param travelId ID del viaggio da salvare
      * @return Il bookmark creato
      */
-    BookmarkDTO addBookmark(String userId, String travelId);
+    BookmarkDTO addBookmark(String userId, Long travelId);
     
     /**
      * Rimuove un segnalibro

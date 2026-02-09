@@ -39,11 +39,11 @@ public class BookmarkEty {
     @Column(name = "user_id", nullable = false, length = 255)
     private String userId;
     
-//    /**
-//     * Travel ID (Long auto-increment)
-//     */
-//    @Column(name = "travel_id", nullable = false)
-//    private Long travelId;
+    /**
+     * Travel ID (Long auto-increment)
+     */
+    @Column(name = "travel_id", nullable = false)
+    private Long travelId;
     
     /**
      * Relation: User N:M Travel via Bookmark
@@ -83,7 +83,7 @@ public class BookmarkEty {
     
     public BookmarkEty(String userId, Long travelId, String travelOwnerId) {
         this.userId = userId;
-//        this.travelId = travelId;
+        this.travelId = travelId;
         this.travelOwnerId = travelOwnerId;
         this.createdAt = new Date();
     }

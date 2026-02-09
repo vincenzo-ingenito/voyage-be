@@ -33,7 +33,7 @@ public interface IBookmarkCtl {
     @PostMapping("/{travelId}")
     ResponseEntity<BookmarkDTO> addBookmark(
         @Parameter(description = "ID del viaggio da salvare", required = true)
-        @PathVariable String travelId,
+        @PathVariable Long travelId,
         @AuthenticationPrincipal CustomUserDetails userDetails
     );
     

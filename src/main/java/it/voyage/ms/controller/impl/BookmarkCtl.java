@@ -23,7 +23,7 @@ public class BookmarkCtl implements IBookmarkCtl {
     private final IBookmarkService bookmarkService;
     
     @Override
-    public ResponseEntity<BookmarkDTO> addBookmark(String travelId, CustomUserDetails userDetails) {
+    public ResponseEntity<BookmarkDTO> addBookmark(Long travelId, CustomUserDetails userDetails) {
         log.info("Richiesta di aggiunta bookmark per travelId={} da userId={}", travelId, userDetails.getUserId());
         BookmarkDTO bookmark = bookmarkService.addBookmark(userDetails.getUserId(), travelId);
         log.info("Bookmark aggiunto con successo");

@@ -5,6 +5,8 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,11 +19,15 @@ import it.voyage.ms.repository.entity.BookmarkEty;
 public interface BookmarkRepository extends JpaRepository<BookmarkEty, Long> {
 
     /**
-     * Trova tutti i segnalibri di un utente
+     * Trova tutti i segnalibri di un utente con travel e itinerary eager loaded
      * @param userId ID dell'utente
      * @return Lista di segnalibri
      */
-    List<BookmarkEty> findByUserId(String userId);
+    @Query("SELECT DISTINCT b FROM BookmarkEty b " +
+           "LEFT JOIN FETCH b.travel t " +
+           "LEFT JOIN FETCH t.itinerary " +
+           "WHERE b.userId = :userId")
+    List<BookmarkEty> findByUserId(@Param("userId") String userId);
 
     /**
      * Trova un segnalibro specifico per utente e viaggio

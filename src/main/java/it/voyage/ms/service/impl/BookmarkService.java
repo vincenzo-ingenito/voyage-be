@@ -13,7 +13,6 @@ import it.voyage.ms.repository.entity.BookmarkEty;
 import it.voyage.ms.repository.entity.TravelEty;
 import it.voyage.ms.repository.impl.BookmarkRepository;
 import it.voyage.ms.repository.impl.TravelRepository;
-import it.voyage.ms.repository.impl.UserRepository;
 import it.voyage.ms.service.IBookmarkService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,79 +27,111 @@ public class BookmarkService implements IBookmarkService {
     
     private final BookmarkRepository bookmarkRepository;
     private final TravelRepository travelRepository;
-    private final UserRepository userRepository;
     
     @Override
     @Transactional
-    public BookmarkDTO addBookmark(String userId, String travelId) {
-//        log.info("Aggiunta bookmark per userId={} e travelId={}", userId, travelId);
-//        
-//        TravelEty travel = travelRepository.findById(travelId).orElseThrow(() -> new NotFoundException("Viaggio non trovato"));
-//        
-//        if (travel.getUser().getId().equals(userId)) {
-//            throw new ConflictException("Non puoi salvare i tuoi viaggi nei segnalibri");
-//        }
-//        
-//        if (bookmarkRepository.existsByUserIdAndTravelId(userId, travelId)) {
-//            throw new ConflictException("Viaggio già salvato nei segnalibri");
-//        }
-//
-//        BookmarkEty bookmark = new BookmarkEty(userId, travelId, travel.getUser().getId());
-//        bookmark = bookmarkRepository.save(bookmark);
-//        log.info("Bookmark creato con successo: {}", bookmark.getId());
-//        return buildBookmarkDTO(bookmark, travel);
-    	return null;
+    public BookmarkDTO addBookmark(String userId, Long travelId) {
+        log.info("Aggiunta bookmark per userId={} e travelId={}", userId, travelId);
+        
+        // Verifica che il viaggio esista
+        TravelEty travel = travelRepository.findById(travelId)
+                .orElseThrow(() -> new NotFoundException("Viaggio non trovato"));
+        
+        // Verifica che l'utente non stia salvando il proprio viaggio
+        if (travel.getUser().getId().equals(userId)) {
+            throw new ConflictException("Non puoi salvare il tuo stesso viaggio");
+        }
+        
+        // Verifica che il bookmark non esista già
+        if (bookmarkRepository.existsByUserIdAndTravelId(userId, travelId)) {
+            throw new ConflictException("Viaggio già salvato nei segnalibri");
+        }
+
+        // Crea il bookmark
+        BookmarkEty bookmark = new BookmarkEty(userId, travelId, travel.getUser().getId());
+        bookmark = bookmarkRepository.save(bookmark);
+        log.info("Bookmark creato con successo: {}", bookmark.getId());
+        
+        return buildBookmarkDTO(bookmark, travel);
     }
     
     @Override
     @Transactional
     public void removeBookmark(String userId, String travelId) {
-//        log.info("Rimozione bookmark per userId={} e travelId={}", userId, travelId);
-//        
-//        if (!bookmarkRepository.existsByUserIdAndTravelId(userId, travelId)) {
-//            throw new NotFoundException("Segnalibro non trovato");
-//        }
-//        
-//        bookmarkRepository.deleteByUserIdAndTravelId(userId, travelId);
-//        log.info("Bookmark rimosso con successo");
+        log.info("Rimozione bookmark per userId={} e travelId={}", userId, travelId);
+        
+        // Converti travelId in Long
+        Long travelIdLong;
+        try {
+            travelIdLong = Long.parseLong(travelId);
+        } catch (NumberFormatException e) {
+            log.error("TravelId non valido: {}", travelId);
+            throw new IllegalArgumentException("ID viaggio non valido");
+        }
+        
+        // Verifica che il bookmark esista
+        if (!bookmarkRepository.existsByUserIdAndTravelId(userId, travelIdLong)) {
+            throw new NotFoundException("Segnalibro non trovato");
+        }
+        
+        bookmarkRepository.deleteByUserIdAndTravelId(userId, travelIdLong);
+        log.info("Bookmark rimosso con successo");
     }
     
     @Override
     public boolean isBookmarked(String userId, String travelId) {
-//        return bookmarkRepository.existsByUserIdAndTravelId(userId, travelId);
-    	return false;
+        try {
+            Long travelIdLong = Long.parseLong(travelId);
+            return bookmarkRepository.existsByUserIdAndTravelId(userId, travelIdLong);
+        } catch (NumberFormatException e) {
+            log.error("TravelId non valido per verifica bookmark: {}", travelId);
+            return false;
+        }
     }
     
     @Override
+    @Transactional(readOnly = true)
     public List<BookmarkDTO> getUserBookmarks(String userId) {
-//        log.info("Recupero bookmarks per userId={}", userId);
-//        
-//        List<BookmarkEty> bookmarks = bookmarkRepository.findByUserId(userId);
-//        
-//        return bookmarks.stream()
-//                .map(bookmark -> {
-//                    // Recupera il viaggio associato
-//                    TravelEty travel = travelRepository.findById(bookmark.getTravelId()).orElse(null);
-//                    
-//                    if (travel == null) {
-//                        // Se il viaggio non esiste più, elimina il bookmark orfano
-//                        log.warn("Viaggio {} non trovato, eliminazione bookmark orfano", bookmark.getTravelId());
-//                        bookmarkRepository.deleteById(bookmark.getId());
-//                        return null;
-//                    }
-//                    
-//                    return buildBookmarkDTO(bookmark, travel);
-//                })
-//                .filter(dto -> dto != null)
-//                .collect(Collectors.toList());
-    	return null;
+        log.info("Recupero bookmarks per userId={}", userId);
+        
+        List<BookmarkEty> bookmarks = bookmarkRepository.findByUserId(userId);
+        
+        return bookmarks.stream()
+                .map(bookmark -> {
+                    TravelEty travel = bookmark.getTravel();
+                    
+                    if (travel == null) {
+                        // Se il viaggio non esiste più, elimina il bookmark orfano
+                        log.warn("Viaggio {} non trovato, eliminazione bookmark orfano", bookmark.getTravelId());
+                        bookmarkRepository.deleteById(bookmark.getId());
+                        return null;
+                    }
+                    
+                    // Inizializza la collezione points se necessario (ancora dentro la transazione)
+                    if (travel.getItinerary() != null && !travel.getItinerary().isEmpty()) {
+                        travel.getItinerary().forEach(day -> {
+                            if (day.getPoints() != null) {
+                                day.getPoints().size(); // Forza il caricamento lazy
+                            }
+                        });
+                    }
+                    
+                    return buildBookmarkDTO(bookmark, travel);
+                })
+                .filter(dto -> dto != null)
+                .collect(Collectors.toList());
     }
     
     @Override
     @Transactional
     public void deleteBookmarksByTravel(String travelId) {
         log.info("Eliminazione di tutti i bookmarks per travelId={}", travelId);
-//        bookmarkRepository.deleteByTravelId(travelId);
+        try {
+            Long travelIdLong = Long.parseLong(travelId);
+            bookmarkRepository.deleteByTravelId(travelIdLong);
+        } catch (NumberFormatException e) {
+            log.error("TravelId non valido per eliminazione bookmarks: {}", travelId);
+        }
     }
     
     /**
@@ -108,13 +139,20 @@ public class BookmarkService implements IBookmarkService {
      */
     private BookmarkDTO buildBookmarkDTO(BookmarkEty bookmark, TravelEty travel) {
         BookmarkDTO dto = new BookmarkDTO();
-//        dto.setBookmarkId(bookmark.getId());
-//        dto.setTravelId(travel.getId());
+        dto.setBookmarkId(bookmark.getId().toString());
+        dto.setTravelId(travel.getId().toString());
         dto.setTravelName(travel.getTravelName());
-        dto.setDateFrom(travel.getDateFrom());
-        dto.setDateTo(travel.getDateTo());
-//        dto.setOwnerId(travel.getUserId());
         dto.setBookmarkedAt(bookmark.getCreatedAt());
+        
+        // Converti Date in String
+        if (travel.getDateFrom() != null) {
+            dto.setDateFrom(travel.getDateFrom().toString());
+        }
+        if (travel.getDateTo() != null) {
+            dto.setDateTo(travel.getDateTo().toString());
+        }
+        
+        dto.setOwnerId(travel.getUser().getId());
         
         // Estrai città e paese dal primo punto dell'itinerario
         if (travel.getItinerary() != null && !travel.getItinerary().isEmpty()) {
@@ -132,11 +170,11 @@ public class BookmarkService implements IBookmarkService {
         }
         
         // Recupera informazioni sul proprietario del viaggio
-//        userRepository.findById(travel.getUserId()).ifPresent(owner -> {
-//            dto.setOwnerName(owner.getName());
-//            dto.setOwnerAvatar(owner.getAvatar());
-//        });
-//        
+        if (travel.getUser() != null) {
+            dto.setOwnerName(travel.getUser().getName());
+            dto.setOwnerAvatar(travel.getUser().getAvatar());
+        }
+        
         return dto;
     }
 }

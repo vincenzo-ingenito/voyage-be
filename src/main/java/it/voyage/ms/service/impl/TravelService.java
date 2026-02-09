@@ -234,9 +234,8 @@ public class TravelService implements ITravelService {
 	}
 
 	@Transactional
-	public TravelDTO getTravelWithUrls(String userId, String travelId) {
-		Long travelIdLong = Long.parseLong(travelId);
-		Optional<TravelEty> travelOpt = travelRepository.findByIdAndUserId(travelIdLong, userId);
+	public TravelDTO getTravelWithUrls(String userId, Long travelId) {
+		Optional<TravelEty> travelOpt = travelRepository.findByIdAndUserId(travelId, userId);
 
 		if (!travelOpt.isPresent()) {
 			throw new BusinessException("Viaggio non trovato o non autorizzato.");
