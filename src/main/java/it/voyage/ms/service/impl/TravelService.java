@@ -349,7 +349,13 @@ public class TravelService implements ITravelService {
 			// 1. Converti DTO in Entity
 			TravelEty travel = travelMapper.convertDtoToEty(travelData);  
 
-			// 2. Carica l'utente e setta la relazione
+			// 2. Se è un viaggio copiato, assicurati che tutti gli ID siano null per evitare duplicati
+			if (Boolean.TRUE.equals(travelData.getIsCopied())) {
+				log.info("Viaggio copiato rilevato, rimuovo tutti gli ID per permettere la creazione di nuove entità");
+				clearAllIds(travel);
+			}
+
+			// 3. Carica l'utente e setta la relazione
 			UserEty user = userRepository.findById(userDetails.getUserId())
 					.orElseThrow(() -> new BusinessException("Utente non trovato"));
 			travel.setUser(user);
@@ -436,6 +442,32 @@ public class TravelService implements ITravelService {
 	    }
 
 	    return new FileUploadResult(allFileIds, allFileMetadata);
+	}
+
+	/**
+	 * Rimuove tutti gli ID da un viaggio e dalle sue entità correlate
+	 * Questo è necessario quando si copia un viaggio per evitare conflitti di chiavi duplicate
+	 */
+	private void clearAllIds(TravelEty travel) {
+		// Rimuovi l'ID del viaggio
+		travel.setId(null);
+		
+		// Rimuovi gli ID dall'itinerario
+		if (travel.getItinerary() != null) {
+			for (DailyItineraryEty dailyItinerary : travel.getItinerary()) {
+				dailyItinerary.setId(null);
+				
+				// Rimuovi gli ID dai punti
+				if (dailyItinerary.getPoints() != null) {
+					for (PointEty point : dailyItinerary.getPoints()) {
+						point.setId(null);
+					}
+				}
+			}
+		}
+		
+		// I file verranno creati ex novo durante il processamento, quindi non hanno ID da rimuovere
+		log.debug("Rimossi tutti gli ID dal viaggio copiato per permettere la creazione di nuove entità");
 	}
 
 	/**
@@ -1015,6 +1047,7 @@ public class TravelService implements ITravelService {
 	}
 
 	@Override
+	@Transactional
 	public TravelDTO confirmTravelDates(String userId, String travelId) {
 		// Recupera il viaggio
 		Long travelIdLong = Long.parseLong(travelId);
@@ -1025,6 +1058,15 @@ public class TravelService implements ITravelService {
 		}
 
 		TravelEty travel = travelOpt.get();
+		
+		// Inizializza le collezioni lazy
+		org.hibernate.Hibernate.initialize(travel.getItinerary());
+		if (travel.getItinerary() != null) {
+			travel.getItinerary().forEach(day -> {
+				org.hibernate.Hibernate.initialize(day.getPoints());
+			});
+		}
+		org.hibernate.Hibernate.initialize(travel.getFiles());
 
 		// Rimuovi i flag di viaggio copiato
 		travel.setIsCopied(false);
@@ -1037,6 +1079,7 @@ public class TravelService implements ITravelService {
 		return travelMapper.convertEtyToDTO(savedTravel);
 	}
 
+	@Override
 	@Transactional
 	public List<CountryVisit> getConsolidatedCountryVisits(String userId) {
 		List<TravelEty> allTravels = travelRepository.findByUserId(userId);
