@@ -40,6 +40,20 @@ public interface ITravelCtl {
 	})
 	ResponseEntity<List<TravelDTO>> getTravels(@AuthenticationPrincipal CustomUserDetails userDetails);
 
+	@GetMapping(value = "/friend/{friendId}", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "Recupera i viaggi di un amico", description = "Restituisce l'elenco dei viaggi pubblici di un amico, solo se c'è amicizia reciproca.")
+	@ApiResponses(value = { 
+			@ApiResponse(responseCode = "200", description = "Elenco dei viaggi dell'amico recuperato con successo.", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = TravelDTO.class))),
+			@ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato."),
+			@ApiResponse(responseCode = "403", description = "Forbidden: Non sei amico di questo utente."),
+			@ApiResponse(responseCode = "404", description = "Not Found: Utente non trovato."),
+			@ApiResponse(responseCode = "500", description = "Internal Server Error")
+	})
+	ResponseEntity<List<TravelDTO>> getFriendTravels(
+			@PathVariable("friendId") String friendId,
+			@AuthenticationPrincipal CustomUserDetails userDetails
+	);
+
 
 	@DeleteMapping(value = "/{travelId}", produces = MediaType.TEXT_PLAIN_VALUE)
 	@Operation(summary = "Elimina un viaggio", description = "Elimina il viaggio specificato, solo se appartenente all'utente autenticato.")
@@ -49,7 +63,7 @@ public interface ITravelCtl {
 			@ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato.")
 	})
 	ResponseEntity<Void> deleteTravelById(
-			@Parameter(description = "ID del viaggio da eliminare") @PathVariable String travelId, 
+			@Parameter(description = "ID del viaggio da eliminare") @PathVariable Long travelId, 
 			@AuthenticationPrincipal CustomUserDetails userDetails
 			);
 

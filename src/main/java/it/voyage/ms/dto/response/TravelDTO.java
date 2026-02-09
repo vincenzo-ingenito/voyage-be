@@ -8,12 +8,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Data
 public class TravelDTO {
-	private String travelId;
-	private String travelName; 
+	private Long travelId;
+	private String travelName;
 	private List<DailyItineraryDTO> itinerary;
 	private String dateFrom; 
 	private String dateTo;
-	private Boolean isCopied; // Indica se il viaggio è stato copiato da un altro utente
-	private Boolean needsDateConfirmation; // Indica se le date devono essere confermate/aggiornate
+	private Boolean isCopied; 
+	private Boolean needsDateConfirmation; 
 	 
 }

@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 import it.voyage.ms.controller.ITravelCtl;
 import it.voyage.ms.dto.response.TravelDTO;
 import it.voyage.ms.security.user.CustomUserDetails;
+import it.voyage.ms.service.IFriendshipService;
 import it.voyage.ms.service.ITravelService;
 import lombok.extern.slf4j.Slf4j;
 
@@ -22,6 +23,9 @@ public class TravelCtl implements ITravelCtl {
 
 	@Autowired
 	private ITravelService travelService;
+	
+	@Autowired
+	private IFriendshipService friendshipService;
 
 	@Override
 	public ResponseEntity<TravelDTO> saveTravel(TravelDTO travelData, List<MultipartFile> files, CustomUserDetails userDetails) {
@@ -37,7 +41,7 @@ public class TravelCtl implements ITravelCtl {
 	}
 	
 	@Override
-	public ResponseEntity<Void> deleteTravelById(String travelId, CustomUserDetails userDetails) {
+	public ResponseEntity<Void> deleteTravelById(Long travelId, CustomUserDetails userDetails) {
 	    log.info("Called delete travel by id ep");
 	    Boolean deleted = travelService.deleteTravelById(travelId, userDetails.getUserId()); 
 	    
@@ -53,6 +57,30 @@ public class TravelCtl implements ITravelCtl {
 		log.info("Called get travels ep");
 		List<TravelDTO> travels = travelService.getTravelsForUser(userDetails.getUserId());
 		return ResponseEntity.ok(travels);
+	}
+	
+	@Override
+	public ResponseEntity<List<TravelDTO>> getFriendTravels(String friendId, CustomUserDetails userDetails) {
+		log.info("Called get friend travels ep for friendId: {}", friendId);
+		
+		// Se l'utente richiede i propri viaggi, reindirizza al metodo standard
+		if (friendId.equals(userDetails.getUserId())) {
+			log.info("User requesting own travels, redirecting to getTravels");
+			return getTravels(userDetails);
+		}
+		
+		// Verifica che ci sia amicizia tra gli utenti
+		boolean areFriends = friendshipService.checkIfUserAreFriends(userDetails.getUserId(), friendId);
+		if (!areFriends) {
+			log.warn("User {} is not friends with {}", userDetails.getUserId(), friendId);
+			throw new org.springframework.security.access.AccessDeniedException("Non sei amico di questo utente");
+		}
+		
+		// Recupera i viaggi dell'amico
+		List<TravelDTO> friendTravels = travelService.getTravelsForUser(friendId);
+		log.info("Retrieved {} travels for friend {}", friendTravels.size(), friendId);
+		
+		return ResponseEntity.ok(friendTravels);
 	}
 	
 	@Override

@@ -25,8 +25,8 @@ public class UserCtl implements IUserCtl {
 	@Override
 	public ResponseEntity<UserDto> updateUserDetails(UserDto updateDTO, CustomUserDetails customerUserDetail) {
 		log.info("Called update user detail ep");
-		 UserDto updatedUser = userService.update(customerUserDetail.getUserId(), updateDTO);
-		 return new ResponseEntity<UserDto>(updatedUser,HttpStatus.OK);
+		UserDto updatedUser = userService.update(customerUserDetail.getUserId(), updateDTO);
+		return new ResponseEntity<UserDto>(updatedUser,HttpStatus.OK);
 	}
 
 	@Override
@@ -35,32 +35,24 @@ public class UserCtl implements IUserCtl {
 		boolean isPrivate = userService.getPrivacyStatus(customerUserDetail.getUserId());
 		return new ResponseEntity<>(new PrivacyStatusResponse(isPrivate), HttpStatus.OK);
 	}
-	
+
 	@Override
 	public ResponseEntity<Map<String, String>> deleteAccount(CustomUserDetails customerUserDetail) {
-		log.info("🗑️ Called delete account endpoint for userId: {}", customerUserDetail.getUserId());
-		
-		try {
-			boolean deleted = userService.deleteAccount(customerUserDetail.getUserId());
-			
-			if (deleted) {
-				Map<String, String> response = new HashMap<>();
-				response.put("message", "Account eliminato con successo");
-				response.put("userId", customerUserDetail.getUserId());
-				log.info("✅ Account eliminato con successo per userId: {}", customerUserDetail.getUserId());
-				return new ResponseEntity<>(response, HttpStatus.OK);
-			} else {
-				Map<String, String> response = new HashMap<>();
-				response.put("error", "Impossibile eliminare l'account");
-				return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
-			}
-			
-		} catch (Exception e) {
-			log.error("❌ Errore durante l'eliminazione dell'account: {}", e.getMessage(), e);
+		log.info("Called delete account endpoint for userId: {}", customerUserDetail.getUserId());
+
+		boolean deleted = userService.deleteAccount(customerUserDetail.getUserId());
+
+		if (deleted) {
 			Map<String, String> response = new HashMap<>();
-			response.put("error", "Errore durante l'eliminazione dell'account: " + e.getMessage());
+			response.put("message", "Account eliminato con successo");
+			response.put("userId", customerUserDetail.getUserId());
+			log.info("Account eliminato con successo per userId: {}", customerUserDetail.getUserId());
+			return new ResponseEntity<>(response, HttpStatus.OK);
+		} else {
+			Map<String, String> response = new HashMap<>();
+			response.put("error", "Impossibile eliminare l'account");
 			return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
 		}
 	}
-	
+
 }

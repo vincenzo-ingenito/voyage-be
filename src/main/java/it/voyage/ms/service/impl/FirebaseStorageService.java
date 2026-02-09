@@ -1,8 +1,6 @@
 package it.voyage.ms.service.impl;
 
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -32,7 +30,6 @@ public class FirebaseStorageService {
 
 	private final Storage storage;
 	private final IEncryptionService encryptionService;
-	//    private final String bucketName = "voyage-ed2d0.appspot.com";
 	private final String bucketName = "voyage-ed2d0.firebasestorage.app";
 
 
@@ -42,11 +39,8 @@ public class FirebaseStorageService {
 		this.encryptionService = encryptionService;
 	}
 
-
 	/**
 	 * Carica un file su Firebase Storage e restituisce i metadati completi
-	 * ✅ CRIPTA AUTOMATICAMENTE gli allegati (point-attachment)
-	 * ✅ Lascia in chiaro le foto ricordo (day-memory, cover)
 	 * 
 	 * @param file Il file da caricare
 	 * @param userId ID dell'utente
@@ -54,15 +48,14 @@ public class FirebaseStorageService {
 	 * @param category Categoria del file (es. "day-memory", "point-attachment")
 	 * @return FileMetadata con fileId, fileName, mimeType e encryption info
 	 */
-	public FileMetadata uploadFileWithMetadata(MultipartFile file, String userId, String travelId, String category) throws IOException {
-		// ✅ Determina se il file deve essere criptato in base alla categoria
+	public FileMetadata uploadFileWithMetadata(MultipartFile file, String userId, Long travelId, String category) throws IOException {
 		boolean shouldEncrypt = "point-attachment".equals(category);
 		
 		if (shouldEncrypt && encryptionService != null) {
-			log.info("📎 Caricamento file CRIPTATO per categoria: {}", category);
+			log.info("Caricamento file CRIPTATO per categoria: {}", category);
 			return uploadEncryptedFile(file, userId, travelId, category);
 		} else {
-			log.info("📸 Caricamento file STANDARD per categoria: {}", category);
+			log.info("Caricamento file STANDARD per categoria: {}", category);
 			return uploadStandardFile(file, userId, travelId, category);
 		}
 	}
@@ -71,7 +64,7 @@ public class FirebaseStorageService {
 	 * Carica un file STANDARD (non criptato) su Firebase Storage
 	 * Usato per foto ricordo (day-memory) e cover images
 	 */
-	private FileMetadata uploadStandardFile(MultipartFile file, String userId, String travelId, String category) throws IOException {
+	private FileMetadata uploadStandardFile(MultipartFile file, String userId, Long travelId, String category) throws IOException {
 		String originalFileName = file.getOriginalFilename();
 		String contentType = file.getContentType();
 
@@ -102,7 +95,7 @@ public class FirebaseStorageService {
 	 * 2. Salva file criptato su Firebase
 	 * 3. Salva metadata crittografia in MongoDB
 	 */
-	private FileMetadata uploadEncryptedFile(MultipartFile file, String userId, String travelId, String category) throws IOException {
+	private FileMetadata uploadEncryptedFile(MultipartFile file, String userId, Long travelId, String category) throws IOException {
 		String originalFileName = file.getOriginalFilename();
 		String originalContentType = file.getContentType();
 		
@@ -131,31 +124,16 @@ public class FirebaseStorageService {
 		BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
 				.setContentType("application/octet-stream")  // File criptato = binario generico
 				.setMetadata(metadata)
-				.build();  // ⚠️ NO setAcl → File privato, accessibile solo via backend
+				.build();  
 		
 		storage.create(blobInfo, encryptedData.getEncryptedBytes());
 		
-		log.info("🔐 File criptato caricato su: {}", filePath);
+		log.info("File criptato caricato su: {}", filePath);
 		
 		// 5. Ritorna metadata completi (con encryption info)
 		return new FileMetadata(filePath, originalFileName, originalContentType, encryptedData.getMetadata());
 	}
 
-	/**
-	 * Metodo legacy per compatibilità - restituisce solo il fileId
-	 * @deprecated Usare uploadFileWithMetadata per avere i metadati completi
-	 */
-	@Deprecated
-	public String uploadFile(MultipartFile file, String userId, String travelId, String category) throws IOException {
-		FileMetadata metadata = uploadFileWithMetadata(file, userId, travelId, category);
-		return metadata.getFileId();
-	}
-
-	/**
-	 * ✅ Genera un URL firmato (signed URL) con accesso pubblico per 7 giorni
-	 * ⚠️ NOTA: Per file criptati, l'URL punta al file criptato!
-	 *    Usare getPublicUrlWithDecryption() per ottenere file decriptati
-	 */
 	public String getPublicUrl(String fileId) {
 		if (fileId == null || fileId.isEmpty()) {
 			return null;
