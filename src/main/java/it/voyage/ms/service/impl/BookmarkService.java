@@ -34,8 +34,7 @@ public class BookmarkService implements IBookmarkService {
         log.info("Aggiunta bookmark per userId={} e travelId={}", userId, travelId);
         
         // Verifica che il viaggio esista
-        TravelEty travel = travelRepository.findById(travelId)
-                .orElseThrow(() -> new NotFoundException("Viaggio non trovato"));
+        TravelEty travel = travelRepository.findById(travelId).orElseThrow(() -> new NotFoundException("Viaggio non trovato"));
         
         // Verifica che l'utente non stia salvando il proprio viaggio
         if (travel.getUser().getId().equals(userId)) {

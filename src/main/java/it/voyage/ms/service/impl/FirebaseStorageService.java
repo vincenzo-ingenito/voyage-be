@@ -68,12 +68,7 @@ public class FirebaseStorageService {
 		String originalFileName = file.getOriginalFilename();
 		String contentType = file.getContentType();
 
-		String filePath = String.format("travel-files/%s/%s/%s/%s_%s", 
-				userId, 
-				travelId, 
-				category, 
-				UUID.randomUUID().toString(), 
-				originalFileName);
+		String filePath = String.format("travel-files/%s/%s/%s/%s_%s", userId, travelId, category, UUID.randomUUID().toString(), originalFileName);
 
 		BlobId blobId = BlobId.of(bucketName, filePath);
 		BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
@@ -87,7 +82,7 @@ public class FirebaseStorageService {
 	}
 	
 	/**
-	 * 🔐 Carica un file CRIPTATO su Firebase Storage
+	 * Carica un file CRIPTATO su Firebase Storage
 	 * Utilizzato automaticamente per gli allegati (point-attachment)
 	 * 
 	 * Processo:
@@ -103,12 +98,7 @@ public class FirebaseStorageService {
 		EncryptedData encryptedData = encryptionService.encrypt(file.getBytes(), userId);
 		
 		// 2. Crea path con estensione .encrypted
-		String filePath = String.format("travel-files/%s/%s/%s/%s_%s.encrypted", 
-				userId, 
-				travelId, 
-				category, 
-				UUID.randomUUID().toString(), 
-				originalFileName);
+		String filePath = String.format("travel-files/%s/%s/%s/%s_%s.encrypted", userId, travelId, category, UUID.randomUUID().toString(), originalFileName);
 		
 		// 3. Prepara metadata per Firebase (inclusi dati crittografia)
 		Map<String, String> metadata = new HashMap<>();
@@ -160,7 +150,7 @@ public class FirebaseStorageService {
 	}
 	
 	/**
-	 * 🗑️ Elimina un file da Firebase Storage
+	 * Elimina un file da Firebase Storage
 	 * 
 	 * @param fileId Path del file su Firebase Storage
 	 * @return true se eliminato con successo, false altrimenti
@@ -176,21 +166,21 @@ public class FirebaseStorageService {
 			boolean deleted = storage.delete(blobId);
 			
 			if (deleted) {
-				log.info("🗑️ File eliminato da Firebase Storage: {}", fileId);
+				log.info("File eliminato da Firebase Storage: {}", fileId);
 			} else {
-				log.warn("⚠️ File non trovato su Firebase Storage (potrebbe essere già stato eliminato): {}", fileId);
+				log.warn("File non trovato su Firebase Storage (potrebbe essere già stato eliminato): {}", fileId);
 			}
 			
 			return deleted;
 			
 		} catch (Exception e) {
-			log.error("❌ Errore durante l'eliminazione del file {}: {}", fileId, e.getMessage(), e);
+			log.error("Errore durante l'eliminazione del file {}: {}", fileId, e.getMessage(), e);
 			return false;
 		}
 	}
 	
 	/**
-	 * 🗑️ Elimina multipli file da Firebase Storage in batch
+	 * Elimina multipli file da Firebase Storage in batch
 	 * 
 	 * @param fileIds Lista di path dei file da eliminare
 	 * @return Numero di file eliminati con successo
@@ -202,7 +192,7 @@ public class FirebaseStorageService {
 		}
 		
 		int deletedCount = 0;
-		log.info("🗑️ Inizio eliminazione batch di {} file da Firebase Storage", fileIds.size());
+		log.info("Inizio eliminazione batch di {} file da Firebase Storage", fileIds.size());
 		
 		for (String fileId : fileIds) {
 			if (deleteFile(fileId)) {
@@ -210,12 +200,12 @@ public class FirebaseStorageService {
 			}
 		}
 		
-		log.info("✅ Eliminati {}/{} file da Firebase Storage", deletedCount, fileIds.size());
+		log.info("Eliminati {}/{} file da Firebase Storage", deletedCount, fileIds.size());
 		return deletedCount;
 	}
 	
 	/**
-	 * 🔓 Scarica e decripta un file criptato
+	 * Scarica e decripta un file criptato
 	 * Ritorna i byte del file decriptato pronto per l'uso
 	 * 
 	 * @param fileId Path del file su Firebase Storage
@@ -225,7 +215,7 @@ public class FirebaseStorageService {
 	 */
 	public byte[] downloadAndDecrypt(String fileId, String userId, EncryptionMetadata encryption) {
 		try {
-			log.info("🔓 Download e decrittazione file: {}", fileId);
+			log.info("Download e decrittazione file: {}", fileId);
 			
 			// 1. Scarica file criptato da Firebase
 			BlobId blobId = BlobId.of(bucketName, fileId);
@@ -250,7 +240,7 @@ public class FirebaseStorageService {
 			
 			byte[] decryptedData = encryptionService.decrypt(encryptedData, userId, encryption);
 			
-			log.info("✅ File decriptato con successo, dimensione: {} bytes", decryptedData.length);
+			log.info("File decriptato con successo, dimensione: {} bytes", decryptedData.length);
 			
 			return decryptedData;
 			

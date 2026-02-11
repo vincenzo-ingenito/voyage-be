@@ -53,11 +53,10 @@ public class TravelService implements ITravelService {
 	@Transactional
 	public TravelDTO updateExistingTravel(String ownerUid, String travelId, TravelDTO newTravelData, List<MultipartFile> files){
 		try {
-			// ✅ LOG CRITICO: Verifica cosa arriva dal frontend
-			log.info("🔍 UPDATE TRAVEL - Inizio aggiornamento viaggio ID: {}", travelId);
+			log.info("UPDATE TRAVEL - Inizio aggiornamento viaggio ID: {}", travelId);
 			if (newTravelData.getItinerary() != null) {
 				for (DailyItineraryDTO day : newTravelData.getItinerary()) {
-					log.info("🔍 DAY {} - memoryImageUri: {}, memoryImageIndex: {}", 
+					log.info("DAY {} - memoryImageUri: {}, memoryImageIndex: {}", 
 						day.getDay(), 
 						day.getMemoryImageUrl() != null ? "PRESENTE" : "NULL",
 						day.getMemoryImageIndex());
@@ -82,7 +81,7 @@ public class TravelService implements ITravelService {
 			}
 			org.hibernate.Hibernate.initialize(existingTravel.getFiles());
 
-			// ✅ Salva i file esistenti PRIMA di modificare l'itinerario
+			// Salva i file esistenti PRIMA di modificare l'itinerario
 			List<TravelFileEty> existingFiles = new ArrayList<>(existingTravel.getFiles());
 
 			// Aggiorna i dati base del viaggio
@@ -96,7 +95,7 @@ public class TravelService implements ITravelService {
 			// Converti il nuovo itinerario dal DTO
 			TravelEty updatedTravelFromDto = travelMapper.convertDtoToEty(newTravelData);
 			
-			// ✅ LOG CRITICO: Verifica cosa esce dal mapper
+			// LOG CRITICO: Verifica cosa esce dal mapper
 			log.info("🔍 DOPO MAPPER - Verifica Entity convertita:");
 			if (updatedTravelFromDto.getItinerary() != null) {
 				for (DailyItineraryEty dayEty : updatedTravelFromDto.getItinerary()) {
@@ -115,7 +114,7 @@ public class TravelService implements ITravelService {
 				}
 			}
 
-			// ✅ Gestisci i file: sia nuovi che esistenti
+			// Gestisci i file: sia nuovi che esistenti
 			int existingFilesCount = existingFiles.size();
 			
 			if (files != null && !files.isEmpty()) {
@@ -140,7 +139,7 @@ public class TravelService implements ITravelService {
 				}
 			} else {
 				log.info("Nessun nuovo file, preservo solo gli indici esistenti per il viaggio {}", travelId);
-				// ✅ Anche se non ci sono nuovi file, devo assicurarmi che gli indici
+				// Anche se non ci sono nuovi file, devo assicurarmi che gli indici
 				// nell'itinerario siano validi (< existingFilesCount)
 				validateExistingFileIndices(existingTravel, existingFilesCount);
 			}
@@ -217,7 +216,7 @@ public class TravelService implements ITravelService {
 			TravelDTO dto = travelMapper.convertEtyToDTO(entity);
 			List<FileMetadata> fileMetadataList = entity.getFileMetadataList();
 
-			// ✅ OTTIMIZZAZIONE: NON generiamo gli URL signed qui per ridurre il payload
+			// OTTIMIZZAZIONE: NON generiamo gli URL signed qui per ridurre il payload
 			// Gli URL verranno generati on-demand quando l'utente espande il viaggio
 			// Popoliamo solo i metadati (nome e tipo) senza l'URL
 			if (dto.getItinerary() != null && fileMetadataList != null) {
@@ -231,7 +230,7 @@ public class TravelService implements ITravelService {
 									try {
 										if (index < fileMetadataList.size()) {
 											FileMetadata metadata = fileMetadataList.get(index);
-											// ✅ URL vuoto - verrà popolato on-demand
+											// URL vuoto - verrà popolato on-demand
 											attachmentMetadata.add(new AttachmentUrlDTO(
 													null, // URL non generato
 													metadata.getFileName(),
@@ -276,7 +275,7 @@ public class TravelService implements ITravelService {
 		}
 		org.hibernate.Hibernate.initialize(entity.getFiles());
 		
-		// ✅ LOG CRITICO: Verifica cosa c'è nel DB
+		// LOG CRITICO: Verifica cosa c'è nel DB
 		log.info("🔍 ENTITY DAL DB:");
 		if (entity.getItinerary() != null) {
 			for (DailyItineraryEty dayEty : entity.getItinerary()) {
@@ -287,7 +286,7 @@ public class TravelService implements ITravelService {
 		
 		TravelDTO dto = travelMapper.convertEtyToDTO(entity);
 		
-		// ✅ LOG CRITICO: Verifica cosa esce dal mapper
+		// LOG CRITICO: Verifica cosa esce dal mapper
 		log.info("🔍 DTO DOPO MAPPER:");
 		if (dto.getItinerary() != null) {
 			for (DailyItineraryDTO dayDto : dto.getItinerary()) {
@@ -319,11 +318,10 @@ public class TravelService implements ITravelService {
 						log.info("🔍 URL GENERATO - Day {}: {}", dayDto.getDay(), dayUrl != null ? "OK" : "NULL");
 						// memoryImageIndex è già impostato dal mapper, non serve rifarlo
 					} catch (IndexOutOfBoundsException e) {
-						log.error("❌ Indice immagine giorno fuori limite per Travel ID: {}, index: {}, size: {}", 
-							dto.getTravelId(), dayDto.getMemoryImageIndex(), allFileIds.size());
+						log.error("Indice immagine giorno fuori limite per Travel ID: {}, index: {}, size: {}", dto.getTravelId(), dayDto.getMemoryImageIndex(), allFileIds.size());
 					}
 				} else {
-					log.warn("⚠️ Day {} - memoryImageIndex è NULL, nessun URL da generare", dayDto.getDay());
+					log.warn("Day {} - memoryImageIndex è NULL, nessun URL da generare", dayDto.getDay());
 				}
 
 				if (dayDto.getPoints() != null) {
@@ -453,22 +451,6 @@ public class TravelService implements ITravelService {
 		}
 	}
 
-//	private FileUploadResult processAndUploadAttachmentsWithMetadata(TravelEty travelEty, List<MultipartFile> files) throws IOException {
-//		if (travelEty.getItinerary() == null) {
-//			return new FileUploadResult(Collections.emptyList(), Collections.emptyList());
-//		}
-//
-//		List<String> allFileIds = new ArrayList<>();
-//		List<FileMetadata> allFileMetadata = new ArrayList<>();
-//		FileSyncStateWithMetadata state = new FileSyncStateWithMetadata(travelEty.getUser().getId(), travelEty.getId(), allFileIds, allFileMetadata);
-//
-//		for (DailyItineraryDTO dayDto : travelEty.getIItinerary()) {
-//			processDayMemoryImageWithMetadata(dayDto, files, state);
-//			processPointAttachmentsWithMetadata(dayDto, files, state);
-//		}
-//
-//		return new FileUploadResult(allFileIds, allFileMetadata);
-//	}
 	
 	private FileUploadResult processAndUploadAttachmentsWithMetadata(TravelEty travelEty, List<MultipartFile> files) throws IOException {
 	    if (travelEty.getItinerary() == null || travelEty.getItinerary().isEmpty()) {
@@ -533,32 +515,6 @@ public class TravelService implements ITravelService {
 			this.metadata = metadata;
 		}
 	}
-
-	//	private FileUploadResult processAndUploadAttachmentsForUpdateWithMetadata(TravelEty travelEty, 
-	//			List<MultipartFile> files, List<String> existingFileIds, List<FileMetadata> existingMetadata) throws IOException {
-	//		
-	//		if (travelEty.getItinerary() == null) {
-	//			return new FileUploadResult(existingFileIds, existingMetadata);
-	//		}
-	//
-	//		List<String> updatedFileIds = new ArrayList<>(existingFileIds);
-	//		List<FileMetadata> updatedMetadata = new ArrayList<>(existingMetadata);
-	//		
-	//		FileConsumptionTracker tracker = new FileConsumptionTracker(files.size());
-	//		
-	//		for (DailyItineraryDTO dayDto : travelEty.getItinerary()) {
-	//			// Processa l'immagine ricordo del giorno con metadati
-	//			processDayMemoryImageForUpdateWithMetadata(dayDto, files, updatedFileIds, updatedMetadata, 
-	//				travelEty.getUserId(), travelEty.getId(), existingFileIds.size(), tracker);
-	//			
-	//			// Processa gli allegati dei punti con metadati
-	//			processPointAttachmentsForUpdateWithMetadata(dayDto, files, updatedFileIds, updatedMetadata, 
-	//				travelEty.getUserId(), travelEty.getId(), existingFileIds.size(), tracker);
-	//		}
-	//
-	//		return new FileUploadResult(updatedFileIds, updatedMetadata);
-	//	}
-
 	private static class FileConsumptionTracker {
 		private int consumedCount = 0;
 		private final int totalFiles;
@@ -568,97 +524,6 @@ public class TravelService implements ITravelService {
 		}
 
 	}
-//
-//	private void processDayMemoryImageForUpdateWithMetadata(DailyItineraryDTO dayDto, List<MultipartFile> files,
-//			List<String> updatedFileIds, List<FileMetadata> updatedMetadata, String userId, 
-//			Long travelId, int existingFilesCount, FileConsumptionTracker tracker) throws IOException {
-//
-//		Integer memoryImageIndex = dayDto.getMemoryImageIndex();
-//
-//		if (memoryImageIndex == null) {
-//			return;
-//		}
-//
-//
-//		if (memoryImageIndex < updatedFileIds.size()) {
-//			log.debug("Preservo foto ricordo esistente per giorno {}, indice: {}", dayDto.getDay(), memoryImageIndex);
-//			return; 
-//		}
-//
-//		int fileArrayIndex = memoryImageIndex - updatedFileIds.size();
-//
-//		if (fileArrayIndex >= 0 && fileArrayIndex < files.size()) {
-//			MultipartFile fileToUpload = files.get(fileArrayIndex);
-//			log.debug("Caricamento NUOVA foto giorno {}, indice temporaneo: {}, posizione file: {}", 
-//					dayDto.getDay(), memoryImageIndex, fileArrayIndex);
-//
-//			FileMetadata metadata = storageService.uploadFileWithMetadata(fileToUpload, userId, travelId, "day-memory");
-//
-//			// Aggiungi alla fine dell'array
-//			int newIndex = updatedFileIds.size();
-//			updatedFileIds.add(metadata.getFileId());
-//			updatedMetadata.add(metadata);
-//			dayDto.setMemoryImageIndex(newIndex);
-//			log.debug("Foto ricordo caricata per giorno {}, nuovo indice finale: {}", dayDto.getDay(), newIndex);
-//		} else {
-//			log.warn("Indice file non valido per giorno {}: memoryImageIndex={}, fileArrayIndex={}, files.size()={}", 
-//					dayDto.getDay(), memoryImageIndex, fileArrayIndex, files.size());
-//		}
-//	}
-//
-//	private void processPointAttachmentsForUpdateWithMetadata(
-//			DailyItineraryDTO dayDto, 
-//			List<MultipartFile> files,
-//			List<String> updatedFileIds,
-//			List<FileMetadata> updatedMetadata,
-//			String userId, 
-//			Long travelId,
-//			int existingFilesCount,
-//			FileConsumptionTracker tracker) throws IOException {
-//
-//		if (dayDto.getPoints() == null) {
-//			return;
-//		}
-//
-//		for (PointDTO pointDto : dayDto.getPoints()) {
-//			List<Integer> attachmentIndices = pointDto.getAttachmentIndices();
-//			if (attachmentIndices != null && !attachmentIndices.isEmpty()) {
-//				List<Integer> updatedIndices = new ArrayList<>();
-//
-//				for (Integer index : attachmentIndices) {
-//
-//					// Se l'indice punta a un file già esistente in updatedFileIds, preservalo
-//					if (index < updatedFileIds.size()) {
-//						updatedIndices.add(index);
-//						log.debug("Preservo allegato esistente, indice: {}", index);
-//					} else {
-//						// Calcola la posizione nell'array files[] sottraendo la dimensione degli esistenti
-//						int fileArrayIndex = index - updatedFileIds.size();
-//
-//						if (fileArrayIndex >= 0 && fileArrayIndex < files.size()) {
-//							MultipartFile fileToUpload = files.get(fileArrayIndex);
-//							log.debug("Caricamento NUOVO allegato, indice temporaneo: {}, posizione file: {}", 
-//									index, fileArrayIndex);
-//
-//							FileMetadata metadata = storageService.uploadFileWithMetadata(fileToUpload, userId, travelId, "point-attachment");
-//
-//							int newIndex = updatedFileIds.size();
-//							updatedFileIds.add(metadata.getFileId());
-//							updatedMetadata.add(metadata);
-//							updatedIndices.add(newIndex);
-//							log.debug("Allegato caricato, nuovo indice finale: {}", newIndex);
-//						} else {
-//							log.warn("Indice file non valido per allegato: index={}, fileArrayIndex={}, files.size()={}", 
-//									index, fileArrayIndex, files.size());
-//						}
-//					}
-//				}
-//
-//				pointDto.setAttachmentIndices(updatedIndices);
-//			}
-//		}
-//	}
-
 
 	private static class FileSyncStateWithMetadata {
 		int fileCounter = 0; 

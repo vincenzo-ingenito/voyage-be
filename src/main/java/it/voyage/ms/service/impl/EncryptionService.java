@@ -34,7 +34,7 @@ public class EncryptionService implements IEncryptionService {
     private static final int IV_SIZE = 12;  // 96 bits per GCM
     private static final int TAG_SIZE = 128; // 128 bits authentication tag
     
-    // ⚠️ ATTENZIONE: In produzione, usare un KMS invece di memorizzare chiavi in memoria
+    //️ ATTENZIONE: In produzione, usare un KMS invece di memorizzare chiavi in memoria
     // Questa è solo un'implementazione di esempio per development
     private final Map<String, SecretKey> userKeys = new ConcurrentHashMap<>();
     private final SecureRandom secureRandom = new SecureRandom();
@@ -118,7 +118,7 @@ public class EncryptionService implements IEncryptionService {
     
     /**
      * Ottiene o genera la chiave di crittografia per un utente
-     * ⚠️ IN PRODUZIONE: Sostituire con chiamata a KMS (Key Management Service)
+     * IN PRODUZIONE: Sostituire con chiamata a KMS (Key Management Service)
      */
     private SecretKey getUserKey(String userId) {
         return userKeys.computeIfAbsent(userId, id -> {
