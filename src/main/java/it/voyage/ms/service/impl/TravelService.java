@@ -53,6 +53,17 @@ public class TravelService implements ITravelService {
 	@Transactional
 	public TravelDTO updateExistingTravel(String ownerUid, String travelId, TravelDTO newTravelData, List<MultipartFile> files){
 		try {
+			// ✅ LOG CRITICO: Verifica cosa arriva dal frontend
+			log.info("🔍 UPDATE TRAVEL - Inizio aggiornamento viaggio ID: {}", travelId);
+			if (newTravelData.getItinerary() != null) {
+				for (DailyItineraryDTO day : newTravelData.getItinerary()) {
+					log.info("🔍 DAY {} - memoryImageUri: {}, memoryImageIndex: {}", 
+						day.getDay(), 
+						day.getMemoryImageUrl() != null ? "PRESENTE" : "NULL",
+						day.getMemoryImageIndex());
+				}
+			}
+			
 			Long travelIdLong = Long.parseLong(travelId);
 			Optional<TravelEty> existingTravelOpt = travelRepository.findByIdAndUserId(travelIdLong, ownerUid);
 			
@@ -85,10 +96,21 @@ public class TravelService implements ITravelService {
 			// Converti il nuovo itinerario dal DTO
 			TravelEty updatedTravelFromDto = travelMapper.convertDtoToEty(newTravelData);
 			
+			// ✅ LOG CRITICO: Verifica cosa esce dal mapper
+			log.info("🔍 DOPO MAPPER - Verifica Entity convertita:");
+			if (updatedTravelFromDto.getItinerary() != null) {
+				for (DailyItineraryEty dayEty : updatedTravelFromDto.getItinerary()) {
+					log.info("🔍 ENTITY DAY {} - memoryImageIndex: {}", 
+						dayEty.getDay(), dayEty.getMemoryImageIndex());
+				}
+			}
+			
 			// Copia il nuovo itinerario nell'entità esistente
 			if (updatedTravelFromDto.getItinerary() != null) {
 				for (DailyItineraryEty newDay : updatedTravelFromDto.getItinerary()) {
 					newDay.setTravel(existingTravel);
+					log.info("🔍 AGGIUNTA DAY {} - memoryImageIndex finale: {}", 
+						newDay.getDay(), newDay.getMemoryImageIndex());
 					existingTravel.getItinerary().add(newDay);
 				}
 			}
@@ -235,6 +257,8 @@ public class TravelService implements ITravelService {
 
 	@Transactional
 	public TravelDTO getTravelWithUrls(String userId, Long travelId) {
+		log.info("🔍 GET TRAVEL WITH URLS - Caricamento viaggio ID: {}", travelId);
+		
 		Optional<TravelEty> travelOpt = travelRepository.findByIdAndUserId(travelId, userId);
 
 		if (!travelOpt.isPresent()) {
@@ -251,7 +275,28 @@ public class TravelService implements ITravelService {
 			});
 		}
 		org.hibernate.Hibernate.initialize(entity.getFiles());
+		
+		// ✅ LOG CRITICO: Verifica cosa c'è nel DB
+		log.info("🔍 ENTITY DAL DB:");
+		if (entity.getItinerary() != null) {
+			for (DailyItineraryEty dayEty : entity.getItinerary()) {
+				log.info("🔍 DB DAY {} - memoryImageIndex: {}", 
+					dayEty.getDay(), dayEty.getMemoryImageIndex());
+			}
+		}
+		
 		TravelDTO dto = travelMapper.convertEtyToDTO(entity);
+		
+		// ✅ LOG CRITICO: Verifica cosa esce dal mapper
+		log.info("🔍 DTO DOPO MAPPER:");
+		if (dto.getItinerary() != null) {
+			for (DailyItineraryDTO dayDto : dto.getItinerary()) {
+				log.info("🔍 DTO DAY {} - memoryImageIndex: {}, memoryImageUrl: {}", 
+					dayDto.getDay(), 
+					dayDto.getMemoryImageIndex(),
+					dayDto.getMemoryImageUrl() != null ? "PRESENTE" : "NULL");
+			}
+		}
 		List<String> allFileIds = entity.getAllFileIds();
 		List<FileMetadata> fileMetadataList = entity.getFileMetadataList();
 
@@ -266,13 +311,19 @@ public class TravelService implements ITravelService {
 				if (dayDto.getMemoryImageIndex() != null) {
 					try {
 						int index = dayDto.getMemoryImageIndex();
+						log.info("🔍 GENERAZIONE URL - Day {} memoryImageIndex: {}, allFileIds.size: {}", 
+							dayDto.getDay(), index, allFileIds.size());
 						String fileId = allFileIds.get(index);
 						String dayUrl = storageService.getPublicUrl(fileId);
 						dayDto.setMemoryImageUrl(dayUrl);
+						log.info("🔍 URL GENERATO - Day {}: {}", dayDto.getDay(), dayUrl != null ? "OK" : "NULL");
 						// memoryImageIndex è già impostato dal mapper, non serve rifarlo
 					} catch (IndexOutOfBoundsException e) {
-						log.error("Indice immagine giorno fuori limite per Travel ID: {}", dto.getTravelId());
+						log.error("❌ Indice immagine giorno fuori limite per Travel ID: {}, index: {}, size: {}", 
+							dto.getTravelId(), dayDto.getMemoryImageIndex(), allFileIds.size());
 					}
+				} else {
+					log.warn("⚠️ Day {} - memoryImageIndex è NULL, nessun URL da generare", dayDto.getDay());
 				}
 
 				if (dayDto.getPoints() != null) {
