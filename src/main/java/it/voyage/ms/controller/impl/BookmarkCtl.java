@@ -1,6 +1,7 @@
 package it.voyage.ms.controller.impl;
 
 import it.voyage.ms.controller.IBookmarkCtl;
+import it.voyage.ms.dto.response.BookmarkCheckDTO;
 import it.voyage.ms.dto.response.BookmarkDTO;
 import it.voyage.ms.security.user.CustomUserDetails;
 import it.voyage.ms.service.IBookmarkService;
@@ -10,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Implementazione del controller per la gestione dei segnalibri
@@ -47,9 +47,10 @@ public class BookmarkCtl implements IBookmarkCtl {
 	}
 
 	@Override
-	public ResponseEntity<Map<String, Boolean>> isBookmarked(Long travelId, CustomUserDetails userDetails) {
+	public ResponseEntity<BookmarkCheckDTO> isBookmarked(Long travelId, CustomUserDetails userDetails) {
 		log.info("Verifica bookmark per travelId={} da userId={}", travelId, userDetails.getUserId());
 		boolean isBookmarked = bookmarkService.isBookmarked(userDetails.getUserId(), travelId);
-		return ResponseEntity.ok(Map.of("isBookmarked", isBookmarked));
+		BookmarkCheckDTO response = new BookmarkCheckDTO(isBookmarked);
+		return ResponseEntity.ok(response);
 	}
 }

@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import it.voyage.ms.dto.response.BookmarkCheckDTO;
 import it.voyage.ms.dto.response.BookmarkDTO;
 import it.voyage.ms.security.user.CustomUserDetails;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +13,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Controller per la gestione dei segnalibri
@@ -59,7 +59,7 @@ public interface IBookmarkCtl {
 			@ApiResponse(responseCode = "200", description = "Stato verificato con successo")
 	})
 	@GetMapping("/check/{travelId}")
-	ResponseEntity<Map<String, Boolean>> isBookmarked(
+	ResponseEntity<BookmarkCheckDTO> isBookmarked(
 			@Parameter(description = "ID del viaggio da verificare", required = true)
 			@PathVariable Long travelId, @AuthenticationPrincipal CustomUserDetails userDetails);
 }
