@@ -30,16 +30,6 @@ public class BookmarkDTO {
     private String travelName;
     
     /**
-     * Città del viaggio
-     */
-    private String city;
-    
-    /**
-     * Paese del viaggio
-     */
-    private String country;
-    
-    /**
      * Data inizio viaggio
      */
     private String dateFrom;
@@ -60,17 +50,8 @@ public class BookmarkDTO {
     private String ownerName;
     
     /**
-     * Avatar del proprietario
-     */
-    private String ownerAvatar;
-    
-    /**
      * Data in cui è stato creato il bookmark
      */
     private Date bookmarkedAt;
-    
-    /**
-     * URL dell'immagine di copertina del viaggio (se presente)
-     */
-    private String coverImageUrl;
+     
 }

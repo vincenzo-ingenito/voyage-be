@@ -22,7 +22,7 @@ public interface IBookmarkService {
      * @param userId ID dell'utente
      * @param travelId ID del viaggio
      */
-    void removeBookmark(String userId, String travelId);
+    void removeBookmark(String userId, Long travelId);
     
     /**
      * Verifica se un viaggio è salvato nei segnalibri dell'utente
@@ -30,7 +30,7 @@ public interface IBookmarkService {
      * @param travelId ID del viaggio
      * @return true se è salvato, false altrimenti
      */
-    boolean isBookmarked(String userId, String travelId);
+    boolean isBookmarked(String userId, Long travelId);
     
     /**
      * Ottiene tutti i segnalibri di un utente con i dettagli dei viaggi
@@ -38,11 +38,4 @@ public interface IBookmarkService {
      * @return Lista di bookmark con dettagli
      */
     List<BookmarkDTO> getUserBookmarks(String userId);
-    
-    /**
-     * Elimina tutti i bookmark associati a un viaggio
-     * (da chiamare quando un viaggio viene eliminato)
-     * @param travelId ID del viaggio
-     */
-    void deleteBookmarksByTravel(String travelId);
 }
