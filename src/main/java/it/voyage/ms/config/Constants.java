@@ -31,6 +31,14 @@ public final class Constants {
 		public static final String MS_NAME = "voyage";
  
 	}
+	
+	@NoArgsConstructor(access = AccessLevel.PRIVATE)
+	public static final class Google {
+
+		public static final String PLACES_AUTOCOMPLETE_URL = "https://maps.googleapis.com/maps/api/place/autocomplete/json";
+		public static final String PLACES_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json";
+ 
+	}
 
 
 }

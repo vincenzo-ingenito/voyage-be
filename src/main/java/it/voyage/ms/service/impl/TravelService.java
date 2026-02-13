@@ -51,20 +51,11 @@ public class TravelService implements ITravelService {
 
 	@Override
 	@Transactional
-	public TravelDTO updateExistingTravel(String ownerUid, String travelId, TravelDTO newTravelData, List<MultipartFile> files){
+	public TravelDTO updateExistingTravel(String ownerUid, Long travelId, TravelDTO newTravelData, List<MultipartFile> files){
 		try {
 			log.info("UPDATE TRAVEL - Inizio aggiornamento viaggio ID: {}", travelId);
-			if (newTravelData.getItinerary() != null) {
-				for (DailyItineraryDTO day : newTravelData.getItinerary()) {
-					log.info("DAY {} - memoryImageUri: {}, memoryImageIndex: {}", 
-						day.getDay(), 
-						day.getMemoryImageUrl() != null ? "PRESENTE" : "NULL",
-						day.getMemoryImageIndex());
-				}
-			}
-			
-			Long travelIdLong = Long.parseLong(travelId);
-			Optional<TravelEty> existingTravelOpt = travelRepository.findByIdAndUserId(travelIdLong, ownerUid);
+		 
+			Optional<TravelEty> existingTravelOpt = travelRepository.findByIdAndUserId(travelId, ownerUid);
 			
 			if (!existingTravelOpt.isPresent()) {
 				throw new BusinessException("Viaggio non trovato o non autorizzato.");
@@ -256,7 +247,7 @@ public class TravelService implements ITravelService {
 
 	@Transactional
 	public TravelDTO getTravelWithUrls(String userId, Long travelId) {
-		log.info("🔍 GET TRAVEL WITH URLS - Caricamento viaggio ID: {}", travelId);
+		log.info("GET TRAVEL WITH URLS - Caricamento viaggio ID: {}", travelId);
 		
 		Optional<TravelEty> travelOpt = travelRepository.findByIdAndUserId(travelId, userId);
 
@@ -276,26 +267,15 @@ public class TravelService implements ITravelService {
 		org.hibernate.Hibernate.initialize(entity.getFiles());
 		
 		// LOG CRITICO: Verifica cosa c'è nel DB
-		log.info("🔍 ENTITY DAL DB:");
+		log.info("ENTITY DAL DB:");
 		if (entity.getItinerary() != null) {
 			for (DailyItineraryEty dayEty : entity.getItinerary()) {
-				log.info("🔍 DB DAY {} - memoryImageIndex: {}", 
-					dayEty.getDay(), dayEty.getMemoryImageIndex());
+				log.info("DB DAY {} - memoryImageIndex: {}", dayEty.getDay(), dayEty.getMemoryImageIndex());
 			}
 		}
 		
 		TravelDTO dto = travelMapper.convertEtyToDTO(entity);
-		
-		// LOG CRITICO: Verifica cosa esce dal mapper
-		log.info("🔍 DTO DOPO MAPPER:");
-		if (dto.getItinerary() != null) {
-			for (DailyItineraryDTO dayDto : dto.getItinerary()) {
-				log.info("🔍 DTO DAY {} - memoryImageIndex: {}, memoryImageUrl: {}", 
-					dayDto.getDay(), 
-					dayDto.getMemoryImageIndex(),
-					dayDto.getMemoryImageUrl() != null ? "PRESENTE" : "NULL");
-			}
-		}
+		 
 		List<String> allFileIds = entity.getAllFileIds();
 		List<FileMetadata> fileMetadataList = entity.getFileMetadataList();
 
@@ -310,13 +290,11 @@ public class TravelService implements ITravelService {
 				if (dayDto.getMemoryImageIndex() != null) {
 					try {
 						int index = dayDto.getMemoryImageIndex();
-						log.info("🔍 GENERAZIONE URL - Day {} memoryImageIndex: {}, allFileIds.size: {}", 
-							dayDto.getDay(), index, allFileIds.size());
+						log.info("GENERAZIONE URL - Day {} memoryImageIndex: {}, allFileIds.size: {}", dayDto.getDay(), index, allFileIds.size());
 						String fileId = allFileIds.get(index);
 						String dayUrl = storageService.getPublicUrl(fileId);
 						dayDto.setMemoryImageUrl(dayUrl);
-						log.info("🔍 URL GENERATO - Day {}: {}", dayDto.getDay(), dayUrl != null ? "OK" : "NULL");
-						// memoryImageIndex è già impostato dal mapper, non serve rifarlo
+						log.info("URL GENERATO - Day {}: {}", dayDto.getDay(), dayUrl != null ? "OK" : "NULL");
 					} catch (IndexOutOfBoundsException e) {
 						log.error("Indice immagine giorno fuori limite per Travel ID: {}, index: {}, size: {}", dto.getTravelId(), dayDto.getMemoryImageIndex(), allFileIds.size());
 					}
@@ -345,17 +323,12 @@ public class TravelService implements ITravelService {
 										}
 									}
 
-									attachmentUrls.add(new AttachmentUrlDTO(
-											attachmentUrl,
-											fileName,
-											mimeType
-											));
+									attachmentUrls.add(new AttachmentUrlDTO(attachmentUrl, fileName, mimeType));
 								} catch (IndexOutOfBoundsException e) {
 									log.error("Indice allegato fuori limite per Travel ID: {}", dto.getTravelId());
 								}
 							}
 							pointDto.setAttachmentUrls(attachmentUrls);
-							// attachmentIndices è già impostato dal mapper, non serve rifarlo
 						}
 					}
 				}
@@ -405,8 +378,7 @@ public class TravelService implements ITravelService {
 			}
 
 			// 3. Carica l'utente e setta la relazione
-			UserEty user = userRepository.findById(userDetails.getUserId())
-					.orElseThrow(() -> new BusinessException("Utente non trovato"));
+			UserEty user = userRepository.findById(userDetails.getUserId()).orElseThrow(() -> new BusinessException("Utente non trovato"));
 			travel.setUser(user);
 
 			// 3. Processa e carica i file su Firebase PRIMA di salvare su DB
@@ -436,10 +408,8 @@ public class TravelService implements ITravelService {
 			TravelEty savedTravel = travelRepository.save(travel);
 			
 			log.info("Viaggio salvato con successo. ID: {}, Files: {}",  savedTravel.getId(), savedTravel.getFiles().size());
-
 			TravelDTO resultDTO = travelMapper.convertEtyToDTO(savedTravel);
 			populateAllFileUrls(resultDTO, savedTravel.getAllFileIds(), savedTravel.getFileMetadataList());
-			
 			return resultDTO;
 			
 		} catch (IOException e) {
@@ -460,13 +430,7 @@ public class TravelService implements ITravelService {
 	    List<String> allFileIds = new ArrayList<>();
 	    List<FileMetadata> allFileMetadata = new ArrayList<>();
 	    
-	    // Corretto: usa getUser().getId() invece di getUserId()
-	    FileSyncStateWithMetadata state = new FileSyncStateWithMetadata(
-	        travelEty.getUser().getId(), 
-	        travelEty.getId(), 
-	        allFileIds, 
-	        allFileMetadata
-	    );
+	    FileSyncStateWithMetadata state = new FileSyncStateWithMetadata(travelEty.getUser().getId(), travelEty.getId(), allFileIds, allFileMetadata);
 
 	    // Corretto: itera su DailyItineraryEty, non DTO
 	    for (DailyItineraryEty dailyEty : travelEty.getItinerary()) {
@@ -515,15 +479,6 @@ public class TravelService implements ITravelService {
 			this.metadata = metadata;
 		}
 	}
-	private static class FileConsumptionTracker {
-		private int consumedCount = 0;
-		private final int totalFiles;
-
-		FileConsumptionTracker(int totalFiles) {
-			this.totalFiles = totalFiles;
-		}
-
-	}
 
 	private static class FileSyncStateWithMetadata {
 		int fileCounter = 0; 
@@ -543,7 +498,6 @@ public class TravelService implements ITravelService {
 			return fileCounter++;
 		}
 	}
-
 	private void processDayMemoryImageWithMetadata(DailyItineraryEty dayDto, List<MultipartFile> files, FileSyncStateWithMetadata state) throws IOException {
 		Integer tempFileIndex = dayDto.getMemoryImageIndex();
 		if (tempFileIndex != null && tempFileIndex >= 0 && tempFileIndex < files.size()) {
@@ -640,13 +594,7 @@ public class TravelService implements ITravelService {
 		List<FileMetadata> newFileMetadata = new ArrayList<>();
 		
 		// State per tracciare l'upload dei nuovi file
-		FileSyncStateForUpdate state = new FileSyncStateForUpdate(
-			travelEty.getUser().getId(), 
-			travelEty.getId(), 
-			newFileIds, 
-			newFileMetadata,
-			existingFilesCount
-		);
+		FileSyncStateForUpdate state = new FileSyncStateForUpdate(travelEty.getUser().getId(), travelEty.getId(), newFileIds, newFileMetadata, existingFilesCount);
 
 		// Itera sull'itinerario e processa i file
 		for (DailyItineraryEty dailyEty : travelEty.getItinerary()) {
@@ -668,8 +616,7 @@ public class TravelService implements ITravelService {
 		final int existingFilesCount;
 		int fileCounter = 0;
 
-		FileSyncStateForUpdate(String userId, Long travelId, List<String> newFileIds, 
-				List<FileMetadata> newFileMetadata, int existingFilesCount) {
+		FileSyncStateForUpdate(String userId, Long travelId, List<String> newFileIds, List<FileMetadata> newFileMetadata, int existingFilesCount) {
 			this.userId = userId;
 			this.travelId = travelId;
 			this.newFileIds = newFileIds;
@@ -818,7 +765,6 @@ public class TravelService implements ITravelService {
 			}
 		}
 	}
-
 
 	/**
 	 * Risolve tutti gli URL dei file nell'itinerario e valida le coordinate

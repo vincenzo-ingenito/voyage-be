@@ -41,9 +41,6 @@ public class FirebaseConfig {
     @Bean
     public Storage storage() throws IOException {
     	 FileInputStream serviceAccount = new FileInputStream(pathServiceAccount);
-        return StorageOptions.newBuilder()
-            .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-            .build()
-            .getService();
+        return StorageOptions.newBuilder().setCredentials(GoogleCredentials.fromStream(serviceAccount)).build().getService();
     }
 }

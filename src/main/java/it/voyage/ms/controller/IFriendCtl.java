@@ -86,7 +86,6 @@ public interface IFriendCtl {
 			@ApiResponse(responseCode = "403", description = "Accesso negato. L'utente specificato non è l'utente corrente e non è un amico accettato."),
 			@ApiResponse(responseCode = "404", description = "Utente non trovato.")
 	})
-	ResponseEntity<List<CountryVisit>> getVisitedCountries(@PathVariable("friendId") String friendId, @AuthenticationPrincipal CustomUserDetails user
-	);
+	ResponseEntity<List<CountryVisit>> getVisitedCountries(@PathVariable("friendId") String friendId, @AuthenticationPrincipal CustomUserDetails user);
 
 }

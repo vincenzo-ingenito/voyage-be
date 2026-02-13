@@ -84,7 +84,7 @@ public class TravelCtl implements ITravelCtl {
 	}
 	
 	@Override
-	public ResponseEntity<TravelDTO> updateTravel(@PathVariable String travelId, @RequestPart("travelData") TravelDTO travelData, @RequestPart(value = "files", required = false) List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails userDetails) {
+	public ResponseEntity<TravelDTO> updateTravel(@PathVariable Long travelId, @RequestPart("travelData") TravelDTO travelData, @RequestPart(value = "files", required = false) List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails userDetails) {
 		log.info("Called update travel ep");
 		TravelDTO updatedTravel = travelService.updateExistingTravel(userDetails.getUserId(), travelId, travelData, files);
 		return ResponseEntity.ok(updatedTravel); 

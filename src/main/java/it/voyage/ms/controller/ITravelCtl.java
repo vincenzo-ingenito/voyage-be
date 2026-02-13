@@ -68,7 +68,6 @@ public interface ITravelCtl {
 			@AuthenticationPrincipal CustomUserDetails userDetails
 			);
 
-
 	@PostMapping(consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
 	@Operation(summary = "Crea un nuovo viaggio con file allegati", description = "Permette di salvare un nuovo viaggio con multipart/form-data e file allegati.")
 	@ApiResponses(value = {
@@ -92,7 +91,7 @@ public interface ITravelCtl {
 			@ApiResponse(responseCode = "404", description = "Not Found: Il viaggio non esiste o non appartiene all'utente."),
 			@ApiResponse(responseCode = "415", description = "Unsupported Media Type: Formato di richiesta non multipart/form-data.")
 	})
-	ResponseEntity<TravelDTO> updateTravel(@Parameter(description = "ID del viaggio da aggiornare") @PathVariable String travelId, @RequestPart("travelData") TravelDTO travelData, @RequestPart(value = "files", required = false) List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails userDetails);
+	ResponseEntity<TravelDTO> updateTravel(@Parameter(description = "ID del viaggio da aggiornare") @PathVariable Long travelId, @RequestPart("travelData") TravelDTO travelData, @RequestPart(value = "files", required = false) List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails userDetails);
 
 	@GetMapping(value = "/{travelId}/with-urls", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Recupera un viaggio con URL signed", description = "Restituisce un singolo viaggio con gli URL firmati per allegati e immagini. Chiamata on-demand per ridurre il payload iniziale. Può essere usato per visualizzare viaggi di amici passando il parametro userId.")

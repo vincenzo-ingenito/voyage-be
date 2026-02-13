@@ -1,6 +1,9 @@
 package it.voyage.ms.service;
 
+import it.voyage.ms.dto.response.PlaceAutocompleteDTO;
+import it.voyage.ms.dto.response.PlaceDetailsDTO;
+
 public interface IPlacesService {
-    String getAutocompleteResults(String input);
-    String getPlaceDetails(String placeId);
+    PlaceAutocompleteDTO getAutocompleteResults(String input);
+    PlaceDetailsDTO getPlaceDetails(String placeId);
 }

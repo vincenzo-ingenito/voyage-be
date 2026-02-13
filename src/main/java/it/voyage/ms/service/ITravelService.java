@@ -12,7 +12,7 @@ public interface ITravelService {
 
 	Boolean deleteTravelById(Long travelId, String userId);
 	
-	TravelDTO updateExistingTravel(String ownerUid, String travelId, TravelDTO newTravelData, List<MultipartFile> files);
+	TravelDTO updateExistingTravel(String ownerUid, Long travelId, TravelDTO newTravelData, List<MultipartFile> files);
 	
 	List<TravelDTO> getTravelsForUser(String userId);
 	
