@@ -68,7 +68,7 @@ public class TravelEty {
     @Transient
     public List<FileMetadata> getFileMetadataList() {
         return files.stream()
-                .map(f -> new FileMetadata(f.getFileName(), f.getMimeType(), f.getFileId()))
+                .map(f -> new FileMetadata(f.getFileId(),f.getFileName(), f.getMimeType()))
                 .collect(Collectors.toList());
     }
     
