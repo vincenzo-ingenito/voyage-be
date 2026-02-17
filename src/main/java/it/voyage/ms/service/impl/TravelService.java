@@ -51,6 +51,28 @@ public class TravelService implements ITravelService {
 
 	@Override
 	@Transactional
+	public Boolean deleteTravelById(Long travelId, String userId) {
+	    Optional<TravelEty> travelOpt = travelRepository.findByIdAndUserIdWithFiles(travelId, userId);
+
+	    if (!travelOpt.isPresent()) {
+	        log.warn("Tentativo di eliminare viaggio non esistente o non autorizzato: travelId={}, userId={}", travelId, userId);
+	        return false;
+	    }
+
+	    travelRepository.deleteById(travelId);
+	    log.info("Viaggio {} eliminato dal database", travelId);
+
+	    try {
+	        int deletedFilesCount = storageService.deleteTravelFolder(userId, travelId);
+	        log.info("Eliminati {} file dalla cartella del viaggio {} su Firebase Storage", deletedFilesCount, travelId);
+	    } catch (Exception e) {
+	        log.error("Viaggio {} eliminato dal DB ma errore su Storage: {}", travelId, e.getMessage());
+	    }
+	    return true;
+	}
+	
+	@Override
+	@Transactional
 	public TravelDTO updateExistingTravel(String ownerUid, Long travelId, TravelDTO newTravelData, List<MultipartFile> files){
 		try {
 			log.info("UPDATE TRAVEL - Inizio aggiornamento viaggio ID: {}", travelId);
@@ -99,8 +121,7 @@ public class TravelService implements ITravelService {
 			if (updatedTravelFromDto.getItinerary() != null) {
 				for (DailyItineraryEty newDay : updatedTravelFromDto.getItinerary()) {
 					newDay.setTravel(existingTravel);
-					log.info("🔍 AGGIUNTA DAY {} - memoryImageIndex finale: {}", 
-						newDay.getDay(), newDay.getMemoryImageIndex());
+					log.info("AGGIUNTA DAY {} - memoryImageIndex finale: {}", newDay.getDay(), newDay.getMemoryImageIndex());
 					existingTravel.getItinerary().add(newDay);
 				}
 			}
@@ -143,8 +164,7 @@ public class TravelService implements ITravelService {
 			log.info("Salvataggio viaggio aggiornato su PostgreSQL");
 			TravelEty savedTravel = travelRepository.save(existingTravel);
 			
-			log.info("Viaggio aggiornato con successo. ID: {}, Files: {}", 
-					savedTravel.getId(), savedTravel.getFiles().size());
+			log.info("Viaggio aggiornato con successo. ID: {}, Files: {}", savedTravel.getId(), savedTravel.getFiles().size());
 
 			// Converti in DTO e popola gli URL
 			TravelDTO resultDTO = travelMapper.convertEtyToDTO(savedTravel);
@@ -221,12 +241,15 @@ public class TravelService implements ITravelService {
 									try {
 										if (index < fileMetadataList.size()) {
 											FileMetadata metadata = fileMetadataList.get(index);
-											// URL vuoto - verrà popolato on-demand
-											attachmentMetadata.add(new AttachmentUrlDTO(
-													null, // URL non generato
-													metadata.getFileName(),
-													metadata.getMimeType()
-													));
+											
+											// Estrai il nome originale rimuovendo .encrypted se presente
+											String originalFileName = metadata.getFileName();
+											if (originalFileName != null && originalFileName.endsWith(".encrypted")) {
+												originalFileName = originalFileName.substring(0, originalFileName.length() - 10);
+											}
+											
+											// URL vuoto ma fileId sempre presente
+											attachmentMetadata.add(new AttachmentUrlDTO(null, originalFileName, metadata.getMimeType(), metadata.getFileId()));
 										}
 									} catch (IndexOutOfBoundsException e) {
 										log.error("Indice allegato fuori limite per Travel ID: {}", dto.getTravelId());
@@ -319,11 +342,15 @@ public class TravelService implements ITravelService {
 										FileMetadata metadata = fileMetadataList.get(index);
 										if (metadata != null) {
 											fileName = metadata.getFileName();
+											// Rimuovi .encrypted dal nome se presente
+											if (fileName != null && fileName.endsWith(".encrypted")) {
+												fileName = fileName.substring(0, fileName.length() - 10);
+											}
 											mimeType = metadata.getMimeType();
 										}
 									}
 
-									attachmentUrls.add(new AttachmentUrlDTO(attachmentUrl, fileName, mimeType));
+									attachmentUrls.add(new AttachmentUrlDTO(attachmentUrl, fileName, mimeType, allFileIds.get(index)));
 								} catch (IndexOutOfBoundsException e) {
 									log.error("Indice allegato fuori limite per Travel ID: {}", dto.getTravelId());
 								}
@@ -340,87 +367,66 @@ public class TravelService implements ITravelService {
 
 	@Override
 	@Transactional
-	public Boolean deleteTravelById(Long travelId, String userId) {
-		Optional<TravelEty> travelOpt = travelRepository.findByIdAndUserIdWithFiles(travelId, userId);
-
-		if (!travelOpt.isPresent()) {
-			log.warn("Tentativo di eliminare viaggio non esistente o non autorizzato: travelId={}, userId={}", travelId, userId);
-			return false;
-		}
-
-		TravelEty travel = travelOpt.get();
-		List<String> fileIds = travel.getAllFileIds();
-		if (fileIds != null && !fileIds.isEmpty()) {
-			log.info("Eliminazione di {} file associati al viaggio {}", fileIds.size(), travelId);
-			int deletedFilesCount = storageService.deleteFiles(fileIds);
-			if (deletedFilesCount < fileIds.size()) {
-				log.warn("Eliminati solo {}/{} file da Firebase Storage per il viaggio {}", deletedFilesCount, fileIds.size(), travelId);
-			} else {
-				log.info("Eliminati tutti i {} file da Firebase Storage per il viaggio {}", deletedFilesCount, travelId);
-			}
-		}
-		travelRepository.deleteById(travelId);
-		log.info("Viaggio {} eliminato con successo dal database", travelId);
-		return true;
-	}
-
-	@Override
-	@Transactional
 	public TravelDTO saveTravel(TravelDTO travelData, List<MultipartFile> files, CustomUserDetails userDetails) {
-		try {
-			// 1. Converti DTO in Entity
-			TravelEty travel = travelMapper.convertDtoToEty(travelData);  
+	    try {
+	        // 1. Converti DTO in Entity
+	        TravelEty travel = travelMapper.convertDtoToEty(travelData);
 
-			// 2. Se è un viaggio copiato, assicurati che tutti gli ID siano null per evitare duplicati
-			if (Boolean.TRUE.equals(travelData.getIsCopied())) {
-				log.info("Viaggio copiato rilevato, rimuovo tutti gli ID per permettere la creazione di nuove entità");
-				clearAllIds(travel);
-			}
+	        // 2. Se è un viaggio copiato, assicurati che tutti gli ID siano null
+	        if (Boolean.TRUE.equals(travelData.getIsCopied())) {
+	            log.info("Viaggio copiato rilevato, rimuovo tutti gli ID per permettere la creazione di nuove entità");
+	            clearAllIds(travel);
+	        }
 
-			// 3. Carica l'utente e setta la relazione
-			UserEty user = userRepository.findById(userDetails.getUserId()).orElseThrow(() -> new BusinessException("Utente non trovato"));
-			travel.setUser(user);
+	        // 3. Carica l'utente e setta la relazione
+	        UserEty user = userRepository.findById(userDetails.getUserId())
+	            .orElseThrow(() -> new BusinessException("Utente non trovato"));
+	        travel.setUser(user);
 
-			// 3. Processa e carica i file su Firebase PRIMA di salvare su DB
-			FileUploadResult uploadResult;
-			if (files != null && !files.isEmpty()) {
-				log.info("Caricamento di {} file su Firebase Storage", files.size());
-				uploadResult = processAndUploadAttachmentsWithMetadata(travel, files);
-			} else {
-				log.info("Nessun file da caricare");
-				uploadResult = new FileUploadResult(Collections.emptyList(), Collections.emptyList());
-			}
+	        // 4. SALVA PRIMA IL VIAGGIO PER OTTENERE L'ID
+	        log.info("Salvataggio viaggio su PostgreSQL per ottenere l'ID");
+	        TravelEty savedTravel = travelRepository.save(travel);
+	        
+	        // 5. ORA processa e carica i file su Firebase usando l'ID appena generato
+	        FileUploadResult uploadResult;
+	        if (files != null && !files.isEmpty()) {
+	            log.info("Caricamento di {} file su Firebase Storage", files.size());
+	            uploadResult = processAndUploadAttachmentsWithMetadata(savedTravel, files);
+	        } else {
+	            log.info("Nessun file da caricare");
+	            uploadResult = new FileUploadResult(Collections.emptyList(), Collections.emptyList());
+	        }
 
-			// 4. Crea le entità TravelFileEty e associale al viaggio
-			travel.getFiles().clear();
-			for (FileMetadata metadata : uploadResult.metadata) {
-				TravelFileEty fileEty = new TravelFileEty();
-				fileEty.setFileId(metadata.getFileId());
-				fileEty.setFileName(metadata.getFileName());
-				fileEty.setMimeType(metadata.getMimeType());
-				fileEty.setUploadDate(java.time.LocalDateTime.now());
-				fileEty.setTravel(travel);
-				travel.getFiles().add(fileEty);
-			}
+	        // 6. Crea le entità TravelFileEty e associale al viaggio
+	        savedTravel.getFiles().clear();
+	        for (FileMetadata metadata : uploadResult.metadata) {
+	            TravelFileEty fileEty = new TravelFileEty();
+	            fileEty.setFileId(metadata.getFileId());
+	            fileEty.setFileName(metadata.getFileName());
+	            fileEty.setMimeType(metadata.getMimeType());
+	            fileEty.setUploadDate(java.time.LocalDateTime.now());
+	            fileEty.setTravel(savedTravel);
+	            savedTravel.getFiles().add(fileEty);
+	        }
 
-			// 5. Salva il viaggio con tutti i file e l'itinerario su PostgreSQL
-			log.info("Salvataggio viaggio su PostgreSQL con {} file", travel.getFiles().size());
-			TravelEty savedTravel = travelRepository.save(travel);
-			
-			log.info("Viaggio salvato con successo. ID: {}, Files: {}",  savedTravel.getId(), savedTravel.getFiles().size());
-			TravelDTO resultDTO = travelMapper.convertEtyToDTO(savedTravel);
-			populateAllFileUrls(resultDTO, savedTravel.getAllFileIds(), savedTravel.getFileMetadataList());
-			return resultDTO;
-			
-		} catch (IOException e) {
-			log.error("Errore durante il caricamento dei file: {}", e.getMessage(), e);
-			throw new BusinessException("Errore durante il caricamento dei file.", e);
-		} catch (Exception e) {
-			log.error("Errore durante il salvataggio del viaggio: {}", e.getMessage(), e);
-			throw new BusinessException("Errore durante il salvataggio del viaggio.", e);
-		}
+	        // 7. Salva nuovamente per aggiornare con i file
+	        log.info("Aggiornamento viaggio con {} file", savedTravel.getFiles().size());
+	        savedTravel = travelRepository.save(savedTravel);
+
+	        log.info("Viaggio salvato con successo. ID: {}, Files: {}", savedTravel.getId(), savedTravel.getFiles().size());
+	        TravelDTO resultDTO = travelMapper.convertEtyToDTO(savedTravel);
+	        populateAllFileUrls(resultDTO, savedTravel.getAllFileIds(), savedTravel.getFileMetadataList());
+	        return resultDTO;
+
+	    } catch (IOException e) {
+	        log.error("Errore durante il caricamento dei file: {}", e.getMessage(), e);
+	        // ROLLBACK: cancella i file da Firebase se esistono
+	        throw new BusinessException("Errore durante il caricamento dei file.", e);
+	    } catch (Exception e) {
+	        log.error("Errore durante il salvataggio del viaggio: {}", e.getMessage(), e);
+	        throw new BusinessException("Errore durante il salvataggio del viaggio.", e);
+	    }
 	}
-
 	
 	private FileUploadResult processAndUploadAttachmentsWithMetadata(TravelEty travelEty, List<MultipartFile> files) throws IOException {
 	    if (travelEty.getItinerary() == null || travelEty.getItinerary().isEmpty()) {
@@ -549,8 +555,7 @@ public class TravelService implements ITravelService {
 			Integer memoryIndex = dayEty.getMemoryImageIndex();
 			if (memoryIndex != null) {
 				if (memoryIndex >= existingFilesCount) {
-					log.warn("Foto ricordo con indice {} fuori range (max: {}), rimuovo riferimento", 
-							memoryIndex, existingFilesCount - 1);
+					log.warn("Foto ricordo con indice {} fuori range (max: {}), rimuovo riferimento", memoryIndex, existingFilesCount - 1);
 					dayEty.setMemoryImageIndex(null);
 				} else {
 					log.debug("Foto ricordo valida, indice: {}", memoryIndex);
@@ -838,14 +843,20 @@ public class TravelService implements ITravelService {
 										FileMetadata metadata = fileMetadataList.get(index);
 										if (metadata != null) {
 											fileName = metadata.getFileName();
+											// Rimuovi .encrypted dal nome se presente
+											if (fileName != null && fileName.endsWith(".encrypted")) {
+												fileName = fileName.substring(0, fileName.length() - 10);
+											}
 											mimeType = metadata.getMimeType();
 										}
 									}
 
+									String currentFileId = allFileIds.get(index);
 									attachmentUrls.add(new AttachmentUrlDTO(
 											attachmentUrl,
 											fileName,
-											mimeType
+											mimeType,
+											currentFileId
 											));
 									log.debug("URL allegato popolato per punto {}", pointDto.getName());
 								}
@@ -899,7 +910,7 @@ public class TravelService implements ITravelService {
 				String fileId = allFileIds.get(index);
 				String attachmentUrl = storageService.getPublicUrl(fileId);
 
-				attachmentUrls.add(new AttachmentUrlDTO(attachmentUrl, "file", "application/octet-stream"));
+				attachmentUrls.add(new AttachmentUrlDTO(attachmentUrl, "file", "application/octet-stream", fileId));
 			} catch (IndexOutOfBoundsException e) {
 				log.error("Indice allegato fuori limite per Travel ID: {}", travelId);
 			}
@@ -1125,70 +1136,5 @@ public class TravelService implements ITravelService {
 		newDi.setMemoryImageUrl(dayItinerary.getMemoryImageUrl());
 
 		return newDi;
-	}
-
-	/**
-	 * Elimina la foto ricordo di un giorno specifico
-	 */
-	@Override
-	public TravelDTO deleteMemoryPhoto(String userId, String travelId, int dayNumber) {
-		// Recupera il viaggio
-		Long travelIdLong = Long.parseLong(travelId);
-		Optional<TravelEty> travelOpt = travelRepository.findByIdAndUserId(travelIdLong, userId);
-
-		if (!travelOpt.isPresent()) {
-			throw new BusinessException("Viaggio non trovato o non autorizzato.");
-		}
-
-		TravelEty travel = travelOpt.get();
-
-		// Converti l'itinerario in DTO per lavorarci
-		TravelDTO travelDTO = travelMapper.convertEtyToDTO(travel);
-
-		// Trova il giorno nell'itinerario
-		if (travelDTO.getItinerary() == null || travelDTO.getItinerary().isEmpty()) {
-			throw new BusinessException("Itinerario non trovato.");
-		}
-
-		DailyItineraryDTO targetDay = null;
-		for (DailyItineraryDTO day : travelDTO.getItinerary()) {
-			if (day.getDay() == dayNumber) {
-				targetDay = day;
-				break;
-			}
-		}
-
-		if (targetDay == null) {
-			throw new BusinessException("Giorno " + dayNumber + " non trovato nell'itinerario.");
-		}
-
-		// Verifica se esiste una foto ricordo per questo giorno
-		if (targetDay.getMemoryImageIndex() == null) {
-			throw new BusinessException("Nessuna foto ricordo da eliminare per il giorno " + dayNumber);
-		}
-
-		// Ottieni l'indice del file da eliminare
-		Integer memoryImageIndex = targetDay.getMemoryImageIndex();
-
-		// Elimina il riferimento alla foto ricordo dal giorno
-		targetDay.setMemoryImageIndex(null);
-		targetDay.setMemoryImageUrl(null);
-
-		// Aggiorna il DTO e riconverti in Entity
-		travelDTO.setItinerary(travelDTO.getItinerary()); // Il targetDay è già aggiornato nella lista
-		TravelEty updatedTravel = travelMapper.convertDtoToEty(travelDTO);
-		updatedTravel.setId(travel.getId());
-		updatedTravel.setUser(travel.getUser());
-
-		// Salva il viaggio aggiornato
-		TravelEty savedTravel = travelRepository.save(updatedTravel);
-
-		// Converti in DTO e popola gli URL rimanenti
-		TravelDTO resultDTO = travelMapper.convertEtyToDTO(savedTravel);
-		populateAllFileUrls(resultDTO, savedTravel.getAllFileIds(), savedTravel.getFileMetadataList());
-
-		log.info("Foto ricordo eliminata per il viaggio {} - giorno {}, indice file: {}", travelId, dayNumber, memoryImageIndex);
-
-		return resultDTO;
 	}
 }

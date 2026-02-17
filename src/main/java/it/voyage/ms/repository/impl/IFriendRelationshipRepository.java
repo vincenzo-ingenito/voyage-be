@@ -6,14 +6,14 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import it.voyage.ms.repository.entity.FriendRelationshipEty;
 import jakarta.transaction.Transactional;
 
 @Repository
-public interface IFriendRelationshipRepository
-        extends JpaRepository<FriendRelationshipEty, String> {
+public interface IFriendRelationshipRepository extends JpaRepository<FriendRelationshipEty, String> {
 
     List<FriendRelationshipEty> findByRequesterIdAndStatus(String requesterId, String status);
 
@@ -29,13 +29,7 @@ public interface IFriendRelationshipRepository
             String receiverId2
     );
 
-    List<FriendRelationshipEty>
-    findByRequesterIdAndStatusOrReceiverIdAndStatus(
-            String requesterId,
-            String requesterStatus,
-            String receiverId,
-            String receiverStatus
-    );
+    List<FriendRelationshipEty> findByRequesterIdAndStatusOrReceiverIdAndStatus(String requesterId, String requesterStatus, String receiverId, String receiverStatus);
 
     // =========================
     // DELETE friendship (bidirezionale)
@@ -147,4 +141,22 @@ public interface IFriendRelationshipRepository
             String user2Id,
             String blockerName
     );
+    
+    @Query("""
+    	    SELECT r FROM FriendRelationshipEty r
+    	    LEFT JOIN FETCH r.requester
+    	    WHERE r.receiverId = :receiverId
+    	    AND r.status = :status
+    	""")
+    	List<FriendRelationshipEty> findPendingRequestsWithRequester(
+    	    @Param("receiverId") String receiverId, 
+    	    @Param("status") String status
+    	);
+    
+    boolean existsByRequesterIdAndReceiverIdOrReceiverIdAndRequesterId(
+    	    String requesterId, 
+    	    String receiverId, 
+    	    String receiverId2, 
+    	    String requesterId2
+    	);
 }

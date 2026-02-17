@@ -26,11 +26,4 @@ public interface IEncryptionService {
      */
     byte[] decrypt(byte[] encryptedData, String userId, EncryptionMetadata metadata);
     
-    /**
-     * Verifica se un utente può decriptare un file
-     * @param userId ID utente
-     * @param metadata Metadata di crittografia
-     * @return true se l'utente può decriptare
-     */
-    boolean canDecrypt(String userId, EncryptionMetadata metadata);
 }

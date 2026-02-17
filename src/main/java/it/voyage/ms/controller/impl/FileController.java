@@ -1,0 +1,67 @@
+package it.voyage.ms.controller.impl;
+
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.google.cloud.storage.Blob;
+
+import it.voyage.ms.controller.IFileController;
+import it.voyage.ms.security.user.CustomUserDetails;
+import it.voyage.ms.service.IFirebaseStorageService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+ 
+@Slf4j
+@RestController
+@RequiredArgsConstructor
+public class FileController implements IFileController {
+
+	private final IFirebaseStorageService storageService;
+
+	@Override
+	public ResponseEntity<Resource> downloadFile(String fileId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+		String firebaseUid = userDetails.getUserId();
+		log.info("Download file richiesto: {} per utente Firebase: {}", fileId, firebaseUid);
+
+		if (fileId == null || fileId.trim().isEmpty()) {
+			log.error("File ID vuoto o null!");
+			return ResponseEntity.badRequest().build();
+		}
+
+		// Decodifica URL encoding (se necessario)
+		String decodedFileId = java.net.URLDecoder.decode(fileId, java.nio.charset.StandardCharsets.UTF_8);
+		log.debug("Path file decodificato: {}", decodedFileId);
+
+		byte[] fileData = storageService.downloadAndDecryptFile(decodedFileId, firebaseUid);
+
+		// Recupera i metadati originali del file
+		Blob blob = storageService.getBlob(decodedFileId);
+
+		if (blob == null || blob.getMetadata() == null) {
+			log.error("Blob o metadata non trovati per: {}", decodedFileId);
+			return ResponseEntity.notFound().build();
+		}
+
+		// Estrai nome file e content type dai metadata
+		String originalFileName = blob.getMetadata().getOrDefault("original-filename", "download");
+		String contentType = blob.getMetadata().getOrDefault("content-type", "application/octet-stream");
+
+		log.info("File decriptato con successo: {} ({} bytes)", originalFileName, fileData.length);
+
+		// Crea la risorsa per il download
+		ByteArrayResource resource = new ByteArrayResource(fileData);
+
+		// Restituisci il file con gli header corretti
+		return ResponseEntity.ok().contentType(MediaType.parseMediaType(contentType))
+				.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + originalFileName + "\"")
+				.contentLength(fileData.length)
+				.body(resource);
+
+
+	}
+}

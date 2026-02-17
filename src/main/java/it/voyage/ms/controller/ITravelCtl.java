@@ -122,19 +122,4 @@ public interface ITravelCtl {
 			@AuthenticationPrincipal CustomUserDetails userDetails
 	);
 
-	@DeleteMapping(value = "/{travelId}/day/{dayNumber}/memory-photo", produces = MediaType.APPLICATION_JSON_VALUE)
-	@Operation(summary = "Elimina la foto ricordo di un giorno", description = "Rimuove la foto ricordo (memoryImage) associata a un giorno specifico dell'itinerario.")
-	@ApiResponses(value = {
-			@ApiResponse(responseCode = "200", 
-					description = "Foto ricordo eliminata con successo.", 
-					content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = TravelDTO.class))),
-			@ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato."),
-			@ApiResponse(responseCode = "404", description = "Not Found: Il viaggio o il giorno non esistono.")
-	})
-	ResponseEntity<TravelDTO> deleteMemoryPhoto(
-			@Parameter(description = "ID del viaggio") @PathVariable String travelId,
-			@Parameter(description = "Numero del giorno") @PathVariable int dayNumber,
-			@AuthenticationPrincipal CustomUserDetails userDetails
-	);
-
 }

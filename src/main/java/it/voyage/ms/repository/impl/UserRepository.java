@@ -20,4 +20,13 @@ public interface UserRepository extends JpaRepository<UserEty, String> {
      */
     @Query("SELECT u FROM UserEty u WHERE LOWER(u.name) LIKE LOWER(CONCAT('%', :query, '%'))")
     List<UserEty> findByNameRegex(@Param("query") String query);
+    
+    @Query("""
+    	    SELECT DISTINCT u FROM UserEty u
+    	    LEFT JOIN FriendRelationshipEty r1 ON r1.requesterId = :userId AND r1.receiverId = u.id AND r1.status = :status
+    	    LEFT JOIN FriendRelationshipEty r2 ON r2.receiverId = :userId AND r2.requesterId = u.id AND r2.status = :status
+    	    WHERE (r1.id IS NOT NULL OR r2.id IS NOT NULL)
+    	    OR u.id = :userId
+    	""")
+    	List<UserEty> findAcceptedFriendsAndSelf(@Param("userId") String userId, @Param("status") String status);
 }

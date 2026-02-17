@@ -106,10 +106,4 @@ public class TravelCtl implements ITravelCtl {
 		return ResponseEntity.ok(confirmedTravel);
 	}
 
-	@Override
-	public ResponseEntity<TravelDTO> deleteMemoryPhoto(@PathVariable String travelId, @PathVariable int dayNumber, @AuthenticationPrincipal CustomUserDetails userDetails) {
-		log.info("Called delete memory photo ep for travelId: {}, day: {}", travelId, dayNumber);
-		TravelDTO updatedTravel = travelService.deleteMemoryPhoto(userDetails.getUserId(), travelId, dayNumber);
-		return ResponseEntity.ok(updatedTravel);
-	}
 }

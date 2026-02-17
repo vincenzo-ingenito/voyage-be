@@ -3,7 +3,6 @@ package it.voyage.ms.service.impl;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -22,11 +21,12 @@ import it.voyage.ms.dto.response.EncryptedData;
 import it.voyage.ms.dto.response.EncryptionMetadata;
 import it.voyage.ms.dto.response.FileMetadata;
 import it.voyage.ms.service.IEncryptionService;
+import it.voyage.ms.service.IFirebaseStorageService;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
-public class FirebaseStorageService {
+public class FirebaseStorageService implements IFirebaseStorageService {
 
 	private final Storage storage;
 	private final IEncryptionService encryptionService;
@@ -150,104 +150,118 @@ public class FirebaseStorageService {
 	}
 	
 	/**
-	 * Elimina un file da Firebase Storage
+	 * Ottiene il blob di Firebase Storage
 	 * 
-	 * @param fileId Path del file su Firebase Storage
-	 * @return true se eliminato con successo, false altrimenti
+	 * @param fileId ID del file
+	 * @return Blob di Firebase Storage
 	 */
-	public boolean deleteFile(String fileId) {
+	@Override
+	public Blob getBlob(String fileId) {
 		if (fileId == null || fileId.isEmpty()) {
-			log.warn("Tentativo di eliminare file con fileId null o vuoto");
-			return false;
+			return null;
 		}
 		
 		try {
 			BlobId blobId = BlobId.of(bucketName, fileId);
-			boolean deleted = storage.delete(blobId);
-			
-			if (deleted) {
-				log.info("File eliminato da Firebase Storage: {}", fileId);
-			} else {
-				log.warn("File non trovato su Firebase Storage (potrebbe essere già stato eliminato): {}", fileId);
-			}
-			
-			return deleted;
-			
+			return storage.get(blobId);
 		} catch (Exception e) {
-			log.error("Errore durante l'eliminazione del file {}: {}", fileId, e.getMessage(), e);
-			return false;
+			log.error("Errore nel recupero del blob {}: {}", fileId, e.getMessage());
+			return null;
 		}
 	}
 	
 	/**
-	 * Elimina multipli file da Firebase Storage in batch
-	 * 
-	 * @param fileIds Lista di path dei file da eliminare
-	 * @return Numero di file eliminati con successo
-	 */
-	public int deleteFiles(List<String> fileIds) {
-		if (fileIds == null || fileIds.isEmpty()) {
-			log.info("Nessun file da eliminare");
-			return 0;
-		}
-		
-		int deletedCount = 0;
-		log.info("Inizio eliminazione batch di {} file da Firebase Storage", fileIds.size());
-		
-		for (String fileId : fileIds) {
-			if (deleteFile(fileId)) {
-				deletedCount++;
-			}
-		}
-		
-		log.info("Eliminati {}/{} file da Firebase Storage", deletedCount, fileIds.size());
-		return deletedCount;
-	}
-	
-	/**
-	 * Scarica e decripta un file criptato
-	 * Ritorna i byte del file decriptato pronto per l'uso
+	 * Scarica e decripta un file (versione semplificata per l'endpoint download)
 	 * 
 	 * @param fileId Path del file su Firebase Storage
 	 * @param userId ID dell'utente proprietario
-	 * @param encryption Metadata di crittografia
 	 * @return byte[] del file decriptato
 	 */
-	public byte[] downloadAndDecrypt(String fileId, String userId, EncryptionMetadata encryption) {
+	@Override
+	public byte[] downloadAndDecryptFile(String fileId, String userId) {
 		try {
 			log.info("Download e decrittazione file: {}", fileId);
 			
 			// 1. Scarica file criptato da Firebase
-			BlobId blobId = BlobId.of(bucketName, fileId);
-			Blob blob = storage.get(blobId);
+			Blob blob = getBlob(fileId);
 			
 			if (blob == null) {
 				throw new RuntimeException("File non trovato: " + fileId);
 			}
 			
-			byte[] encryptedData = blob.getContent();
+			byte[] fileData = blob.getContent();
 			
-			// 2. Se il file non è criptato, ritornalo direttamente
-			if (encryption == null || !encryption.isEncrypted()) {
+			// 2. Verifica se il file è criptato dai metadata
+			Map<String, String> metadata = blob.getMetadata();
+			boolean isEncrypted = metadata != null && "true".equals(metadata.get("encrypted"));
+			
+			if (!isEncrypted) {
 				log.info("File non criptato, ritorno dati originali");
-				return encryptedData;
+				return fileData;
 			}
 			
-			// 3. Decripta il file
+			// 3. Crea EncryptionMetadata dai metadati del blob
+			EncryptionMetadata encryptionMeta = new EncryptionMetadata(true, metadata.get("algorithm"), metadata.get("iv"), metadata.get("key-id"));
+			
+			// 4. Decripta il file
 			if (encryptionService == null) {
 				throw new RuntimeException("EncryptionService non disponibile");
 			}
 			
-			byte[] decryptedData = encryptionService.decrypt(encryptedData, userId, encryption);
-			
+			byte[] decryptedData = encryptionService.decrypt(fileData, userId, encryptionMeta);
 			log.info("File decriptato con successo, dimensione: {} bytes", decryptedData.length);
-			
 			return decryptedData;
-			
 		} catch (Exception e) {
 			log.error("Errore durante download e decrittazione di {}: {}", fileId, e.getMessage(), e);
 			throw new RuntimeException("Errore durante download e decrittazione del file", e);
 		}
 	}
-
+	
+	
+	/**
+	 * Elimina tutti i file di un viaggio da Firebase Storage
+	 * Cancella l'intera cartella travel-files/{userId}/{travelId}/
+	 * 
+	 * @param userId ID dell'utente
+	 * @param travelId ID del viaggio
+	 * @return Numero di file eliminati
+	 */
+	public int deleteTravelFolder(String userId, Long travelId) {
+		if (userId == null || travelId == null) {
+			log.warn("Tentativo di eliminare cartella viaggio con parametri null");
+			return 0;
+		}
+		
+		String folderPrefix = String.format("travel-files/%s/%s/", userId, travelId);
+		log.info("Eliminazione cartella viaggio: {}", folderPrefix);
+		
+		try {
+			// Lista tutti i blob nella cartella del viaggio
+			com.google.api.gax.paging.Page<Blob> blobs = storage.list(
+				bucketName,
+				com.google.cloud.storage.Storage.BlobListOption.prefix(folderPrefix)
+			);
+			
+			int deletedCount = 0;
+			for (Blob blob : blobs.iterateAll()) {
+				try {
+					boolean deleted = storage.delete(blob.getBlobId());
+					if (deleted) {
+						deletedCount++;
+						log.debug("File eliminato: {}", blob.getName());
+					}
+				} catch (Exception e) {
+					log.error("Errore eliminazione file {}: {}", blob.getName(), e.getMessage());
+				}
+			}
+			
+			log.info("Cartella viaggio eliminata: {} ({} file)", folderPrefix, deletedCount);
+			return deletedCount;
+			
+		} catch (Exception e) {
+			log.error("Errore durante l'eliminazione della cartella viaggio {}: {}", folderPrefix, e.getMessage(), e);
+			return 0;
+		}
+	}
+	 
 }

@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -44,81 +43,39 @@ public class FriendshipService implements IFriendshipService {
 	public boolean checkIfUserAreFriends(String userId, String friendId) {
 		return friendRelationshipRepository.findFriendshipByUsersAndStatus(userId, friendId, FriendRelationshipStatusEnum.ACCEPTED.name()).isPresent();
 	}
-
+ 
 	@Override
 	public List<UserDto> getAcceptedFriendsList(String currentUserId) {
-		List<FriendRelationshipEty> relationships = friendRelationshipRepository
-				.findByRequesterIdAndStatusOrReceiverIdAndStatus(
-						currentUserId,
-						FriendRelationshipStatusEnum.ACCEPTED.name(),
-						currentUserId,
-						FriendRelationshipStatusEnum.ACCEPTED.name()
-						);
+	    List<UserEty> users = userRepository.findAcceptedFriendsAndSelf(currentUserId, FriendRelationshipStatusEnum.ACCEPTED.name());
 
-		List<String> userIdsToFetch = relationships.stream()
-				.map(rel -> rel.getRequesterId().equals(currentUserId) ? rel.getReceiverId() : rel.getRequesterId())
-				.collect(Collectors.toList());
-		userIdsToFetch.add(currentUserId);
+	    List<UserDto> output = new ArrayList<>();
+	    List<UserDto> others = new ArrayList<>();
 
-		List<UserEty> allUsers = userRepository.findAllById(userIdsToFetch);
+	    for (UserEty u : users) {
+	        UserDto dto = UserDto.fromEntityWithUid(u, currentUserId);
+	        if (u.getId().equals(currentUserId)) {
+	            output.add(0, dto);
+	        } else {
+	            others.add(dto);
+	        }
+	    }
 
-		Map<String, UserDto> userDtoMap = allUsers.stream()
-				.collect(Collectors.toMap(
-						UserEty::getId,
-						f -> UserDto.fromEntityWithUid(f, currentUserId)
-						));
-
-		List<UserDto> output = new ArrayList<>();
-
-		if (userDtoMap.containsKey(currentUserId)) {
-			output.add(userDtoMap.get(currentUserId));
-			userDtoMap.remove(currentUserId); 
-		}
-		output.addAll(userDtoMap.values()); 
-		return output;
+	    output.addAll(others);
+	    return output;
 	}
-
+	
 	@Override
 	public List<FriendRelationshipDto> getPendingRequests(String receiverId) {
+	    List<FriendRelationshipEty> pendingRequests = friendRelationshipRepository.findPendingRequestsWithRequester(receiverId, FriendRelationshipStatusEnum.PENDING.name());
 
-		List<FriendRelationshipEty> pendingRequests = friendRelationshipRepository
-				.findByReceiverIdAndStatus(receiverId, FriendRelationshipStatusEnum.PENDING.name());
-
-		if (pendingRequests.isEmpty()) {
-			return Collections.emptyList();
-		}
-
-		Set<String> requesterIds = pendingRequests.stream()
-				.map(FriendRelationshipEty::getRequesterId)
-				.collect(Collectors.toSet());
-
-		List<UserEty> requesters = userRepository.findAllById(requesterIds);
-
-		// Mappa gli utenti per un accesso rapido O(1) in memoria
-		Map<String, UserEty> requesterMap = requesters.stream()
-				.collect(Collectors.toMap(UserEty::getId, user -> user));
-
-		// 3. Mappa le relazioni in DTO usando il Mapper e la mappa di utenti
-		List<FriendRelationshipDto> dtos = pendingRequests.stream()
-				.map(relationship -> mapAndEnrich(relationship, requesterMap))
-				.filter(Optional::isPresent)
-				.map(Optional::get)
-				.collect(Collectors.toList());
-
-		return dtos;
+	    return pendingRequests.stream()
+	        .filter(r -> r.getRequester() != null)
+	        .map(r -> friendrelationShipMapper.mapToFriendRelationshipDto(
+	            r, r.getRequester().getName(), r.getRequester().getAvatar()
+	        ))
+	        .collect(Collectors.toList());
 	}
-
-	private Optional<FriendRelationshipDto> mapAndEnrich(FriendRelationshipEty relationship, Map<String, UserEty> requesterMap){
-		UserEty requester = requesterMap.get(relationship.getRequesterId());
-
-		if (requester == null) {
-			return Optional.empty(); 
-		}
-
-		FriendRelationshipDto dto = friendrelationShipMapper.mapToFriendRelationshipDto(relationship, requester.getName(), requester.getAvatar());
-		return Optional.of(dto);
-	}
-
+	
 
 	@Override
 	public List<UserSearchResult> searchUsersAndDetermineStatus(String query, String currentUserId) {
@@ -204,38 +161,28 @@ public class FriendshipService implements IFriendshipService {
 		// Mappa i campi base dell'utente e aggiunge lo stato
 		return userMapper.mapToSearchResult(user, status); 
 	}
-
+ 
 	@Override
 	public String sendFriendRequest(String requesterId, String receiverId) {
-		Optional<FriendRelationshipEty> existingRelationship = friendRelationshipRepository.findByRequesterIdAndReceiverIdOrReceiverIdAndRequesterId(requesterId, receiverId,requesterId, receiverId);
+	    // 1. Prima verifica che il receiver esista
+	    UserEty receiverUser = userRepository.findById(receiverId).orElseThrow(() -> new NotFoundException("Utente destinatario non trovato."));
 
-		if (existingRelationship.isPresent()) {
-			throw new ConflictException("Una richiesta o una relazione di amicizia con questo utente esiste già.");
-		}
+	    // 2. Poi controlla se esiste già una relazione
+	    if (friendRelationshipRepository.existsByRequesterIdAndReceiverIdOrReceiverIdAndRequesterId(requesterId, receiverId, requesterId, receiverId)) {
+	        throw new ConflictException("Una richiesta o una relazione di amicizia con questo utente esiste già.");
+	    }
 
-		// 3. Controllo esistenza del destinatario
-		// .orElseThrow funziona sia con JpaRepository che con MongoRepository.
-		UserEty receiverUser = userRepository.findById(receiverId)
-				.orElseThrow(() -> new NotFoundException("Utente destinatario non trovato."));
+	    // 3. Crea la relazione
+	    FriendRelationshipEty newRequest = new FriendRelationshipEty();
+	    newRequest.setRequesterId(requesterId);
+	    newRequest.setReceiverId(receiverId);
+	    newRequest.setStatus(receiverUser.isPrivate() ? FriendRelationshipStatusEnum.PENDING.name() : FriendRelationshipStatusEnum.ACCEPTED.name());
 
+	    friendRelationshipRepository.save(newRequest);
 
-		// 4. Creazione e determinazione dello stato
-		FriendRelationshipEty newRequest = new FriendRelationshipEty();
-		newRequest.setRequesterId(requesterId);
-		newRequest.setReceiverId(receiverId);
-
-		if (receiverUser.isPrivate()) {
-			// Profilo privato -> Richiesta PENDING
-			newRequest.setStatus(FriendRelationshipStatusEnum.PENDING.name());
-			friendRelationshipRepository.save(newRequest);
-			return "Richiesta di amicizia inviata con successo.";
-		} else {
-			// Profilo pubblico -> Accettazione automatica
-			newRequest.setStatus(FriendRelationshipStatusEnum.ACCEPTED.name());
-			friendRelationshipRepository.save(newRequest);
-			return "Amico aggiunto con successo! Il profilo è pubblico.";
-		}
+	    return receiverUser.isPrivate() ? "Richiesta di amicizia inviata con successo." : "Amico aggiunto con successo! Il profilo è pubblico.";
 	}
+	
 
 	@Override
 	public String handleFriendRequest(String requesterId, String receiverId, String action) {
@@ -310,6 +257,5 @@ public class FriendshipService implements IFriendshipService {
 		out.setName(userEty.getName());
 		return out;
 	}
-	
 
 }

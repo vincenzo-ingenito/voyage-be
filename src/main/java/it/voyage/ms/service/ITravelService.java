@@ -22,7 +22,5 @@ public interface ITravelService {
 	
 	TravelDTO confirmTravelDates(String userId, String travelId);
 	
-	TravelDTO deleteMemoryPhoto(String userId, String travelId, int dayNumber);
-	
 	List<CountryVisit> getConsolidatedCountryVisits(String userId);
 }
