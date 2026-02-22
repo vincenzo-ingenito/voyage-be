@@ -40,4 +40,22 @@ public interface IFileController {
         @Parameter(hidden = true)
         @AuthenticationPrincipal CustomUserDetails userDetails
     );
+    
+    @GetMapping("/public-download")
+    @Operation(summary = "Download file pubblico (non criptato)", 
+               description = "Scarica file pubblici come foto ricordo che non sono criptati. " +
+                            "Usato per day-memory e cover images.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "File scaricato con successo"),
+        @ApiResponse(responseCode = "400", description = "File ID non valido o mancante"),
+        @ApiResponse(responseCode = "401", description = "Utente non autenticato"),
+        @ApiResponse(responseCode = "404", description = "File non trovato"),
+        @ApiResponse(responseCode = "500", description = "Errore durante il download del file")
+    })
+    ResponseEntity<Resource> downloadPublicFile(
+        @Parameter(description = "ID del file pubblico su Firebase Storage", required = true)
+        @RequestParam("fileId") String fileId,
+        @Parameter(hidden = true)
+        @AuthenticationPrincipal CustomUserDetails userDetails
+    );
 }

@@ -15,6 +15,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
@@ -41,6 +42,7 @@ public class TravelEty {
     
     // Relazione 1:N con DailyItinerary
     @OneToMany(mappedBy = "travel", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("day ASC")
     private List<DailyItineraryEty> itinerary = new ArrayList<>();
 
     @Column(name = "date_from")
