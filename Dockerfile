@@ -38,37 +38,37 @@ WORKDIR /app
 # Copia solo il JAR dall'immagine di build
 COPY --from=build --chown=appuser:appuser /app/target/*.jar app.jar
 
-# Ottimizzazioni JVM ULTRA per 512MB
-# Breakdown memoria:
-# - Heap: 128-300MB (ridotto da 320MB per più margine)
-# - Metaspace: 96MB
-# - Code Cache: 32MB (ridotto da default 240MB)
-# - Thread stacks: ~50MB
+# Ottimizzazioni JVM BILANCIATE per 512MB
+# Breakdown memoria (aggiustato dopo OOM Metaspace):
+# - Heap: 128-280MB (bilanciato per lasciare spazio a Metaspace)
+# - Metaspace: 160MB (aumentato da 96MB - Spring Boot 3.x + dipendenze pesanti)
+# - Code Cache: 64MB (aumentato da 32MB - necessario per JIT)
+# - Thread stacks: ~40MB
 # - Direct memory: 32MB (ridotto da default 128MB)
-# - Overhead JVM: ~50MB
-# TOTALE: ~400-450MB (margine sicurezza ~60-110MB)
+# - Overhead JVM: ~40MB
+# TOTALE: ~440-480MB (margine sicurezza ~32-72MB)
 ENV JAVA_TOOL_OPTIONS="\
 -Xms128m \
--Xmx300m \
--XX:MaxMetaspaceSize=96m \
--XX:MetaspaceSize=96m \
--XX:ReservedCodeCacheSize=32m \
+-Xmx280m \
+-XX:MaxMetaspaceSize=160m \
+-XX:MetaspaceSize=128m \
+-XX:ReservedCodeCacheSize=64m \
 -XX:MaxDirectMemorySize=32m \
 -XX:+UseG1GC \
+-XX:G1HeapRegionSize=1m \
 -XX:MaxGCPauseMillis=100 \
 -XX:+UseStringDeduplication \
 -XX:+OptimizeStringConcat \
 -XX:+UseCompressedOops \
 -XX:+UseCompressedClassPointers \
--XX:+TieredCompilation \
--XX:TieredStopAtLevel=1 \
 -XX:+ExitOnOutOfMemoryError \
 -XX:+HeapDumpOnOutOfMemoryError \
 -XX:HeapDumpPath=/tmp/heapdump.hprof \
 -Djava.security.egd=file:/dev/./urandom \
 -Dspring.jmx.enabled=false \
 -Dfile.encoding=UTF-8 \
--Djava.awt.headless=true"
+-Djava.awt.headless=true \
+-verbose:gc"
 
 # Switch a user non-root
 USER appuser
