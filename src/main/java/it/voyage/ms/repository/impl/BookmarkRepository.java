@@ -52,4 +52,13 @@ public interface BookmarkRepository extends JpaRepository<BookmarkEty, Long> {
 			)
 			""")
 	int deleteOrphanedBookmarks();
+
+	/**
+	 * Elimina tutti i bookmark associati a un viaggio
+	 * @param travelId ID del viaggio
+	 * @return numero di bookmark eliminati
+	 */
+	@Transactional
+	@Modifying
+	int deleteByTravelId(Long travelId);
 }

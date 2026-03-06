@@ -47,6 +47,7 @@ public class TravelService implements ITravelService {
 	private final FirebaseStorageService storageService;
 	private final TravelMapper travelMapper;
 	private final it.voyage.ms.repository.impl.UserRepository userRepository;
+	private final it.voyage.ms.repository.impl.BookmarkRepository bookmarkRepository;
 
 
 	@Override
@@ -59,6 +60,13 @@ public class TravelService implements ITravelService {
 	        return false;
 	    }
 
+	    // PRIMA elimina tutti i bookmark associati al viaggio per evitare violazione di foreign key
+	    int deletedBookmarksCount = bookmarkRepository.deleteByTravelId(travelId);
+	    if (deletedBookmarksCount > 0) {
+	        log.info("Eliminati {} bookmark associati al viaggio {}", deletedBookmarksCount, travelId);
+	    }
+
+	    // POI elimina il viaggio
 	    travelRepository.deleteById(travelId);
 	    log.info("Viaggio {} eliminato dal database", travelId);
 
@@ -109,10 +117,10 @@ public class TravelService implements ITravelService {
 			TravelEty updatedTravelFromDto = travelMapper.convertDtoToEty(newTravelData);
 			
 			// LOG CRITICO: Verifica cosa esce dal mapper
-			log.info("🔍 DOPO MAPPER - Verifica Entity convertita:");
+			log.info("DOPO MAPPER - Verifica Entity convertita:");
 			if (updatedTravelFromDto.getItinerary() != null) {
 				for (DailyItineraryEty dayEty : updatedTravelFromDto.getItinerary()) {
-					log.info("🔍 ENTITY DAY {} - memoryImageIndex: {}", 
+					log.info("ENTITY DAY {} - memoryImageIndex: {}", 
 						dayEty.getDay(), dayEty.getMemoryImageIndex());
 				}
 			}
@@ -290,7 +298,6 @@ public class TravelService implements ITravelService {
 		org.hibernate.Hibernate.initialize(entity.getFiles());
 		
 		// LOG CRITICO: Verifica cosa c'è nel DB
-		log.info("ENTITY DAL DB:");
 		if (entity.getItinerary() != null) {
 			for (DailyItineraryEty dayEty : entity.getItinerary()) {
 				log.info("DB DAY {} - memoryImageIndex: {}", dayEty.getDay(), dayEty.getMemoryImageIndex());
@@ -575,8 +582,7 @@ public class TravelService implements ITravelService {
 								validIndices.add(index);
 								log.debug("Allegato valido, indice: {}", index);
 							} else {
-								log.warn("Allegato con indice {} fuori range (max: {}), rimuovo riferimento", 
-										index, existingFilesCount - 1);
+								log.warn("Allegato con indice {} fuori range (max: {}), rimuovo riferimento", index, existingFilesCount - 1);
 							}
 						}
 						
