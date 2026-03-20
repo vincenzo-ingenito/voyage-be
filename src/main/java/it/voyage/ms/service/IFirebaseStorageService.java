@@ -12,7 +12,7 @@ import java.io.IOException;
 public interface IFirebaseStorageService {
 
     /**
-     * Carica un file su Firebase Storage con metadata encryption info
+     * Carica un file su Firebase Storage
      * 
      * @param file File da caricare
      * @param userId ID utente proprietario
@@ -32,13 +32,13 @@ public interface IFirebaseStorageService {
     String getPublicUrl(String fileId);
 
     /**
-     * Scarica e decripta un file
+     * Scarica un file da Firebase Storage
      * 
      * @param fileId ID del file
      * @param userId ID dell'utente richiedente
-     * @return Dati del file decriptati
+     * @return Dati del file
      */
-    byte[] downloadAndDecryptFile(String fileId, String userId);
+    byte[] downloadFile(String fileId, String userId);
 
     /**
      * Ottiene il blob di Firebase Storage

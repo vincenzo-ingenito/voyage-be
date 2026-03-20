@@ -14,15 +14,4 @@ public class FileMetadata {
     private String fileId;        // Il path del file su Firebase Storage
     private String fileName;      // Nome originale del file
     private String mimeType;      // Tipo MIME del file
-    private EncryptionMetadata encryption;  // Metadata di crittografia (null se non criptato)
-    
-    /**
-     * Costruttore per file non criptati (backward compatibility)
-     */
-    public FileMetadata(String fileId, String fileName, String mimeType) {
-        this.fileId = fileId;
-        this.fileName = fileName;
-        this.mimeType = mimeType;
-        this.encryption = EncryptionMetadata.unencrypted();
-    }
 }

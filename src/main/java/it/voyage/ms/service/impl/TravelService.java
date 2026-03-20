@@ -250,14 +250,8 @@ public class TravelService implements ITravelService {
 										if (index < fileMetadataList.size()) {
 											FileMetadata metadata = fileMetadataList.get(index);
 											
-											// Estrai il nome originale rimuovendo .encrypted se presente
-											String originalFileName = metadata.getFileName();
-											if (originalFileName != null && originalFileName.endsWith(".encrypted")) {
-												originalFileName = originalFileName.substring(0, originalFileName.length() - 10);
-											}
-											
 											// URL vuoto ma fileId sempre presente
-											attachmentMetadata.add(new AttachmentUrlDTO(null, originalFileName, metadata.getMimeType(), metadata.getFileId()));
+											attachmentMetadata.add(new AttachmentUrlDTO(null, metadata.getFileName(), metadata.getMimeType(), metadata.getFileId()));
 										}
 									} catch (IndexOutOfBoundsException e) {
 										log.error("Indice allegato fuori limite per Travel ID: {}", dto.getTravelId());
@@ -349,10 +343,6 @@ public class TravelService implements ITravelService {
 										FileMetadata metadata = fileMetadataList.get(index);
 										if (metadata != null) {
 											fileName = metadata.getFileName();
-											// Rimuovi .encrypted dal nome se presente
-											if (fileName != null && fileName.endsWith(".encrypted")) {
-												fileName = fileName.substring(0, fileName.length() - 10);
-											}
 											mimeType = metadata.getMimeType();
 										}
 									}
@@ -849,10 +839,6 @@ public class TravelService implements ITravelService {
 										FileMetadata metadata = fileMetadataList.get(index);
 										if (metadata != null) {
 											fileName = metadata.getFileName();
-											// Rimuovi .encrypted dal nome se presente
-											if (fileName != null && fileName.endsWith(".encrypted")) {
-												fileName = fileName.substring(0, fileName.length() - 10);
-											}
 											mimeType = metadata.getMimeType();
 										}
 									}

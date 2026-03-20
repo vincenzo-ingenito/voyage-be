@@ -2,12 +2,9 @@ package it.voyage.ms.service.impl;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -17,10 +14,7 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 
-import it.voyage.ms.dto.response.EncryptedData;
-import it.voyage.ms.dto.response.EncryptionMetadata;
 import it.voyage.ms.dto.response.FileMetadata;
-import it.voyage.ms.service.IEncryptionService;
 import it.voyage.ms.service.IFirebaseStorageService;
 import lombok.extern.slf4j.Slf4j;
 
@@ -29,14 +23,10 @@ import lombok.extern.slf4j.Slf4j;
 public class FirebaseStorageService implements IFirebaseStorageService {
 
 	private final Storage storage;
-	private final IEncryptionService encryptionService;
 	private final String bucketName = "voyage-ed2d0.firebasestorage.app";
 
-
-
-	public FirebaseStorageService(Storage storage, @Autowired(required = false) IEncryptionService encryptionService) {
+	public FirebaseStorageService(Storage storage) {
 		this.storage = storage;
-		this.encryptionService = encryptionService;
 	}
 
 	/**
@@ -46,25 +36,18 @@ public class FirebaseStorageService implements IFirebaseStorageService {
 	 * @param userId ID dell'utente
 	 * @param travelId ID del viaggio
 	 * @param category Categoria del file (es. "day-memory", "point-attachment")
-	 * @return FileMetadata con fileId, fileName, mimeType e encryption info
+	 * @return FileMetadata con fileId, fileName, mimeType
 	 */
 	public FileMetadata uploadFileWithMetadata(MultipartFile file, String userId, Long travelId, String category) throws IOException {
-		boolean shouldEncrypt = "point-attachment".equals(category);
-		
-		if (shouldEncrypt && encryptionService != null) {
-			log.info("Caricamento file CRIPTATO per categoria: {}", category);
-			return uploadEncryptedFile(file, userId, travelId, category);
-		} else {
-			log.info("Caricamento file STANDARD per categoria: {}", category);
-			return uploadStandardFile(file, userId, travelId, category);
-		}
+		log.info("Caricamento file per categoria: {}", category);
+		return uploadFile(file, userId, travelId, category);
 	}
 	
 	/**
-	 * Carica un file STANDARD (non criptato) su Firebase Storage
-	 * Usato per foto ricordo (day-memory) e cover images
+	 * Carica un file su Firebase Storage
+	 * Tutti i file sono ora pubblicamente accessibili
 	 */
-	private FileMetadata uploadStandardFile(MultipartFile file, String userId, Long travelId, String category) throws IOException {
+	private FileMetadata uploadFile(MultipartFile file, String userId, Long travelId, String category) throws IOException {
 		String originalFileName = file.getOriginalFilename();
 		String contentType = file.getContentType();
 
@@ -79,49 +62,6 @@ public class FirebaseStorageService implements IFirebaseStorageService {
 		storage.create(blobInfo, file.getBytes());
 
 		return new FileMetadata(filePath, originalFileName, contentType);
-	}
-	
-	/**
-	 * Carica un file CRIPTATO su Firebase Storage
-	 * Utilizzato automaticamente per gli allegati (point-attachment)
-	 * 
-	 * Processo:
-	 * 1. Cripta il file con AES-256 GCM
-	 * 2. Salva file criptato su Firebase
-	 * 3. Salva metadata crittografia in MongoDB
-	 */
-	private FileMetadata uploadEncryptedFile(MultipartFile file, String userId, Long travelId, String category) throws IOException {
-		String originalFileName = file.getOriginalFilename();
-		String originalContentType = file.getContentType();
-		
-		// 1. Cripta il file
-		EncryptedData encryptedData = encryptionService.encrypt(file.getBytes(), userId);
-		
-		// 2. Crea path con estensione .encrypted
-		String filePath = String.format("travel-files/%s/%s/%s/%s_%s.encrypted", userId, travelId, category, UUID.randomUUID().toString(), originalFileName);
-		
-		// 3. Prepara metadata per Firebase (inclusi dati crittografia)
-		Map<String, String> metadata = new HashMap<>();
-		metadata.put("original-mime-type", originalContentType);
-		metadata.put("original-filename", originalFileName);
-		metadata.put("encrypted", "true");
-		metadata.put("algorithm", encryptedData.getMetadata().getAlgorithm());
-		metadata.put("iv", encryptedData.getMetadata().getIv());
-		metadata.put("key-id", encryptedData.getMetadata().getKeyId());
-		
-		// 4. Upload file criptato su Firebase (NO ACL pubblico!)
-		BlobId blobId = BlobId.of(bucketName, filePath);
-		BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
-				.setContentType("application/octet-stream")  // File criptato = binario generico
-				.setMetadata(metadata)
-				.build();  
-		
-		storage.create(blobInfo, encryptedData.getEncryptedBytes());
-		
-		log.info("File criptato caricato su: {}", filePath);
-		
-		// 5. Ritorna metadata completi (con encryption info)
-		return new FileMetadata(filePath, originalFileName, originalContentType, encryptedData.getMetadata());
 	}
 
 	public String getPublicUrl(String fileId) {
@@ -171,18 +111,18 @@ public class FirebaseStorageService implements IFirebaseStorageService {
 	}
 	
 	/**
-	 * Scarica e decripta un file (versione semplificata per l'endpoint download)
+	 * Scarica un file da Firebase Storage
 	 * 
 	 * @param fileId Path del file su Firebase Storage
 	 * @param userId ID dell'utente proprietario
-	 * @return byte[] del file decriptato
+	 * @return byte[] del file
 	 */
 	@Override
-	public byte[] downloadAndDecryptFile(String fileId, String userId) {
+	public byte[] downloadFile(String fileId, String userId) {
 		try {
-			log.info("Download e decrittazione file: {}", fileId);
+			log.info("Download file: {}", fileId);
 			
-			// 1. Scarica file criptato da Firebase
+			// Scarica file da Firebase
 			Blob blob = getBlob(fileId);
 			
 			if (blob == null) {
@@ -190,30 +130,11 @@ public class FirebaseStorageService implements IFirebaseStorageService {
 			}
 			
 			byte[] fileData = blob.getContent();
-			
-			// 2. Verifica se il file è criptato dai metadata
-			Map<String, String> metadata = blob.getMetadata();
-			boolean isEncrypted = metadata != null && "true".equals(metadata.get("encrypted"));
-			
-			if (!isEncrypted) {
-				log.info("File non criptato, ritorno dati originali");
-				return fileData;
-			}
-			
-			// 3. Crea EncryptionMetadata dai metadati del blob
-			EncryptionMetadata encryptionMeta = new EncryptionMetadata(true, metadata.get("algorithm"), metadata.get("iv"), metadata.get("key-id"));
-			
-			// 4. Decripta il file
-			if (encryptionService == null) {
-				throw new RuntimeException("EncryptionService non disponibile");
-			}
-			
-			byte[] decryptedData = encryptionService.decrypt(fileData, userId, encryptionMeta);
-			log.info("File decriptato con successo, dimensione: {} bytes", decryptedData.length);
-			return decryptedData;
+			log.info("File scaricato con successo, dimensione: {} bytes", fileData.length);
+			return fileData;
 		} catch (Exception e) {
-			log.error("Errore durante download e decrittazione di {}: {}", fileId, e.getMessage(), e);
-			throw new RuntimeException("Errore durante download e decrittazione del file", e);
+			log.error("Errore durante download di {}: {}", fileId, e.getMessage(), e);
+			throw new RuntimeException("Errore durante download del file", e);
 		}
 	}
 	

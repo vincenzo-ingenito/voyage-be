@@ -37,7 +37,7 @@ public class FileController implements IFileController {
 		String decodedFileId = java.net.URLDecoder.decode(fileId, java.nio.charset.StandardCharsets.UTF_8);
 		log.debug("Path file decodificato: {}", decodedFileId);
 
-		byte[] fileData = storageService.downloadAndDecryptFile(decodedFileId, firebaseUid);
+		byte[] fileData = storageService.downloadFile(decodedFileId, firebaseUid);
 
 		// Recupera i metadati originali del file
 		Blob blob = storageService.getBlob(decodedFileId);
@@ -51,7 +51,7 @@ public class FileController implements IFileController {
 		String originalFileName = blob.getMetadata().getOrDefault("original-filename", "download");
 		String contentType = blob.getMetadata().getOrDefault("content-type", "application/octet-stream");
 
-		log.info("File decriptato con successo: {} ({} bytes)", originalFileName, fileData.length);
+		log.info("File scaricato con successo: {} ({} bytes)", originalFileName, fileData.length);
 
 		// Crea la risorsa per il download
 		ByteArrayResource resource = new ByteArrayResource(fileData);
