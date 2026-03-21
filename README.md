@@ -1,82 +1,65 @@
-@startuml
-!theme plain
-hide circle
-skinparam linetype ortho
+erDiagram
+    UserEty["UserEty"] {
+        string id PK
+        string name
+        string email
+        boolean isPrivate
+        date createdAt
+    }
 
-entity "UserEty" as User {
-  +id : String <<PK>>
-  --
-  name : String
-  email : String
-  isPrivate : boolean
-  createdAt : Date
-}
+    TravelEty["TravelEty"] {
+        long id PK
+        string userId FK
+        string travelName
+        string dateFrom
+        string dateTo
+    }
 
-entity "TravelEty" as Travel {
-  +id : Long <<PK>>
-  --
-  user_id : String <<FK>>
-  travelName : String
-  dateFrom : String
-  dateTo : String
-}
+    DailyItineraryEty["DailyItineraryEty"] {
+        long id PK
+        long travelId FK
+        int day
+        string date
+        int memoryImageIndex
+    }
 
-entity "DailyItineraryEty" as DailyItinerary {
-  +id : Long <<PK>>
-  --
-  travel_id : Long <<FK>>
-  day : Integer
-  date : String
-  memoryImageIndex : Integer
-}
+    PointEty["PointEty"] {
+        long id PK
+        long itineraryId FK
+        string name
+        double lat
+        double lng
+        string country
+        string attachmentIndices
+    }
 
-entity "PointEty" as Point {
-  +id : Long <<PK>>
-  --
-  daily_itinerary_id : Long <<FK>>
-  name : String
-  latitude : Double
-  longitude : Double
-  country : String
-  attachmentIndices : String
-}
+    TravelFileEty["TravelFileEty"] {
+        long id PK
+        long travelId FK
+        string fileId
+        string fileName
+        string mimeType
+    }
 
-entity "TravelFileEty" as TravelFile {
-  +id : Long <<PK>>
-  --
-  travel_id : Long <<FK>>
-  fileId : String
-  fileName : String
-  mimeType : String
-}
+    BookmarkEty["BookmarkEty"] {
+        long id PK
+        string userId FK
+        long travelId FK
+        string travelOwnerId
+    }
 
-entity "BookmarkEty" as Bookmark {
-  +id : Long <<PK>>
-  --
-  user_id : String <<FK>>
-  travel_id : Long <<FK>>
-  travelOwnerId : String
-}
+    FriendRelationshipEty["FriendRelationshipEty"] {
+        long id PK
+        string requesterId FK
+        string receiverId FK
+        string status
+    }
 
-entity "FriendRelationshipEty" as Friendship {
-  +id : Long <<PK>>
-  --
-  requester_id : String <<FK>>
-  receiver_id : String <<FK>>
-  status : String
-}
-
-' ================= RELAZIONI =================
-
-User ||--o{ Travel : possiede
-User ||--o{ Bookmark : salva
-User ||--o{ Friendship : invia
-User ||--o{ Friendship : riceve
-
-Travel ||--o{ DailyItinerary : ha
-Travel ||--o{ TravelFile : ha
-Travel ||--o{ Bookmark : in
-
-DailyItinerary ||--o{ Point : ha
-
-@enduml
+    UserEty ||--o{ TravelEty : possiede
+    UserEty ||--o{ BookmarkEty : salva
+    UserEty ||--o{ FriendRelationshipEty : invia
+    UserEty ||--o{ FriendRelationshipEty : riceve
+    TravelEty ||--o{ DailyItineraryEty : ha
+    TravelEty ||--o{ TravelFileEty : ha
+    TravelEty ||--o{ BookmarkEty : in
+    DailyItineraryEty ||--o{ PointEty : ha
