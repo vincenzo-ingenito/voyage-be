@@ -55,11 +55,11 @@ erDiagram
         string status
     }
 
-    UserEty ||--o{ TravelEty : possiede
-    UserEty ||--o{ BookmarkEty : salva
-    UserEty ||--o{ FriendRelationshipEty : invia
-    UserEty ||--o{ FriendRelationshipEty : riceve
-    TravelEty ||--o{ DailyItineraryEty : ha
-    TravelEty ||--o{ TravelFileEty : ha
-    TravelEty ||--o{ BookmarkEty : in
-    DailyItineraryEty ||--o{ PointEty : ha
+    UserEty ||--o{ TravelEty : owns
+    UserEty ||--o{ BookmarkEty : bookmarks
+    UserEty ||--o{ FriendRelationshipEty : sends
+    UserEty ||--o{ FriendRelationshipEty : receives
+    TravelEty ||--o{ DailyItineraryEty : contains
+    TravelEty ||--o{ TravelFileEty : has
+    TravelEty ||--o{ BookmarkEty : referenced_by
+    DailyItineraryEty ||--o{ PointEty : includes
