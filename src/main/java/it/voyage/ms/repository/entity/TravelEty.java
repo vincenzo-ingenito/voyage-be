@@ -9,6 +9,7 @@ import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -17,7 +18,6 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -31,16 +31,17 @@ public class TravelEty {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
     private Long id;
-    
+
     @Column(name = "travel_name")
     private String travelName;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false, referencedColumnName = "id")
+    @JoinColumn(name = "user_id", nullable = false, referencedColumnName = "id",
+                foreignKey = @ForeignKey(name = "fk_travel_user"))
     private UserEty user;
-    
-    // Relazione 1:N con DailyItinerary
+
     @OneToMany(mappedBy = "travel", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("day ASC")
     private List<DailyItineraryEty> itinerary = new ArrayList<>();
@@ -51,39 +52,46 @@ public class TravelEty {
     @Column(name = "date_to")
     private String dateTo;
 
+    /**
+     * Unica relazione per i file allegati al viaggio.
+     * FileMetadataEty è stata rimossa: TravelFileEty è l'unica fonte di verità.
+     */
     @OneToMany(mappedBy = "travel", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("uploadDate ASC")
     private List<TravelFileEty> files = new ArrayList<>();
-    
+
     @Column(name = "is_copied")
     private Boolean isCopied;
 
     @Column(name = "needs_date_confirmation")
     private Boolean needsDateConfirmation;
-    
-    @Transient
+
+    // -------------------------------------------------------------------------
+    // Helper methods — NON annotati @Transient: quella annotazione vale solo
+    // per i campi persistiti, non per i metodi di utilità.
+    // -------------------------------------------------------------------------
+
     public List<String> getAllFileIds() {
         return files.stream()
                 .map(TravelFileEty::getFileId)
                 .collect(Collectors.toList());
     }
 
-    @Transient
     public List<FileMetadata> getFileMetadataList() {
         return files.stream()
-                .map(f -> new FileMetadata(f.getFileId(),f.getFileName(), f.getMimeType()))
+                .map(f -> new FileMetadata(f.getFileId(), f.getFileName(), f.getMimeType()))
                 .collect(Collectors.toList());
     }
-    
-    @Transient
+
+    /**
+     * Sostituisce la lista dei file a partire dai soli fileId.
+     * I metadati (nome, mime, url) vanno impostati separatamente se disponibili.
+     */
     public void setAllFileIds(List<String> fileIds) {
-        // Questo metodo ricrea la lista di TravelFileEty basandosi sui fileIds
-        // NOTA: Questo mantiene solo gli ID, i metadati vanno persi
+        this.files.clear();
         if (fileIds == null || fileIds.isEmpty()) {
-            this.files.clear();
             return;
         }
-        
-        this.files.clear();
         for (String fileId : fileIds) {
             TravelFileEty fileEty = new TravelFileEty();
             fileEty.setFileId(fileId);
@@ -91,17 +99,16 @@ public class TravelEty {
             this.files.add(fileEty);
         }
     }
-    
-    @Transient
-    public void setFileMetadataList(List<FileMetadataEty> metadataList) {
-        // Questo metodo ricrea la lista di TravelFileEty dai metadati
+
+    /**
+     * Sostituisce la lista dei file a partire dai DTO FileMetadata.
+     */
+    public void setFileMetadataList(List<FileMetadata> metadataList) {
+        this.files.clear();
         if (metadataList == null || metadataList.isEmpty()) {
-            this.files.clear();
             return;
         }
-        
-        this.files.clear();
-        for (FileMetadataEty metadata : metadataList) {
+        for (FileMetadata metadata : metadataList) {
             TravelFileEty fileEty = new TravelFileEty();
             fileEty.setFileId(metadata.getFileId());
             fileEty.setFileName(metadata.getFileName());
@@ -110,5 +117,4 @@ public class TravelEty {
             this.files.add(fileEty);
         }
     }
-         
 }

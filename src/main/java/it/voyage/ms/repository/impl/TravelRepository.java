@@ -16,17 +16,61 @@ import it.voyage.ms.repository.entity.TravelEty;
 public interface TravelRepository extends JpaRepository<TravelEty, Long> {
 
     List<TravelEty> findByUserId(String userId);
-
     Optional<TravelEty> findByIdAndUserId(Long id, String userId);
-    
-    /**
-     * Trova un viaggio con i suoi file caricati in una singola query (JOIN FETCH)
-     * Ottimizzato per l'eliminazione
-     */
-    @Query("SELECT t FROM TravelEty t LEFT JOIN FETCH t.files WHERE t.id = :id AND t.user.id = :userId")
-    Optional<TravelEty> findByIdAndUserIdWithFiles(@Param("id") Long id, @Param("userId") String userId);
 
     @Modifying
     @Transactional
     long deleteByIdAndUserId(Long id, String userId);
+
+    // Query 1: solo itinerary (senza points)
+    @Query("""
+        SELECT DISTINCT t FROM TravelEty t
+        LEFT JOIN FETCH t.itinerary
+        WHERE t.id = :id AND t.user.id = :userId
+        """)
+    Optional<TravelEty> findByIdAndUserIdWithItinerary(
+        @Param("id") Long id, @Param("userId") String userId);
+
+    // Query 2: itinerary con points (separata, stessa transazione)
+    @Query("""
+        SELECT DISTINCT t FROM TravelEty t
+        LEFT JOIN FETCH t.itinerary i
+        LEFT JOIN FETCH i.points
+        WHERE t.id = :id AND t.user.id = :userId
+        """)
+    Optional<TravelEty> findByIdAndUserIdWithPoints(
+        @Param("id") Long id, @Param("userId") String userId);
+
+    // Query 3: files
+    @Query("""
+        SELECT DISTINCT t FROM TravelEty t
+        LEFT JOIN FETCH t.files
+        WHERE t.id = :id AND t.user.id = :userId
+        """)
+    Optional<TravelEty> findByIdAndUserIdWithFiles(
+        @Param("id") Long id, @Param("userId") String userId);
+
+    // --- versioni lista ---
+
+    @Query("""
+        SELECT DISTINCT t FROM TravelEty t
+        LEFT JOIN FETCH t.itinerary
+        WHERE t.user.id = :userId
+        """)
+    List<TravelEty> findByUserIdWithItinerary(@Param("userId") String userId);
+
+    @Query("""
+        SELECT DISTINCT t FROM TravelEty t
+        LEFT JOIN FETCH t.itinerary i
+        LEFT JOIN FETCH i.points
+        WHERE t.user.id = :userId
+        """)
+    List<TravelEty> findByUserIdWithPoints(@Param("userId") String userId);
+
+    @Query("""
+        SELECT DISTINCT t FROM TravelEty t
+        LEFT JOIN FETCH t.files
+        WHERE t.user.id = :userId
+        """)
+    List<TravelEty> findByUserIdWithFiles(@Param("userId") String userId);
 }

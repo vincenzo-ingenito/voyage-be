@@ -20,6 +20,7 @@ import it.voyage.ms.exceptions.NotFoundException;
 import it.voyage.ms.mapper.FriendrelationshipMapper;
 import it.voyage.ms.mapper.UserMapper;
 import it.voyage.ms.repository.entity.FriendRelationshipEty;
+import it.voyage.ms.repository.entity.FriendRelationshipEty.Status;
 import it.voyage.ms.repository.entity.UserEty;
 import it.voyage.ms.repository.impl.IFriendRelationshipRepository;
 import it.voyage.ms.repository.impl.UserRepository;
@@ -30,232 +31,217 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class FriendshipService implements IFriendshipService {
 
-	private final UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final IFriendRelationshipRepository friendRelationshipRepository;
+    private final FriendrelationshipMapper friendrelationShipMapper;
+    private final UserMapper userMapper;
 
-	private final IFriendRelationshipRepository friendRelationshipRepository;
+    @Override
+    public boolean checkIfUserAreFriends(String userId, String friendId) {
+        return friendRelationshipRepository.findFriendshipByUsersAndStatus(userId, friendId, Status.ACCEPTED).isPresent();
+    }
 
-	private final FriendrelationshipMapper friendrelationShipMapper;
+    @Override
+    public List<UserDto> getAcceptedFriendsList(String currentUserId) {
+        List<UserEty> users = userRepository
+            .findAcceptedFriendsAndSelf(currentUserId, Status.ACCEPTED);
 
-	private final UserMapper userMapper;
+        List<UserDto> output = new ArrayList<>();
+        List<UserDto> others = new ArrayList<>();
 
+        for (UserEty u : users) {
+            UserDto dto = UserDto.fromEntityWithUid(u, currentUserId);
+            if (u.getId().equals(currentUserId)) {
+                output.add(0, dto);
+            } else {
+                others.add(dto);
+            }
+        }
 
-	@Override
-	public boolean checkIfUserAreFriends(String userId, String friendId) {
-		return friendRelationshipRepository.findFriendshipByUsersAndStatus(userId, friendId, FriendRelationshipStatusEnum.ACCEPTED.name()).isPresent();
-	}
- 
-	@Override
-	public List<UserDto> getAcceptedFriendsList(String currentUserId) {
-	    List<UserEty> users = userRepository.findAcceptedFriendsAndSelf(currentUserId, FriendRelationshipStatusEnum.ACCEPTED.name());
+        output.addAll(others);
+        return output;
+    }
 
-	    List<UserDto> output = new ArrayList<>();
-	    List<UserDto> others = new ArrayList<>();
+    @Override
+    public List<FriendRelationshipDto> getPendingRequests(String receiverId) {
+        List<FriendRelationshipEty> pendingRequests = friendRelationshipRepository
+            .findPendingRequestsWithRequester(receiverId, Status.PENDING);
 
-	    for (UserEty u : users) {
-	        UserDto dto = UserDto.fromEntityWithUid(u, currentUserId);
-	        if (u.getId().equals(currentUserId)) {
-	            output.add(0, dto);
-	        } else {
-	            others.add(dto);
-	        }
-	    }
+        return pendingRequests.stream()
+            .filter(r -> r.getRequester() != null)
+            .map(r -> friendrelationShipMapper.mapToFriendRelationshipDto(
+                r, r.getRequester().getName(), r.getRequester().getAvatar()))
+            .collect(Collectors.toList());
+    }
 
-	    output.addAll(others);
-	    return output;
-	}
-	
-	@Override
-	public List<FriendRelationshipDto> getPendingRequests(String receiverId) {
-	    List<FriendRelationshipEty> pendingRequests = friendRelationshipRepository.findPendingRequestsWithRequester(receiverId, FriendRelationshipStatusEnum.PENDING.name());
+    @Override
+    public List<UserSearchResult> searchUsersAndDetermineStatus(String query, String currentUserId) {
+        // Utenti che hanno bloccato il currentUser
+        Set<String> blockedMeIds = friendRelationshipRepository
+            .findByReceiverIdAndStatus(currentUserId, Status.BLOCKED).stream()
+            .map(FriendRelationshipEty::getRequesterId)
+            .collect(Collectors.toSet());
 
-	    return pendingRequests.stream()
-	        .filter(r -> r.getRequester() != null)
-	        .map(r -> friendrelationShipMapper.mapToFriendRelationshipDto(
-	            r, r.getRequester().getName(), r.getRequester().getAvatar()
-	        ))
-	        .collect(Collectors.toList());
-	}
-	
+        List<UserEty> allMatchingUsers = userRepository.findByNameRegex(query).stream()
+            .filter(user -> !user.getId().equals(currentUserId))
+            .filter(user -> !blockedMeIds.contains(user.getId()))
+            .collect(Collectors.toList());
 
-	@Override
-	public List<UserSearchResult> searchUsersAndDetermineStatus(String query, String currentUserId) {
-		// 1a. Trova gli ID degli utenti che hanno bloccato l'utente corrente (Receiver=currentUserId, Status=BLOCKED)
-		Set<String> blockedMeIds = friendRelationshipRepository
-				.findByReceiverIdAndStatus(currentUserId, FriendRelationshipStatusEnum.BLOCKED.name()).stream()
-				.map(FriendRelationshipEty::getRequesterId)
-				.collect(Collectors.toSet());
+        if (allMatchingUsers.isEmpty()) {
+            return Collections.emptyList();
+        }
 
-		// 1b. Trova gli utenti che corrispondono alla query (Query DB per ricerca)
-		List<UserEty> allMatchingUsers = userRepository.findByNameRegex(query).stream()
-				.filter(user -> !user.getId().equals(currentUserId))
-				.filter(user -> !blockedMeIds.contains(user.getId()))
-				.collect(Collectors.toList());
+        List<String> userIdsToCheck = allMatchingUsers.stream()
+            .map(UserEty::getId)
+            .collect(Collectors.toList());
 
-		if (allMatchingUsers.isEmpty()) {
-			return Collections.emptyList();
-		}
+        List<FriendRelationshipEty> relevantRelationships = friendRelationshipRepository
+            .findAllRelevantRelationships(currentUserId, userIdsToCheck);
 
-		// --- 2. Preparazione per l'Arricchimento: Bulk Status Check ---
+        Map<String, FriendRelationshipEty> relationshipMap =
+            buildRelationshipMap(relevantRelationships, currentUserId);
 
-		// Costruisci una lista di tutti gli ID da controllare
-		List<String> userIdsToCheck = allMatchingUsers.stream()
-				.map(UserEty::getId)
-				.collect(Collectors.toList());
+        return allMatchingUsers.stream()
+            .map(user -> mapToSearchResult(user, currentUserId, relationshipMap))
+            .collect(Collectors.toList());
+    }
 
-		// Recupera TUTTE le relazioni tra l'utente corrente e gli utenti trovati (Bulk Query)
-		// Questa query è fondamentale per evitare le N+1 query nel mapping
-		List<FriendRelationshipEty> relevantRelationships = friendRelationshipRepository
-				.findAllRelevantRelationships(currentUserId, userIdsToCheck);
+    private Map<String, FriendRelationshipEty> buildRelationshipMap(
+            List<FriendRelationshipEty> relationships, String currentUserId) {
+        return relationships.stream()
+            .collect(Collectors.toMap(
+                rel -> rel.getRequesterId().equals(currentUserId)
+                    ? rel.getReceiverId()
+                    : rel.getRequesterId(),
+                rel -> rel,
+                (existing, replacement) -> existing
+            ));
+    }
 
-		// Mappa le relazioni per un accesso O(1)
-		Map<String, FriendRelationshipEty> relationshipMap = buildRelationshipMap(relevantRelationships, currentUserId);
+    private UserSearchResult mapToSearchResult(UserEty user, String currentUserId,
+            Map<String, FriendRelationshipEty> relationshipMap) {
 
+        FriendRelationshipEty relationship = relationshipMap.get(user.getId());
+        FriendRelationshipStatusEnum status = FriendRelationshipStatusEnum.AVAILABLE;
 
-		// Mappa gli utenti filtrati in UserSearchResult e determina lo stato utilizzando la mappa O(1)
-		List<UserSearchResult> results = allMatchingUsers.stream()
-				.map(user -> mapToSearchResult(user, currentUserId, relationshipMap))
-				.collect(Collectors.toList());
+        if (relationship != null) {
+            // relationship.getStatus() è ora FriendRelationshipEty.Status (enum)
+            switch (relationship.getStatus()) {
+                case BLOCKED:
+                    status = FriendRelationshipStatusEnum.BLOCKED;
+                    break;
+                case ACCEPTED:
+                    status = FriendRelationshipStatusEnum.ALREADY_FRIENDS;
+                    break;
+                case PENDING:
+                    status = relationship.getRequesterId().equals(currentUserId)
+                        ? FriendRelationshipStatusEnum.PENDING_REQUEST_SENT
+                        : FriendRelationshipStatusEnum.PENDING_REQUEST_RECEIVED;
+                    break;
+                default:
+                    break;
+            }
+        }
 
-		return results;
-	}
+        return userMapper.mapToSearchResult(user, status);
+    }
 
-	/**
-	 * Helper per costruire una mappa delle relazioni chiave-valore per un accesso rapido O(1).
-	 * La chiave è l'ID dell'altro utente.
-	 */
-	private Map<String, FriendRelationshipEty> buildRelationshipMap(List<FriendRelationshipEty> relationships, String currentUserId) {
-		return relationships.stream()
-				.collect(Collectors.toMap(
-						rel -> rel.getRequesterId().equals(currentUserId) ? rel.getReceiverId() : rel.getRequesterId(),
-								rel -> rel,
-								(existing, replacement) -> existing
-						));
-	}
+    @Override
+    public String sendFriendRequest(String requesterId, String receiverId) {
+        UserEty receiverUser = userRepository.findById(receiverId)
+            .orElseThrow(() -> new NotFoundException("Utente destinatario non trovato."));
 
-	/**
-	 * Determina lo stato e mappa l'utente in UserSearchResult.
-	 */
-	private UserSearchResult mapToSearchResult(UserEty user, String currentUserId, Map<String, FriendRelationshipEty> relationshipMap) {
+        if (friendRelationshipRepository
+                .existsByRequesterIdAndReceiverIdOrReceiverIdAndRequesterId(
+                    requesterId, receiverId, requesterId, receiverId)) {
+            throw new ConflictException(
+                "Una richiesta o una relazione di amicizia con questo utente esiste già.");
+        }
 
-		FriendRelationshipEty relationship = relationshipMap.get(user.getId());
-		FriendRelationshipStatusEnum status = FriendRelationshipStatusEnum.AVAILABLE; // Default
+        FriendRelationshipEty newRequest = new FriendRelationshipEty();
+        newRequest.setRequesterId(requesterId);
+        newRequest.setReceiverId(receiverId);
+        // setStatus ora accetta FriendRelationshipEty.Status (enum)
+        newRequest.setStatus(receiverUser.isPrivate() ? Status.PENDING : Status.ACCEPTED);
 
-		if (relationship != null) {
-			String relationshipStatus = relationship.getStatus();
+        friendRelationshipRepository.save(newRequest);
 
-			if (FriendRelationshipStatusEnum.BLOCKED.name().equals(relationshipStatus)) {
-				// L'utente corrente HA bloccato l'utente trovato
-				status = FriendRelationshipStatusEnum.BLOCKED;
-			} else if (FriendRelationshipStatusEnum.ACCEPTED.name().equals(relationshipStatus)) {
-				status = FriendRelationshipStatusEnum.ALREADY_FRIENDS;
-			} else if (FriendRelationshipStatusEnum.PENDING.name().equals(relationshipStatus)) {
-				// Determina se la richiesta è stata inviata DA te o A te
-				if (relationship.getRequesterId().equals(currentUserId)) {
-					status = FriendRelationshipStatusEnum.PENDING_REQUEST_SENT;
-				} else {
-					status = FriendRelationshipStatusEnum.PENDING_REQUEST_RECEIVED;
-				}
-			}
-		}
+        return receiverUser.isPrivate()
+            ? "Richiesta di amicizia inviata con successo."
+            : "Amico aggiunto con successo! Il profilo è pubblico.";
+    }
 
-		// Mappa i campi base dell'utente e aggiunge lo stato
-		return userMapper.mapToSearchResult(user, status); 
-	}
- 
-	@Override
-	public String sendFriendRequest(String requesterId, String receiverId) {
-	    // 1. Prima verifica che il receiver esista
-	    UserEty receiverUser = userRepository.findById(receiverId).orElseThrow(() -> new NotFoundException("Utente destinatario non trovato."));
+    @Override
+    public String handleFriendRequest(String requesterId, String receiverId, String action) {
+        int updatedCount;
+        String successMessage;
 
-	    // 2. Poi controlla se esiste già una relazione
-	    if (friendRelationshipRepository.existsByRequesterIdAndReceiverIdOrReceiverIdAndRequesterId(requesterId, receiverId, requesterId, receiverId)) {
-	        throw new ConflictException("Una richiesta o una relazione di amicizia con questo utente esiste già.");
-	    }
+        if ("accept".equalsIgnoreCase(action)) {
+            updatedCount = friendRelationshipRepository
+                .updateRequestStatus(requesterId, receiverId, Status.ACCEPTED);
+            successMessage = "Richiesta di amicizia accettata.";
+        } else if ("decline".equalsIgnoreCase(action)) {
+            updatedCount = (int) friendRelationshipRepository
+                .deleteFriendship(receiverId, requesterId);
+            successMessage = "Richiesta di amicizia rifiutata.";
+        } else {
+            throw new IllegalArgumentException("Azione non valida. Usa 'accept' o 'decline'.");
+        }
 
-	    // 3. Crea la relazione
-	    FriendRelationshipEty newRequest = new FriendRelationshipEty();
-	    newRequest.setRequesterId(requesterId);
-	    newRequest.setReceiverId(receiverId);
-	    newRequest.setStatus(receiverUser.isPrivate() ? FriendRelationshipStatusEnum.PENDING.name() : FriendRelationshipStatusEnum.ACCEPTED.name());
+        if (updatedCount == 0) {
+            throw new NotFoundException("Richiesta di amicizia in sospeso non trovata.");
+        }
 
-	    friendRelationshipRepository.save(newRequest);
+        return successMessage;
+    }
 
-	    return receiverUser.isPrivate() ? "Richiesta di amicizia inviata con successo." : "Amico aggiunto con successo! Il profilo è pubblico.";
-	}
-	
+    @Override
+    public void deleteFriendship(String requesterId, String friendId) {
+        friendRelationshipRepository.deleteFriendship(requesterId, friendId);
+    }
 
-	@Override
-	public String handleFriendRequest(String requesterId, String receiverId, String action) {
+    @Override
+    public void executeBlockAction(String currentUserId, String friendId, BlockActionEnum action) {
+        if (action == BlockActionEnum.BLOCK) {
+            blockUser(currentUserId, friendId, currentUserId);
+        } else if (action == BlockActionEnum.UNBLOCK) {
+            unblockUser(currentUserId, friendId, currentUserId);
+        } else {
+            throw new IllegalArgumentException("Azione di blocco non valida: " + action);
+        }
+    }
 
-		String successMessage;
+    private void blockUser(String currentUserId, String userToBlockId, String blockerId) {
+        friendRelationshipRepository.updateRelationshipStatus(
+            currentUserId, userToBlockId, Status.BLOCKED, blockerId);
+    }
 
-		int updatedCount = 0;
-		if ("accept".equalsIgnoreCase(action)) {
-			updatedCount = friendRelationshipRepository.updateRequestStatus(requesterId, receiverId, FriendRelationshipStatusEnum.ACCEPTED.name());
-			successMessage = "Richiesta di amicizia accettata.";
-		} else if ("decline".equalsIgnoreCase(action)) {
-			successMessage = "Richiesta di amicizia rifiutata.";
-			updatedCount = (int)friendRelationshipRepository.deleteFriendship(receiverId, requesterId);
-		} else {
-			throw new IllegalArgumentException("Azione non valida. Usa 'accept' o 'decline'.");
-		}
+    private void unblockUser(String currentUserId, String userToUnblockId, String blockerId) {
+        friendRelationshipRepository.deleteRelationship(
+            currentUserId, userToUnblockId, blockerId);
+    }
 
+    @Override
+    public List<BlockedUserDTO> getBlockedUsers(String currentUserId) {
+        List<FriendRelationshipEty> etys =
+            friendRelationshipRepository.findMyBlockedRelationships(currentUserId);
+        return etys.stream()
+            .map(e -> getDtoFromEty(e, currentUserId))
+            .collect(Collectors.toList());
+    }
 
-		if (updatedCount == 0) {
-			throw new NotFoundException("Richiesta di amicizia in sospeso non trovata.");
-		}
+    private BlockedUserDTO getDtoFromEty(FriendRelationshipEty ety, String currentUser) {
+        String userToSearch = ety.getReceiverId().equals(currentUser)
+            ? ety.getRequesterId()
+            : ety.getReceiverId();
 
-		return successMessage;
-	}
+        UserEty userEty = userRepository.findById(userToSearch)
+            .orElseThrow(() -> new NotFoundException("Utente bloccato non trovato: " + userToSearch));
 
-	@Override
-	public void deleteFriendship(String requesterId, String friendId) {
-		friendRelationshipRepository.deleteFriendship(requesterId, friendId);
-	}
-
-
-	@Override
-	public void executeBlockAction(String currentUserId, String friendId, BlockActionEnum action) {
-
-		if (action == BlockActionEnum.BLOCK) {
-			blockUser(currentUserId, friendId,currentUserId);
-		} else if (action == BlockActionEnum.UNBLOCK) {
-			unblockUser(currentUserId, friendId,currentUserId);
-		} else {
-			// In teoria non dovrebbe mai succedere grazie all'enum, ma utile per robustezza.
-			throw new IllegalArgumentException("Azione di blocco non valida: " + action);
-		}
-	}
-
-	private void blockUser(String currentUserId, String userToBlockId, String blockerName) {
-		friendRelationshipRepository.updateRelationshipStatus(currentUserId, userToBlockId, FriendRelationshipStatusEnum.BLOCKED.name(),
-				blockerName);
-	}
-
-	private void unblockUser(String currentUserId, String userToUnblockId,String blockerName) {
-		friendRelationshipRepository.deleteRelationship(currentUserId, userToUnblockId, blockerName);
-	}
-	
-
-	@Override
-	public List<BlockedUserDTO> getBlockedUsers(String currentUserId) {
-		List<FriendRelationshipEty> etys = friendRelationshipRepository.findMyBlockedRelationships(currentUserId);
-		List<BlockedUserDTO> out = etys.stream().map(e-> getDtoFromEty(e,currentUserId)).collect(Collectors.toList());
-		return out;
-	}
-	
-	private BlockedUserDTO getDtoFromEty(FriendRelationshipEty ety, String currentUser) {
-		String userToSearch = ety.getReceiverId();
-		if(userToSearch.equals(currentUser)) {
-			userToSearch = ety.getRequesterId();
-		}
-		
-		BlockedUserDTO out = new BlockedUserDTO();
-		UserEty userEty = userRepository.findById(userToSearch).get();
-		out.setId(userEty.getId());
-		out.setAvatar(userEty.getAvatar());
-		out.setName(userEty.getName());
-		return out;
-	}
-
+        BlockedUserDTO out = new BlockedUserDTO();
+        out.setId(userEty.getId());
+        out.setAvatar(userEty.getAvatar());
+        out.setName(userEty.getName());
+        return out;
+    }
 }

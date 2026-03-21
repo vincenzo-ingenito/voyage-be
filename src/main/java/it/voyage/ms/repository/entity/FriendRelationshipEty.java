@@ -1,6 +1,22 @@
 package it.voyage.ms.repository.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -8,19 +24,21 @@ import lombok.NoArgsConstructor;
 import java.util.Date;
 
 /**
- * Entità che rappresenta la relazione di amicizia tra utenti
+ * Entità che rappresenta la relazione di amicizia tra utenti.
  * Relation: User N:M User via FriendRelationship
  */
 @Entity
-@Table(name = "friend_relationships",
+@Table(
+    name = "friend_relationships",
     uniqueConstraints = {
-        @UniqueConstraint(name = "uk_friend_requester_receiver", columnNames = {"requester_id", "receiver_id"})
+        @UniqueConstraint(name = "uk_friend_requester_receiver",
+                          columnNames = {"requester_id", "receiver_id"})
     },
     indexes = {
         @Index(name = "idx_friend_requester_id", columnList = "requester_id"),
-        @Index(name = "idx_friend_receiver_id", columnList = "receiver_id"),
-        @Index(name = "idx_friend_status", columnList = "status"),
-        @Index(name = "idx_friend_created_at", columnList = "created_at")
+        @Index(name = "idx_friend_receiver_id",  columnList = "receiver_id"),
+        @Index(name = "idx_friend_status",        columnList = "status"),
+        @Index(name = "idx_friend_created_at",    columnList = "created_at")
     }
 )
 @Data
@@ -28,55 +46,66 @@ import java.util.Date;
 @AllArgsConstructor
 public class FriendRelationshipEty {
 
+    /**
+     * Stato della relazione di amicizia.
+     * Usare @Enumerated(EnumType.STRING) per leggibilità nel DB
+     * e per evitare problemi se i valori dell'enum vengono riordinati.
+     */
+    public enum Status {
+        PENDING,
+        ACCEPTED,
+        REJECTED,
+        BLOCKED
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Long id;
 
-    /**
-     * Requester User ID = Firebase UID (String)
-     */
+    /** Requester User ID = Firebase UID */
     @Column(name = "requester_id", nullable = false, length = 255)
     private String requesterId;
 
-    /**
-     * Receiver User ID = Firebase UID (String)
-     */
+    /** Receiver User ID = Firebase UID */
     @Column(name = "receiver_id", nullable = false, length = 255)
     private String receiverId;
 
     /**
-     * Relation: User N:M User via FriendRelationship
-     * L'utente che ha inviato la richiesta di amicizia
+     * L'utente che ha inviato la richiesta di amicizia.
+     * insertable/updatable = false: la FK è gestita dalla colonna requester_id.
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "requester_id", insertable = false, updatable = false, foreignKey = @ForeignKey(name = "fk_friend_requester"))
+    @JoinColumn(name = "requester_id", insertable = false, updatable = false,
+                foreignKey = @ForeignKey(name = "fk_friend_requester"))
     private UserEty requester;
 
     /**
-     * Relation: User N:M User via FriendRelationship
-     * L'utente che ha ricevuto la richiesta di amicizia
+     * L'utente che ha ricevuto la richiesta di amicizia.
+     * insertable/updatable = false: la FK è gestita dalla colonna receiver_id.
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "receiver_id", insertable = false, updatable = false, foreignKey = @ForeignKey(name = "fk_friend_receiver"))
+    @JoinColumn(name = "receiver_id", insertable = false, updatable = false,
+                foreignKey = @ForeignKey(name = "fk_friend_receiver"))
     private UserEty receiver;
 
     /**
-     * Status della relazione: PENDING, ACCEPTED, REJECTED, BLOCKED
+     * Stato della relazione. Salvato come stringa nel DB per leggibilità
+     * e stabilità rispetto al riordinamento dei valori enum.
      */
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
-    private String status;
+    private Status status;
 
     /**
-     * Nome/ID dell'utente che ha bloccato (usato quando status = BLOCKED)
+     * Firebase UID dell'utente che ha eseguito il blocco.
+     * Valorizzato solo quando status = BLOCKED.
+     * Deve corrispondere a requesterId o receiverId.
      */
-    @Column(name = "blocker_name", length = 255)
-    private String blockerName;
+    @Column(name = "blocker_id", length = 255)
+    private String blockerId;
 
-    /**
-     * Data di creazione della relazione
-     */
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
 

@@ -11,15 +11,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import it.voyage.ms.repository.entity.DailyItineraryEty;
 import it.voyage.ms.repository.entity.PointEty;
 import it.voyage.ms.repository.entity.TravelEty;
 import lombok.Data;
-
 
 @Data
 public class CountryVisit {
@@ -34,7 +29,6 @@ public class CountryVisit {
             return null;
         }
 
-        // Estrai tutti i punti dall'itinerario (lavorando con Entity)
         List<PointEty> allPoints = travel.getItinerary().stream()
                 .filter(Objects::nonNull)
                 .flatMap(di -> di.getPoints().stream())
@@ -49,18 +43,14 @@ public class CountryVisit {
 
         CountryVisit cv = new CountryVisit();
 
-        // Nome paese dal primo punto disponibile
         String countryName = firstPoint
                 .map(PointEty::getCountry)
                 .filter(c -> c != null && !c.isEmpty())
                 .orElse("Nazione Sconosciuta");
 
-        String countryIdentifier = countryName.replaceAll("\\s", "_").toUpperCase();
-
-        cv.setIso(countryIdentifier);
+        cv.setIso(countryName.replaceAll("\\s", "_").toUpperCase());
         cv.setName(countryName);
 
-        // Tutte le date visitate
         Set<String> visitedDates = travel.getItinerary().stream()
                 .map(DailyItineraryEty::getDate)
                 .filter(Objects::nonNull)
@@ -68,23 +58,17 @@ public class CountryVisit {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         cv.setVisitedDates(visitedDates);
 
-        // Coordinate principali: prima disponibile
-        CoordsDto mainCoord = firstPoint
+        cv.setCoord(firstPoint
                 .filter(p -> p.getLatitude() != null && p.getLongitude() != null)
-                .map(p -> {
-                    CoordsDto coords = new CoordsDto(p.getLatitude(),p.getLongitude());
-                    return coords;
-                })
-                .orElse(null);
-        cv.setCoord(mainCoord);
+                .map(p -> new CoordsDto(p.getLatitude(), p.getLongitude()))
+                .orElse(null));
 
-        // Raggruppa per regione
         Map<String, List<PointEty>> pointsByRegion = allPoints.stream()
                 .filter(p -> p.getRegion() != null && !p.getRegion().isEmpty())
                 .collect(Collectors.groupingBy(PointEty::getRegion));
 
         List<RegionVisit> regions = new ArrayList<>();
-        
+
         for (Map.Entry<String, List<PointEty>> regionEntry : pointsByRegion.entrySet()) {
             String regionName = regionEntry.getKey();
             List<PointEty> regionPoints = regionEntry.getValue();
@@ -93,21 +77,14 @@ public class CountryVisit {
             rv.setId(UUID.randomUUID().toString());
             rv.setName(regionName);
 
-            // Coordinate della regione: prima disponibile
-            CoordsDto regionCoord = regionPoints.stream()
+            rv.setCoord(regionPoints.stream()
                     .filter(p -> p.getLatitude() != null && p.getLongitude() != null)
                     .findFirst()
-                    .map(p -> {
-                        CoordsDto coords = new CoordsDto(p.getLatitude(),p.getLongitude());
-                        return coords;
-                    })
-                    .orElse(null);
-            rv.setCoord(regionCoord);
+                    .map(p -> new CoordsDto(p.getLatitude(), p.getLongitude()))
+                    .orElse(null));
 
-            // Ricostruisci gli itinerari filtrati per la regione (convertendo in DTO)
             List<DailyItineraryDTO> regionItinerary = travel.getItinerary().stream()
                     .map(dailyEty -> {
-                        // Filtra i punti che appartengono a questa regione
                         List<PointDTO> filteredPoints = dailyEty.getPoints().stream()
                                 .filter(p -> regionName.equals(p.getRegion()))
                                 .map(CountryVisit::convertPointEtyToDTO)
@@ -117,7 +94,6 @@ public class CountryVisit {
                             return null;
                         }
 
-                        // Crea nuovo DailyItineraryDTO con solo i punti della regione
                         DailyItineraryDTO newDi = new DailyItineraryDTO();
                         newDi.setDay(dailyEty.getDay());
                         newDi.setDate(dailyEty.getDate());
@@ -134,13 +110,9 @@ public class CountryVisit {
         }
 
         cv.setRegions(regions);
-
         return cv;
     }
 
-    /**
-     * Metodo helper per convertire PointEty in PointDTO
-     */
     private static PointDTO convertPointEtyToDTO(PointEty pointEty) {
         PointDTO dto = new PointDTO();
         dto.setName(pointEty.getName());
@@ -151,29 +123,13 @@ public class CountryVisit {
         dto.setRegion(pointEty.getRegion());
         dto.setCity(pointEty.getCity());
 
-        // Coordinate
         if (pointEty.getLatitude() != null && pointEty.getLongitude() != null) {
-            CoordsDto coords = new CoordsDto(pointEty.getLatitude(),pointEty.getLongitude());
-            dto.setCoord(coords);
+            dto.setCoord(new CoordsDto(pointEty.getLatitude(), pointEty.getLongitude()));
         }
 
-        // Gestione attachment indices da JSON
-        if (pointEty.getAttachmentIndicesJson() != null && !pointEty.getAttachmentIndicesJson().isEmpty()) {
-            try {
-                ObjectMapper mapper = new ObjectMapper();
-                List<Integer> indices = mapper.readValue(
-                    pointEty.getAttachmentIndicesJson(),
-                    new TypeReference<List<Integer>>() {}
-                );
-                dto.setAttachmentIndices(indices);
-            } catch (JsonProcessingException e) {
-                dto.setAttachmentIndices(Collections.emptyList());
-            }
-        } else {
-            dto.setAttachmentIndices(Collections.emptyList());
-        }
-
-        // AttachmentUrls: lista vuota per ora (puoi implementare la logica completa se necessario)
+        // attachmentIndices è già List<Integer> grazie all'AttributeConverter in PointEty
+        List<Integer> indices = pointEty.getAttachmentIndices();
+        dto.setAttachmentIndices(indices != null ? indices : Collections.emptyList());
         dto.setAttachmentUrls(Collections.emptyList());
 
         return dto;

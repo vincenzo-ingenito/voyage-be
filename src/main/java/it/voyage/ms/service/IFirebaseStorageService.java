@@ -1,52 +1,56 @@
 package it.voyage.ms.service;
 
-import com.google.cloud.storage.Blob;
-import it.voyage.ms.dto.response.FileMetadata;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 
+import org.springframework.web.multipart.MultipartFile;
+
+import com.google.cloud.storage.Blob;
+
+import it.voyage.ms.dto.response.FileMetadata;
+import it.voyage.ms.repository.entity.TravelEty;
+
 /**
- * Interfaccia per il servizio di storage Firebase
+ * Contratto unico per la gestione dei file su Firebase Storage.
+ *
+ * Responsabilità coperte:
+ * - Upload di file (con metadati)
+ * - Download di file
+ * - Generazione URL pubblici/firmati
+ * - Eliminazione di file singoli o intere cartelle di viaggio
+ * - Eliminazione di foto associate a un viaggio (da URL o fileId)
  */
 public interface IFirebaseStorageService {
 
     /**
-     * Carica un file su Firebase Storage
-     * 
-     * @param file File da caricare
-     * @param userId ID utente proprietario
-     * @param travelId ID del viaggio
-     * @param category Categoria del file (es. "day-memory", "point-attachment")
-     * @return FileMetadata con informazioni sul file caricato
-     * @throws IOException in caso di errore
+     * Carica un file su Firebase Storage e restituisce i metadati completi.
      */
     FileMetadata uploadFileWithMetadata(MultipartFile file, String userId, Long travelId, String category) throws IOException;
 
     /**
-     * Ottiene l'URL pubblico di un file (signed URL con scadenza)
-     * 
-     * @param fileId ID del file
-     * @return URL pubblico temporaneo
+     * Restituisce l'URL firmato (valido 7 giorni) per accedere al file.
      */
     String getPublicUrl(String fileId);
 
     /**
-     * Scarica un file da Firebase Storage
-     * 
-     * @param fileId ID del file
-     * @param userId ID dell'utente richiedente
-     * @return Dati del file
+     * Restituisce il blob grezzo di Firebase Storage.
+     */
+    Blob getBlob(String fileId);
+
+    /**
+     * Scarica il contenuto binario di un file.
      */
     byte[] downloadFile(String fileId, String userId);
 
     /**
-     * Ottiene il blob di Firebase Storage
-     * 
-     * @param fileId ID del file
-     * @return Blob di Firebase Storage
+     * Elimina tutti i file nella cartella travel-files/{userId}/{travelId}/.
+     *
+     * @return numero di file eliminati
      */
-    Blob getBlob(String fileId);
+    int deleteTravelFolder(String userId, Long travelId);
 
-   
+    /**
+     * Elimina tutte le foto associate a un viaggio (ricordi giornalieri + allFileIds).
+     * Operazione best-effort: un errore su un singolo file non blocca gli altri.
+     */
+    void deletePhotosForTravel(TravelEty travel);
 }

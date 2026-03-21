@@ -42,14 +42,22 @@ public class FileController implements IFileController {
 		// Recupera i metadati originali del file
 		Blob blob = storageService.getBlob(decodedFileId);
 
-		if (blob == null || blob.getMetadata() == null) {
-			log.error("Blob o metadata non trovati per: {}", decodedFileId);
+		if (blob == null) {
+			log.error("Blob non trovato per: {}", decodedFileId);
 			return ResponseEntity.notFound().build();
 		}
 
-		// Estrai nome file e content type dai metadata
-		String originalFileName = blob.getMetadata().getOrDefault("original-filename", "download");
-		String contentType = blob.getMetadata().getOrDefault("content-type", "application/octet-stream");
+		// Estrai nome file e content type dai metadata (con fallback per retrocompatibilità)
+		String originalFileName = "download";
+		String contentType = "application/octet-stream";
+		
+		if (blob.getMetadata() != null) {
+			originalFileName = blob.getMetadata().getOrDefault("original-filename", extractFileNameFromPath(decodedFileId));
+			contentType = blob.getMetadata().getOrDefault("content-type", blob.getContentType() != null ? blob.getContentType() : contentType);
+		} else if (blob.getContentType() != null) {
+			contentType = blob.getContentType();
+			originalFileName = extractFileNameFromPath(decodedFileId);
+		}
 
 		log.info("File scaricato con successo: {} ({} bytes)", originalFileName, fileData.length);
 
@@ -107,5 +115,15 @@ public class FileController implements IFileController {
 				.contentType(MediaType.parseMediaType(contentType))
 				.contentLength(fileData.length)
 				.body(resource);
+	}
+	
+	/**
+	 * Estrae il nome del file dal path completo
+	 */
+	private String extractFileNameFromPath(String path) {
+		if (path == null || path.isEmpty()) {
+			return "download";
+		}
+		return path.substring(path.lastIndexOf('/') + 1);
 	}
 }
