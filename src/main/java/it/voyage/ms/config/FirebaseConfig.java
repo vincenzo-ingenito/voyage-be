@@ -15,32 +15,38 @@ import com.google.firebase.FirebaseOptions;
 
 @Configuration
 public class FirebaseConfig {
-    
+
     @Value("${firebase.service-account.path}")
     private String pathServiceAccount;
-    
-    @Value("${firebase.storage.bucket-name}")  
-    private String storageBucketName; 
-    
+
+    @Value("${firebase.storage.bucket-name}")
+    private String storageBucketName;
+
     @Bean
-    public FirebaseApp firebaseApp() throws IOException {
-        FileInputStream serviceAccount = new FileInputStream(pathServiceAccount);
-
-        FirebaseOptions options = FirebaseOptions.builder()
-            .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-            .setStorageBucket(storageBucketName)  
-            .build();
-
-        if (FirebaseApp.getApps().isEmpty()) {
-            return FirebaseApp.initializeApp(options);
-        } else {
-            return FirebaseApp.getInstance();
+    public GoogleCredentials googleCredentials() throws IOException {
+        try (FileInputStream serviceAccount = new FileInputStream(pathServiceAccount)) {
+            return GoogleCredentials.fromStream(serviceAccount);
         }
     }
 
     @Bean
-    public Storage storage() throws IOException {
-    	 FileInputStream serviceAccount = new FileInputStream(pathServiceAccount);
-        return StorageOptions.newBuilder().setCredentials(GoogleCredentials.fromStream(serviceAccount)).build().getService();
+    public FirebaseApp firebaseApp(GoogleCredentials credentials) throws IOException {
+        if (!FirebaseApp.getApps().isEmpty()) {
+            return FirebaseApp.getInstance();
+        }
+        
+        FirebaseOptions options = FirebaseOptions.builder()
+                .setCredentials(credentials)
+                .setStorageBucket(storageBucketName)
+                .build();
+        return FirebaseApp.initializeApp(options);
+    }
+
+    @Bean
+    public Storage storage(GoogleCredentials credentials) throws IOException {
+        return StorageOptions.newBuilder()
+                .setCredentials(credentials)
+                .build()
+                .getService();
     }
 }
