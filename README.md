@@ -9,92 +9,74 @@ Le collezioni lazy sono caricate con `@BatchSize` per evitare `MultipleBagFetchE
 
 ```mermaid
 erDiagram
-    UserEty {
-        string id PK "Firebase UID"
+    User {
+        string id PK
         string name
         string email
-        string avatar
         boolean isPrivate
-        text bio
         date createdAt
-        date lastLogin
     }
 
-    TravelEty {
+    Travel {
         long id PK
-        string user_id FK
-        string travelName
+        string userId FK
+        string name
         string dateFrom
         string dateTo
-        boolean isCopied
-        boolean needsDateConfirmation
     }
 
-    DailyItineraryEty {
+    DailyItinerary {
         long id PK
-        long travel_id FK
+        long travelId FK
         int day
         string date
-        string memoryImageUrl
-        int memoryImageIndex
+        int memoryIndex
     }
 
-    PointEty {
+    Point {
         long id PK
-        long daily_itinerary_id FK
+        long itineraryId FK
         string name
-        string placeId
-        string address
-        double latitude
-        double longitude
-        int orderIndex
-        string type
-        string description
-        string cost
+        double lat
+        double lng
         string country
-        string region
-        string city
-        text notes
-        string attachmentIndices "CSV es. 0,2,5"
+        string indices
     }
 
-    TravelFileEty {
+    TravelFile {
         long id PK
-        long travel_id FK
+        long travelId FK
         string fileId
         string fileName
         string mimeType
-        long fileSize
-        string fileUrl
-        datetime uploadDate
     }
 
-    BookmarkEty {
+    Bookmark {
         long id PK
-        string user_id FK
-        long travel_id FK
-        string travelOwnerId
-        date createdAt
+        string userId FK
+        long travelId FK
+        string ownerId
     }
 
-    FriendRelationshipEty {
+    Friendship {
         long id PK
-        string requester_id FK
-        string receiver_id FK
-        string status "PENDING|ACCEPTED|REJECTED|BLOCKED"
-        string blockerId
-        date createdAt
+        string requesterId FK
+        string receiverId FK
+        string status
     }
 
-    UserEty ||--o{ TravelEty : "possiede"
-    UserEty ||--o{ BookmarkEty : "salva"
-    UserEty ||--o{ FriendRelationshipEty : "invia (requester)"
-    UserEty ||--o{ FriendRelationshipEty : "riceve (receiver)"
-    TravelEty ||--o{ DailyItineraryEty : "ha itinerario"
-    TravelEty ||--o{ TravelFileEty : "ha file"
-    TravelEty ||--o{ BookmarkEty : "è salvato in"
-    DailyItineraryEty ||--o{ PointEty : "ha punti"
+    User ||--o{ Travel : "possiede"
+    User ||--o{ Bookmark : "salva"
+    User ||--o{ Friendship : "invia"
+    User ||--o{ Friendship : "riceve"
+    Travel ||--o{ DailyItinerary : "ha"
+    Travel ||--o{ TravelFile : "ha"
+    Travel ||--o{ Bookmark : "in"
+    DailyItinerary ||--o{ Point : "ha"
 ```
+
+> I nomi nel diagramma sono abbreviati per compatibilità con il renderer GitHub.
+> I nomi JPA reali sono: `UserEty`, `TravelEty`, `DailyItineraryEty`, `PointEty`, `TravelFileEty`, `BookmarkEty`, `FriendRelationshipEty`.
 
 ---
 
