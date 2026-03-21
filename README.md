@@ -8,14 +8,87 @@ Le collezioni lazy sono caricate con `@BatchSize` per evitare `MultipleBagFetchE
 ## Diagramma ER
 
 ```mermaid
-erDiagram
-    User ||--o{ Travel : "1-N"
-    User ||--o{ Bookmark : "1-N"
-    User ||--o{ Friendship : "1-N"
-    Travel ||--o{ DailyItinerary : "1-N"
-    Travel ||--o{ TravelFile : "1-N"
-    Travel ||--o{ Bookmark : "1-N"
-    DailyItinerary ||--o{ Point : "1-N"
+classDiagram
+    direction TB
+
+    class UserEty {
+        +String id PK
+        +String name
+        +String email
+        +String avatar
+        +boolean isPrivate
+        +String bio
+        +Date createdAt
+        +Date lastLogin
+    }
+
+    class TravelEty {
+        +Long id PK
+        +String user_id FK
+        +String travelName
+        +String dateFrom
+        +String dateTo
+        +Boolean isCopied
+        +Boolean needsDateConfirmation
+    }
+
+    class DailyItineraryEty {
+        +Long id PK
+        +Long travel_id FK
+        +Integer day
+        +String date
+        +String memoryImageUrl
+        +Integer memoryImageIndex
+    }
+
+    class PointEty {
+        +Long id PK
+        +Long daily_itinerary_id FK
+        +String name
+        +Double latitude
+        +Double longitude
+        +String type
+        +String country
+        +String region
+        +String city
+        +String attachmentIndices
+    }
+
+    class TravelFileEty {
+        +Long id PK
+        +Long travel_id FK
+        +String fileId
+        +String fileName
+        +String mimeType
+        +Long fileSize
+        +LocalDateTime uploadDate
+    }
+
+    class BookmarkEty {
+        +Long id PK
+        +String user_id FK
+        +Long travel_id FK
+        +String travelOwnerId
+        +Date createdAt
+    }
+
+    class FriendRelationshipEty {
+        +Long id PK
+        +String requester_id FK
+        +String receiver_id FK
+        +String status
+        +String blockerId
+        +Date createdAt
+    }
+
+    UserEty "1" --> "N" TravelEty : possiede
+    UserEty "1" --> "N" BookmarkEty : salva
+    UserEty "1" --> "N" FriendRelationshipEty : invia
+    UserEty "1" --> "N" FriendRelationshipEty : riceve
+    TravelEty "1" --> "N" DailyItineraryEty : ha
+    TravelEty "1" --> "N" TravelFileEty : ha
+    TravelEty "1" --> "N" BookmarkEty : in
+    DailyItineraryEty "1" --> "N" PointEty : ha
 ```
 
 ---
