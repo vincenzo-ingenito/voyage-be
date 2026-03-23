@@ -62,8 +62,7 @@ public class BookmarkEty {
      * insertable/updatable = false: la FK è gestita dalla colonna user_id sopra.
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", insertable = false, updatable = false,
-                foreignKey = @ForeignKey(name = "fk_bookmark_user"))
+    @JoinColumn(name = "user_id", insertable = false, updatable = false, foreignKey = @ForeignKey(name = "fk_bookmark_user"))
     private UserEty user;
 
     /**
@@ -71,8 +70,7 @@ public class BookmarkEty {
      * insertable/updatable = false: la FK è gestita dalla colonna travel_id sopra.
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "travel_id", insertable = false, updatable = false,
-                foreignKey = @ForeignKey(name = "fk_bookmark_travel"))
+    @JoinColumn(name = "travel_id", insertable = false, updatable = false, foreignKey = @ForeignKey(name = "fk_bookmark_travel"))
     private TravelEty travel;
 
     /**

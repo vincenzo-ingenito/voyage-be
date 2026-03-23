@@ -234,10 +234,30 @@ public class TravelService implements ITravelService {
 
     @Transactional(readOnly = true)
     public TravelDTO getTravelWithUrls(String userId, Long travelId) {
-        log.info("GET TRAVEL WITH URLS - Caricamento viaggio ID: {}", travelId);
+        log.info("GET TRAVEL WITH URLS - Caricamento viaggio ID: {} per utente: {}", travelId, userId);
 
-        TravelEty entity = travelRepository.findByIdAndUserId(travelId, userId).orElseThrow(() -> new BusinessException("Viaggio non trovato o non autorizzato."));
+        // ✅ FIX: Prima cerca se è il proprietario
+        Optional<TravelEty> ownerTravel = travelRepository.findByIdAndUserId(travelId, userId);
+        if (ownerTravel.isPresent()) {
+            log.info("Utente {} è il proprietario del viaggio {}", userId, travelId);
+            return buildTravelDtoWithUrls(ownerTravel.get());
+        }
 
+        // ✅ FIX: Se non è il proprietario, verifica se è un partecipante ACCEPTED
+        TravelEty entity = travelRepository.findById(travelId)
+            .orElseThrow(() -> new BusinessException("Viaggio non trovato."));
+        
+        // Verifica se l'utente è un partecipante accettato
+        boolean isAcceptedParticipant = entity.getParticipants().stream()
+            .anyMatch(p -> p.getUserId().equals(userId) && 
+                          p.getStatus() == it.voyage.ms.repository.entity.ParticipantStatus.ACCEPTED);
+        
+        if (!isAcceptedParticipant) {
+            log.warn("Utente {} non autorizzato ad accedere al viaggio {}", userId, travelId);
+            throw new BusinessException("Viaggio non trovato o non autorizzato.");
+        }
+        
+        log.info("Utente {} è un partecipante ACCEPTED del viaggio {}", userId, travelId);
         return buildTravelDtoWithUrls(entity);
     }
 

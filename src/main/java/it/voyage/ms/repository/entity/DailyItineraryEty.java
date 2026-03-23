@@ -50,13 +50,11 @@ public class DailyItineraryEty {
 
     /** Relation: Travel 1:N DailyItinerary */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "travel_id", nullable = false,
-                foreignKey = @ForeignKey(name = "fk_daily_itinerary_travel"))
+    @JoinColumn(name = "travel_id", nullable = false, foreignKey = @ForeignKey(name = "fk_daily_itinerary_travel"))
     private TravelEty travel;
 
     /** Relation: DailyItinerary 1:N Point — ordinati per order_index */
-    @OneToMany(mappedBy = "dailyItinerary", cascade = CascadeType.ALL,
-               orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "dailyItinerary", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("orderIndex ASC")
     private List<PointEty> points = new ArrayList<>();
 }

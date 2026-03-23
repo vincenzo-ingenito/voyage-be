@@ -36,6 +36,12 @@ public class TravelMapper {
         dto.setDateTo(travel.getDateTo());
         dto.setIsCopied(travel.getIsCopied());
         dto.setNeedsDateConfirmation(travel.getNeedsDateConfirmation());
+        
+        // Nuovi campi per viaggi di gruppo
+        dto.setTravelType(travel.getTravelType());
+        dto.setOwnerId(travel.getUser() != null ? travel.getUser().getId() : null);
+        // I partecipanti vengono popolati separatamente dal GroupTravelService quando necessario
+        dto.setParticipants(new ArrayList<>());
 
         if (travel.getItinerary() != null && !travel.getItinerary().isEmpty()) {
             List<DailyItineraryDTO> itineraryDTOs = travel.getItinerary().stream()
@@ -154,6 +160,13 @@ public class TravelMapper {
         travel.setDateTo(dto.getDateTo());
         travel.setIsCopied(dto.getIsCopied());
         travel.setNeedsDateConfirmation(dto.getNeedsDateConfirmation());
+        
+        // Nuovo campo per viaggi di gruppo
+        if (dto.getTravelType() != null) {
+            travel.setTravelType(dto.getTravelType());
+        }
+        // I partecipanti vengono gestiti separatamente dal GroupTravelService
+        // L'owner viene impostato dal TravelService quando crea/aggiorna il viaggio
 
         if (dto.getItinerary() != null && !dto.getItinerary().isEmpty()) {
             List<DailyItineraryEty> itineraryEties = dto.getItinerary().stream()
@@ -173,7 +186,7 @@ public class TravelMapper {
     private DailyItineraryEty convertDailyItineraryDTOToEty(DailyItineraryDTO dto, TravelEty travel) {
         DailyItineraryEty dailyEty = new DailyItineraryEty();
         dailyEty.setDay(dto.getDay());
-        dailyEty.setDate(dto.getDate());
+        dailyEty.setDate(dto.getDate().toString());
         dailyEty.setMemoryImageIndex(dto.getMemoryImageIndex());
         dailyEty.setMemoryImageUrl(dto.getMemoryImageUrl());
         dailyEty.setTravel(travel);

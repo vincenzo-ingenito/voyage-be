@@ -1,7 +1,10 @@
 package it.voyage.ms.dto.response;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
+import it.voyage.ms.repository.entity.TravelType;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -14,6 +17,20 @@ public class TravelDTO {
 	private String dateFrom; 
 	private String dateTo;
 	private Boolean isCopied; 
-	private Boolean needsDateConfirmation; 
-	 
+	private Boolean needsDateConfirmation;
+	
+	/**
+	 * Tipo di viaggio: SINGLE o GROUP
+	 */
+	private TravelType travelType;
+	
+	/**
+	 * Lista dei partecipanti (solo per viaggi di gruppo)
+	 */
+	private List<ParticipantDTO> participants = new ArrayList<>();
+	
+	/**
+	 * ID del proprietario del viaggio (Firebase UID)
+	 */
+	private String ownerId;
 }

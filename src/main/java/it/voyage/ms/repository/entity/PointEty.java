@@ -1,9 +1,15 @@
 package it.voyage.ms.repository.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
-import jakarta.persistence.Converter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import jakarta.persistence.AttributeConverter;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.Converter;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ForeignKey;
@@ -13,15 +19,11 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "points", indexes = {
@@ -114,8 +116,18 @@ public class PointEty {
      * Colonna rinominata da attachment_indices_json ad attachment_indices
      * ora che non è più un blob JSON grezzo.
      */
-    @Convert(converter = IntegerListConverter.class)
-    @Column(name = "attachment_indices", length = 500)
+//    @Convert(converter = IntegerListConverter.class)
+//    @Column(name = "attachment_indices", length = 500)
+//    private List<Integer> attachmentIndices = new ArrayList<>();
+    
+    @ElementCollection
+    @CollectionTable(
+        name = "point_attachment_indices",
+        joinColumns = @JoinColumn(name = "point_id"),
+        indexes = @Index(name = "idx_point_attachment_point_id", columnList = "point_id")
+    )
+    @Column(name = "attachment_index", nullable = false)
+    @OrderColumn(name = "position")
     private List<Integer> attachmentIndices = new ArrayList<>();
 
     /** Relation: DailyItinerary 1:N Point */
