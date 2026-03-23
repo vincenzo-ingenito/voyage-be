@@ -11,6 +11,6 @@ public interface IUserService {
 	
 	boolean getPrivacyStatus(String firebaseId);
 	
-	boolean deleteAccount(String userId);
+	void deleteFromDb(String userId);
 	
 }

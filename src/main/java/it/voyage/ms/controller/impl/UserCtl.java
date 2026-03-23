@@ -12,6 +12,7 @@ import it.voyage.ms.controller.IUserCtl;
 import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.response.PrivacyStatusResponse;
 import it.voyage.ms.security.user.CustomUserDetails;
+import it.voyage.ms.service.IAccountService;
 import it.voyage.ms.service.IUserService;
 import lombok.extern.slf4j.Slf4j;
 
@@ -21,6 +22,9 @@ public class UserCtl implements IUserCtl {
 
 	@Autowired
 	private IUserService userService;
+	
+	@Autowired
+	private IAccountService accountService;
 
 	@Override
 	public ResponseEntity<UserDto> updateUserDetails(UserDto updateDTO, CustomUserDetails customerUserDetail) {
@@ -40,7 +44,7 @@ public class UserCtl implements IUserCtl {
 	public ResponseEntity<Map<String, String>> deleteAccount(CustomUserDetails customerUserDetail) {
 		log.info("Called delete account endpoint for userId: {}", customerUserDetail.getUserId());
 
-		boolean deleted = userService.deleteAccount(customerUserDetail.getUserId());
+		boolean deleted = accountService.deleteAccount(customerUserDetail.getUserId());
 
 		if (deleted) {
 			Map<String, String> response = new HashMap<>();
