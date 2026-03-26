@@ -39,10 +39,7 @@ public class GroupTravelService implements IGroupTravelService {
 
     @Override
     @Transactional
-    public List<ParticipantDTO> inviteParticipants(
-            Long travelId,
-            List<ParticipantInviteRequest> invites,
-            String invitedBy) {
+    public List<ParticipantDTO> inviteParticipants(Long travelId, List<ParticipantInviteRequest> invites, String invitedBy) {
         
         log.info("Invito {} partecipanti al viaggio {}", invites.size(), travelId);
         
@@ -95,16 +92,11 @@ public class GroupTravelService implements IGroupTravelService {
             log.info("Invitato utente {} come {} al viaggio {}", 
                     invite.getUserId(), invite.getRole(), travelId);
             
-            // ✅ FIX: Invia notifica all'utente invitato
+            // FIX: Invia notifica all'utente invitato
             try {
                 UserEty inviter = userRepository.findById(invitedBy).orElse(null);
                 String inviterName = inviter != null ? inviter.getName() : "Un amico";
-                notificationService.sendGroupTravelInviteNotification(
-                    invite.getUserId(),
-                    inviterName,
-                    travel.getTravelName(),
-                    travelId
-                );
+                notificationService.sendGroupTravelInviteNotification(invite.getUserId(), inviterName, travel.getTravelName(), travelId);
             } catch (Exception e) {
                 log.error("Errore invio notifica per invito", e);
                 // Non blocchiamo il flusso se la notifica fallisce
@@ -118,12 +110,8 @@ public class GroupTravelService implements IGroupTravelService {
     @Transactional(readOnly = true)
     public List<ParticipantDTO> getParticipants(Long travelId) {
         log.info("Recupero partecipanti per viaggio {}", travelId);
-        
         List<TravelParticipantEty> participants = participantRepository.findByTravelId(travelId);
-        
-        return participants.stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+        return participants.stream().map(this::toDTO).collect(Collectors.toList());
     }
 
     @Override
@@ -145,18 +133,14 @@ public class GroupTravelService implements IGroupTravelService {
         TravelParticipantEty saved = participantRepository.save(participant);
         log.info("Invito {} per viaggio {}", accept ? "accettato" : "rifiutato", travelId);
         
-        // ✅ FIX: Invia notifica al proprietario se l'invito è stato accettato
+        // FIX: Invia notifica al proprietario se l'invito è stato accettato
         if (accept) {
             try {
                 TravelEty travel = participant.getTravel();
                 UserEty accepter = userRepository.findById(userId).orElse(null);
                 String accepterName = accepter != null ? accepter.getName() : "Un utente";
                 
-                notificationService.sendInviteAcceptedNotification(
-                    travel.getUser().getId(),
-                    accepterName,
-                    travel.getTravelName()
-                );
+                notificationService.sendInviteAcceptedNotification(travel.getUser().getId(), accepterName, travel.getTravelName());
             } catch (Exception e) {
                 log.error("Errore invio notifica accettazione invito", e);
                 // Non blocchiamo il flusso se la notifica fallisce
@@ -177,8 +161,7 @@ public class GroupTravelService implements IGroupTravelService {
         log.info("Cambio ruolo partecipante {} a {} per viaggio {}", userId, newRole, travelId);
         
         // Verifica che il richiedente sia l'owner
-        TravelEty travel = travelRepository.findById(travelId)
-                .orElseThrow(() -> new BusinessException("Viaggio non trovato"));
+        TravelEty travel = travelRepository.findById(travelId).orElseThrow(() -> new BusinessException("Viaggio non trovato"));
         
         if (!travel.getUser().getId().equals(requesterId)) {
             throw new BusinessException("Solo il proprietario può cambiare i ruoli");
@@ -201,11 +184,16 @@ public class GroupTravelService implements IGroupTravelService {
     public void removeParticipant(Long travelId, String userId, String requesterId) {
         log.info("Rimozione partecipante {} da viaggio {}", userId, travelId);
         
-        // Verifica che il richiedente sia l'owner
-        TravelEty travel = travelRepository.findById(travelId)
-                .orElseThrow(() -> new BusinessException("Viaggio non trovato"));
+        // Verifica che il viaggio esista
+        TravelEty travel = travelRepository.findById(travelId).orElseThrow(() -> new BusinessException("Viaggio non trovato"));
         
-        if (!travel.getUser().getId().equals(requesterId)) {
+        // Permetti la rimozione se:
+        // 1. Il richiedente è l'owner (può rimuovere chiunque)
+        // 2. Il richiedente sta rimuovendo se stesso (può lasciare il gruppo)
+        boolean isOwner = travel.getUser().getId().equals(requesterId);
+        boolean isLeavingGroup = userId.equals(requesterId);
+        
+        if (!isOwner && !isLeavingGroup) {
             throw new BusinessException("Solo il proprietario può rimuovere partecipanti");
         }
         
@@ -215,7 +203,12 @@ public class GroupTravelService implements IGroupTravelService {
         }
         
         participantRepository.deleteByTravelIdAndUserId(travelId, userId);
-        log.info("Partecipante {} rimosso dal viaggio {}", userId, travelId);
+        
+        if (isLeavingGroup) {
+            log.info("Partecipante {} ha lasciato il viaggio {}", userId, travelId);
+        } else {
+            log.info("Partecipante {} rimosso dal viaggio {} dal proprietario", userId, travelId);
+        }
     }
 
     @Override
@@ -223,13 +216,12 @@ public class GroupTravelService implements IGroupTravelService {
     public List<ParticipantDTO> getUserGroupTravelParticipations(String userId) {
         log.info("Recupero viaggi di gruppo per utente {}", userId);
         
-        // ✅ FIX: Include sia PENDING che ACCEPTED per mostrare anche gli inviti in attesa
+        // FIX: Include sia PENDING che ACCEPTED per mostrare anche gli inviti in attesa
         List<TravelParticipantEty> participations = participantRepository.findByUserId(userId);
         
         // Filtra solo PENDING e ACCEPTED (esclude DECLINED)
         return participations.stream()
-                .filter(p -> p.getStatus() == ParticipantStatus.PENDING || 
-                            p.getStatus() == ParticipantStatus.ACCEPTED)
+                .filter(p -> p.getStatus() == ParticipantStatus.PENDING || p.getStatus() == ParticipantStatus.ACCEPTED)
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
@@ -249,8 +241,7 @@ public class GroupTravelService implements IGroupTravelService {
         
         // Verifica se è un editor accettato
         return participantRepository.findByTravelIdAndUserId(travelId, userId)
-                .map(p -> p.getStatus() == ParticipantStatus.ACCEPTED && 
-                         p.getRole() == ParticipantRole.EDITOR)
+                .map(p -> p.getStatus() == ParticipantStatus.ACCEPTED && p.getRole() == ParticipantRole.EDITOR)
                 .orElse(false);
     }
 

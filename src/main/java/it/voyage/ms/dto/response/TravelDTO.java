@@ -33,4 +33,14 @@ public class TravelDTO {
 	 * ID del proprietario del viaggio (Firebase UID)
 	 */
 	private String ownerId;
+	
+	/**
+	 * Nome del proprietario del viaggio
+	 */
+	private String ownerName;
+	
+	/**
+	 * Email del proprietario del viaggio
+	 */
+	private String ownerEmail;
 }

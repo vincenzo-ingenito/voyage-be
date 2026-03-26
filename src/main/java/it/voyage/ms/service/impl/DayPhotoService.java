@@ -7,6 +7,7 @@ import it.voyage.ms.repository.entity.TravelFileEty;
 import it.voyage.ms.repository.impl.TravelRepository;
 import it.voyage.ms.service.IDayPhotoService;
 import it.voyage.ms.service.IFirebaseStorageService;
+import it.voyage.ms.service.IGroupTravelService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ public class DayPhotoService implements IDayPhotoService {
 
     private final TravelRepository travelRepository;
     private final IFirebaseStorageService firebaseStorageService;
+    private final IGroupTravelService groupTravelService;
 
     @Override
     @Transactional
@@ -30,7 +32,8 @@ public class DayPhotoService implements IDayPhotoService {
         TravelEty travel = travelRepository.findById(travelId)
                 .orElseThrow(() -> new RuntimeException("Travel not found with id: " + travelId));
         
-        if (!travel.getUser().getId().equals(userId)) {
+        // Verifica se l'utente può modificare questo viaggio (owner o editor)
+        if (!groupTravelService.canUserEditTravel(travelId, userId)) {
             throw new RuntimeException("User not authorized to modify this travel");
         }
 
@@ -114,7 +117,8 @@ public class DayPhotoService implements IDayPhotoService {
         TravelEty travel = travelRepository.findById(travelId)
                 .orElseThrow(() -> new RuntimeException("Travel not found with id: " + travelId));
         
-        if (!travel.getUser().getId().equals(userId)) {
+        // Verifica se l'utente può modificare questo viaggio (owner o editor)
+        if (!groupTravelService.canUserEditTravel(travelId, userId)) {
             throw new RuntimeException("User not authorized to modify this travel");
         }
 

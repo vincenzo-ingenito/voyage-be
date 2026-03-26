@@ -37,6 +37,7 @@ import it.voyage.ms.repository.impl.BookmarkRepository;
 import it.voyage.ms.repository.impl.TravelRepository;
 import it.voyage.ms.repository.impl.UserRepository;
 import it.voyage.ms.security.user.CustomUserDetails;
+import it.voyage.ms.service.IGroupTravelService;
 import it.voyage.ms.service.ITravelService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,6 +61,7 @@ public class TravelService implements ITravelService {
     private final TravelMapper travelMapper;
     private final UserRepository userRepository;
     private final BookmarkRepository bookmarkRepository;
+    private final IGroupTravelService groupTravelService;
 
 
     @Override
@@ -132,7 +134,17 @@ public class TravelService implements ITravelService {
         try {
             log.info("UPDATE TRAVEL - Inizio aggiornamento viaggio ID: {}", travelId);
 
-            TravelEty existingTravel = travelRepository.findByIdAndUserId(travelId, ownerUid).orElseThrow(() -> new BusinessException("Viaggio non trovato o non autorizzato."));
+            // Cerca il viaggio senza filtro owner
+            TravelEty existingTravel = travelRepository.findById(travelId)
+                .orElseThrow(() -> new BusinessException("Viaggio non trovato."));
+
+            // Verifica se l'utente può modificare questo viaggio (owner o editor)
+            if (!groupTravelService.canUserEditTravel(travelId, ownerUid)) {
+                log.warn("Utente {} non autorizzato a modificare il viaggio {}", ownerUid, travelId);
+                throw new BusinessException("Non hai i permessi per modificare questo viaggio.");
+            }
+
+            log.info("Utente {} autorizzato a modificare il viaggio {}", ownerUid, travelId);
 
             List<TravelFileEty> existingFiles = new ArrayList<>(existingTravel.getFiles());
             int existingFilesCount = existingFiles.size();
@@ -236,14 +248,14 @@ public class TravelService implements ITravelService {
     public TravelDTO getTravelWithUrls(String userId, Long travelId) {
         log.info("GET TRAVEL WITH URLS - Caricamento viaggio ID: {} per utente: {}", travelId, userId);
 
-        // ✅ FIX: Prima cerca se è il proprietario
+        // FIX: Prima cerca se è il proprietario
         Optional<TravelEty> ownerTravel = travelRepository.findByIdAndUserId(travelId, userId);
         if (ownerTravel.isPresent()) {
             log.info("Utente {} è il proprietario del viaggio {}", userId, travelId);
             return buildTravelDtoWithUrls(ownerTravel.get());
         }
 
-        // ✅ FIX: Se non è il proprietario, verifica se è un partecipante ACCEPTED
+        // FIX: Se non è il proprietario, verifica se è un partecipante ACCEPTED
         TravelEty entity = travelRepository.findById(travelId)
             .orElseThrow(() -> new BusinessException("Viaggio non trovato."));
         

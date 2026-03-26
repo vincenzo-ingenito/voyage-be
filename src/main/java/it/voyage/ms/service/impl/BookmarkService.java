@@ -37,7 +37,7 @@ public class BookmarkService implements IBookmarkService {
 
 		TravelEty travel = travelRepository.findById(travelId).orElseThrow(() -> new NotFoundException("Viaggio non trovato"));
 
-		if (travel.getUser().getId().equals(userId)) {
+		if (travel.getUser()!=null && travel.getUser().getId().equals(userId)) {
 			throw new ConflictException("Non puoi salvare il tuo stesso viaggio");
 		}
 

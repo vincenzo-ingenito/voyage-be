@@ -110,29 +110,14 @@ public class PointEty {
     @Column(name = "city", length = 255)
     private String city;
 
-    /**
-     * Indici dei file allegati a questo punto.
-     * Convertiti automaticamente da/a List<Integer> tramite IntegerListConverter.
-     * Colonna rinominata da attachment_indices_json ad attachment_indices
-     * ora che non è più un blob JSON grezzo.
-     */
-//    @Convert(converter = IntegerListConverter.class)
-//    @Column(name = "attachment_indices", length = 500)
-//    private List<Integer> attachmentIndices = new ArrayList<>();
-    
     @ElementCollection
-    @CollectionTable(
-        name = "point_attachment_indices",
-        joinColumns = @JoinColumn(name = "point_id"),
-        indexes = @Index(name = "idx_point_attachment_point_id", columnList = "point_id")
-    )
+    @CollectionTable(name = "point_attachment_indices", joinColumns = @JoinColumn(name = "point_id"), indexes = @Index(name = "idx_point_attachment_point_id", columnList = "point_id"))
     @Column(name = "attachment_index", nullable = false)
     @OrderColumn(name = "position")
     private List<Integer> attachmentIndices = new ArrayList<>();
 
     /** Relation: DailyItinerary 1:N Point */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "daily_itinerary_id", nullable = false,
-                foreignKey = @ForeignKey(name = "fk_point_daily_itinerary"))
+    @JoinColumn(name = "daily_itinerary_id", nullable = false, foreignKey = @ForeignKey(name = "fk_point_daily_itinerary"))
     private DailyItineraryEty dailyItinerary;
 }

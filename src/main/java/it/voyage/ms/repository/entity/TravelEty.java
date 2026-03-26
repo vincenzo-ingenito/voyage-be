@@ -1,6 +1,5 @@
 package it.voyage.ms.repository.entity;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -60,10 +59,6 @@ public class TravelEty {
 	@Column(name = "date_to")
 	private String dateTo;
 
-	/**
-	 * Unica relazione per i file allegati al viaggio.
-	 * FileMetadataEty è stata rimossa: TravelFileEty è l'unica fonte di verità.
-	 */
 	@OneToMany(mappedBy = "travel", cascade = CascadeType.ALL, orphanRemoval = true)
 	@OrderBy("uploadDate ASC")
 	private List<TravelFileEty> files = new ArrayList<>();
@@ -77,12 +72,7 @@ public class TravelEty {
 	/**
 	 * Tipo di viaggio: SINGLE (default) o GROUP
 	 */
-	@Column(
-			name = "travel_type",
-			nullable = false,
-			length = 50,
-			columnDefinition = "varchar(50) default 'SINGLE'"
-			)
+	@Column(name = "travel_type", nullable = false, length = 50, columnDefinition = "varchar(50) default 'SINGLE'")
 	@Enumerated(EnumType.STRING)
 	private TravelType travelType = TravelType.SINGLE;
 

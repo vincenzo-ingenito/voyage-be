@@ -3,7 +3,6 @@ package it.voyage.ms.service.impl;
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -13,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.google.api.gax.paging.Page;
-import com.google.cloud.storage.Acl;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
@@ -21,6 +19,7 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 
 import it.voyage.ms.dto.response.FileMetadata;
+import it.voyage.ms.exceptions.BusinessException;
 import it.voyage.ms.repository.entity.TravelEty;
 import it.voyage.ms.service.IFirebaseStorageService;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +31,12 @@ import lombok.extern.slf4j.Slf4j;
  * Unifica le responsabilità che erano distribuite tra FirebaseStorageService
  * e StorageService: upload, download, URL firmati, eliminazione singola
  * ed eliminazione massiva per viaggio.
+ *
+ * NOTA — ACL pubbliche rimosse:
+ * Acl.of(Acl.User.ofAllUsers(), Acl.Role.READER) è deprecato nei bucket con
+ * Uniform Bucket-Level Access attivo e causa errori silenziosi o eccezioni a
+ * runtime. L'accesso ai file avviene esclusivamente tramite signed URL generati
+ * da getPublicUrl(), senza esporre i file pubblicamente.
  */
 @Service
 @Slf4j
@@ -49,16 +54,25 @@ public class FirebaseStorageService implements IFirebaseStorageService {
     /**
      * Carica un file su Firebase Storage e restituisce i metadati completi.
      *
-     * Il file viene reso pubblicamente accessibile tramite ACL e il path
-     * segue la struttura: travel-files/{userId}/{travelId}/{category}/{uuid}_{fileName}
+     * Il path segue la struttura:
+     * travel-files/{userId}/{travelId}/{category}/{uuid}_{fileName}
+     *
+     * L'accesso al file avviene tramite signed URL (getPublicUrl), non tramite
+     * ACL pubbliche.
      */
     @Override
     public FileMetadata uploadFileWithMetadata(MultipartFile file, String userId, Long travelId, String category)
             throws IOException {
         log.info("Caricamento file per categoria: {}", category);
 
-        String originalFileName = file.getOriginalFilename();
-        String contentType = file.getContentType();
+        // getOriginalFilename() e getContentType() possono restituire null
+        String originalFileName = file.getOriginalFilename() != null
+                ? file.getOriginalFilename()
+                : "file";
+        String contentType = file.getContentType() != null
+                ? file.getContentType()
+                : "application/octet-stream";
+
         String filePath = String.format("travel-files/%s/%s/%s/%s_%s",
                 userId, travelId, category, UUID.randomUUID(), originalFileName);
 
@@ -69,11 +83,11 @@ public class FirebaseStorageService implements IFirebaseStorageService {
         BlobInfo blobInfo = BlobInfo.newBuilder(BlobId.of(BUCKET_NAME, filePath))
                 .setContentType(contentType)
                 .setMetadata(metadata)
-                .setAcl(Collections.singletonList(Acl.of(Acl.User.ofAllUsers(), Acl.Role.READER)))
                 .build();
 
         storage.create(blobInfo, file.getBytes());
 
+        log.info("File caricato con successo: {}", filePath);
         return new FileMetadata(filePath, originalFileName, contentType);
     }
 
@@ -127,7 +141,7 @@ public class FirebaseStorageService implements IFirebaseStorageService {
         log.info("Download file: {}", fileId);
         Blob blob = getBlob(fileId);
         if (blob == null) {
-            throw new RuntimeException("File non trovato: " + fileId);
+            throw new BusinessException("File non trovato: " + fileId);
         }
         byte[] fileData = blob.getContent();
         log.info("File scaricato con successo, dimensione: {} bytes", fileData.length);
@@ -159,13 +173,8 @@ public class FirebaseStorageService implements IFirebaseStorageService {
             int deletedCount = 0;
 
             for (Blob blob : blobs.iterateAll()) {
-                try {
-                    if (storage.delete(blob.getBlobId())) {
-                        deletedCount++;
-                        log.debug("File eliminato: {}", blob.getName());
-                    }
-                } catch (Exception e) {
-                    log.error("Errore eliminazione file {}: {}", blob.getName(), e.getMessage());
+                if (deleteBlob(blob.getName(), "cartella viaggio")) {
+                    deletedCount++;
                 }
             }
 
@@ -186,22 +195,35 @@ public class FirebaseStorageService implements IFirebaseStorageService {
      * Elimina tutte le foto associate a un viaggio (ricordi giornalieri + allFileIds).
      * Operazione best-effort: un errore su un singolo file non blocca gli altri.
      * Usato da UserService alla cancellazione dell'account.
+     *
+     * NOTA — memoryImageUrl vs fileId:
+     * Con l'architettura attuale, le foto dei giorni sono referenziate tramite
+     * memoryImageIndex e incluse in getAllFileIds(). Il ramo memoryImageUrl è
+     * mantenuto per compatibilità con eventuali record creati con la vecchia
+     * architettura che salvava l'URL diretto anziché l'indice.
      */
     @Override
     public void deletePhotosForTravel(TravelEty travel) {
         try {
-            // Ricordi giornalieri (referenziati tramite URL pubblico)
+            // Vecchia architettura: foto referenziate tramite URL diretto
             if (travel.getItinerary() != null) {
                 travel.getItinerary().forEach(day -> {
                     if (day.getMemoryImageUrl() != null && !day.getMemoryImageUrl().isEmpty()) {
-                        deleteFileByUrl(day.getMemoryImageUrl(), "foto ricordo giorno " + day.getDay());
+                        String path = extractStoragePath(day.getMemoryImageUrl());
+                        if (path != null) {
+                            deleteBlob(path, "foto ricordo giorno " + day.getDay());
+                        } else {
+                            log.warn("Impossibile estrarre il path dall'URL per foto ricordo giorno {}: {}",
+                                    day.getDay(), day.getMemoryImageUrl());
+                        }
                     }
                 });
             }
 
-            // Tutti gli altri file (referenziati tramite fileId/path diretto)
+            // Architettura corrente: tutti i file referenziati tramite fileId/path
             if (travel.getAllFileIds() != null && !travel.getAllFileIds().isEmpty()) {
-                travel.getAllFileIds().forEach(this::deleteFileById);
+                travel.getAllFileIds().forEach(fileId ->
+                        deleteBlob(fileId, "file viaggio " + travel.getId()));
             }
 
         } catch (Exception e) {
@@ -215,42 +237,27 @@ public class FirebaseStorageService implements IFirebaseStorageService {
     // =========================================================================
 
     /**
-     * Elimina un file a partire dal suo URL pubblico Firebase.
-     * Estrae il path interno dall'URL prima di procedere.
+     * Elimina un singolo blob da Firebase Storage tramite path diretto.
+     * Operazione best-effort: logga warning in caso di errore senza propagarlo.
+     *
+     * @param path  path interno del blob nel bucket
+     * @param label descrizione contestuale usata nel log
+     * @return true se eliminato, false se non trovato o in caso di errore
      */
-    private void deleteFileByUrl(String url, String label) {
-        String path = extractStoragePath(url);
-        if (path == null) {
-            log.warn("Impossibile estrarre il path dall'URL per {}: {}", label, url);
-            return;
-        }
+    private boolean deleteBlob(String path, String label) {
         try {
             Blob blob = storage.get(BlobId.of(BUCKET_NAME, path));
             if (blob != null) {
                 blob.delete();
                 log.info("Eliminato file ({}): {}", label, path);
+                return true;
             } else {
                 log.debug("File non trovato su Storage ({}): {}", label, path);
+                return false;
             }
         } catch (Exception e) {
             log.warn("Impossibile eliminare file ({}): {} — {}", label, path, e.getMessage());
-        }
-    }
-
-    /**
-     * Elimina un file a partire dal suo fileId/path diretto.
-     */
-    private void deleteFileById(String fileId) {
-        try {
-            Blob blob = storage.get(BlobId.of(BUCKET_NAME, fileId));
-            if (blob != null) {
-                blob.delete();
-                log.info("Eliminato file: {}", fileId);
-            } else {
-                log.debug("File non trovato su Storage: {}", fileId);
-            }
-        } catch (Exception e) {
-            log.warn("Impossibile eliminare file {}: {}", fileId, e.getMessage());
+            return false;
         }
     }
 
@@ -259,6 +266,8 @@ public class FirebaseStorageService implements IFirebaseStorageService {
      *
      * Formato atteso:
      * https://firebasestorage.googleapis.com/v0/b/BUCKET/o/PATH?alt=media&token=TOKEN
+     *
+     * @return path decodificato, o null se il formato non è riconoscibile
      */
     private String extractStoragePath(String url) {
         if (url == null || url.isBlank()) {
@@ -279,7 +288,8 @@ public class FirebaseStorageService implements IFirebaseStorageService {
     }
 
     /**
-     * URL pubblico diretto come fallback quando la generazione dell'URL firmato fallisce.
+     * URL pubblico diretto come fallback quando la generazione del signed URL fallisce.
+     * Funziona solo su bucket con accesso pubblico uniforme abilitato.
      */
     private String fallbackUrl(String fileId) {
         return String.format("https://storage.googleapis.com/%s/%s", BUCKET_NAME, fileId);

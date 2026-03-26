@@ -116,14 +116,6 @@ public class TravelParticipantEty {
 	@Column(name = "responded_at")
 	private LocalDateTime respondedAt;
 
-	/**
-	 * Flag che indica se l'utente può modificare il viaggio
-	 * Calcolato automaticamente dal role:
-	 * - EDITOR -> can_edit = true
-	 * - VIEWER -> can_edit = false
-	 */
-//	@Column(name = "can_edit", nullable = false)
-//	private Boolean canEdit;
 
 	/**
 	 * Flag che indica se l'utente può invitare altri partecipanti
@@ -136,7 +128,7 @@ public class TravelParticipantEty {
 	protected void onCreate() {
 
 		if (createdAt == null) {
-			createdAt = LocalDateTime.now();   // <-- aggiunto
+			createdAt = LocalDateTime.now();  
 		}
 
 		if (invitedAt == null) {
@@ -145,26 +137,8 @@ public class TravelParticipantEty {
 		if (status == null) {
 			status = ParticipantStatus.PENDING;
 		}
-		// Calcola can_edit dal role
-//		updateCanEdit();
 	}
-
-	/**
-	 * Aggiorna can_edit quando cambia il role
-	 */
-//	@jakarta.persistence.PreUpdate
-//	protected void onUpdate() {
-//		updateCanEdit();
-//	}
-
-	/**
-	 * Metodo helper per calcolare can_edit dal role
-	 */
-//	private void updateCanEdit() {
-//		if (role != null) {
-//			canEdit = (role == ParticipantRole.EDITOR);
-//		}
-//	}
+ 
 	
 	@Transient
 	public boolean isCanEdit() {
