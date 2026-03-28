@@ -13,6 +13,7 @@ public class FriendrelationshipMapper {
 		dto.setCreatedAt(relationship.getCreatedAt());
 		dto.setReceiverId(relationship.getReceiverId());
 		dto.setRequesterId(relationship.getRequesterId());
+		dto.setStatus(relationship.getStatus() != null ? relationship.getStatus().name() : null);
 		dto.setName(requesterName);
 		dto.setAvatar(requesterAvatar);
 		return dto;
