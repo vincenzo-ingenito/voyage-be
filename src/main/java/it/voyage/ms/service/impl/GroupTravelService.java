@@ -287,12 +287,25 @@ public class GroupTravelService implements IGroupTravelService {
         dto.setInvitedAt(entity.getInvitedAt());
         dto.setRespondedAt(entity.getRespondedAt());
         
-        // Popola i dati dell'utente se disponibili
+        // Popola i dati dell'utente invitato se disponibili
         UserEty user = userRepository.findById(entity.getUserId()).orElse(null);
         if (user != null) {
             dto.setUserName(user.getName());
             dto.setUserEmail(user.getEmail());
             dto.setUserAvatar(user.getAvatar());
+            log.debug("toDTO: Popolato dati utente invitato: {}", user.getName());
+        } else {
+            log.warn("toDTO: Utente invitato {} non trovato nel database", entity.getUserId());
+        }
+        
+        // Popola il nome dell'invitante se disponibile
+        log.debug("toDTO: Ricerca invitante con ID: {}", entity.getInvitedBy());
+        UserEty inviter = userRepository.findById(entity.getInvitedBy()).orElse(null);
+        if (inviter != null) {
+            dto.setInvitedByName(inviter.getName());
+            log.info("toDTO: Popolato invitedByName con: {}", inviter.getName());
+        } else {
+            log.warn("toDTO: Invitante {} non trovato nel database, invitedByName rimarrà null", entity.getInvitedBy());
         }
         
         return dto;
