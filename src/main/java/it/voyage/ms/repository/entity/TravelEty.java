@@ -82,6 +82,12 @@ public class TravelEty {
 	@OneToMany(mappedBy = "travel", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<TravelParticipantEty> participants = new ArrayList<>();
 
+	/**
+	 * Valigie associate al viaggio
+	 */
+	@OneToMany(mappedBy = "travel", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<SuitcaseEty> suitcases = new ArrayList<>();
+
 	// -------------------------------------------------------------------------
 	// Helper methods — NON annotati @Transient: quella annotazione vale solo
 	// per i campi persistiti, non per i metodi di utilità.
