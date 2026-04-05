@@ -59,6 +59,11 @@ public class ParticipantDTO {
     private String invitedBy;
     
     /**
+     * Nome di chi ha inviato l'invito
+     */
+    private String invitedByName;
+    
+    /**
      * Data invito
      */
     private LocalDateTime invitedAt;
