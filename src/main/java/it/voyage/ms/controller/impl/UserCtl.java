@@ -36,8 +36,8 @@ public class UserCtl implements IUserCtl {
 	@Override
 	public ResponseEntity<PrivacyStatusResponse> getPrivacyStatus(CustomUserDetails customerUserDetail) {
 		log.info("Called get privacy status ep");
-		boolean isPrivate = userService.getPrivacyStatus(customerUserDetail.getUserId());
-		return new ResponseEntity<>(new PrivacyStatusResponse(isPrivate), HttpStatus.OK);
+		PrivacyStatusResponse response = userService.getPrivacyStatus(customerUserDetail.getUserId());
+		return new ResponseEntity<>(response, HttpStatus.OK);
 	}
 
 	@Override

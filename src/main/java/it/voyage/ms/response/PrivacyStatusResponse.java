@@ -8,4 +8,5 @@ import lombok.Data;
 public class PrivacyStatusResponse {
 
 	private boolean privateProfile;
+	private boolean showEmergencyFAB;
 }

@@ -11,6 +11,7 @@ import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.exceptions.NotFoundException;
 import it.voyage.ms.repository.entity.UserEty;
 import it.voyage.ms.repository.impl.UserRepository;
+import it.voyage.ms.response.PrivacyStatusResponse;
 import it.voyage.ms.security.user.CustomUserDetails;
 import it.voyage.ms.service.IUserService;
 import lombok.AllArgsConstructor;
@@ -73,17 +74,23 @@ public class UserService implements IUserService {
 			user.setPrivate(userDto.getPrivateProfile());
 		}
 
+		if (userDto.getShowEmergencyFAB() != null) {
+			user.setShowEmergencyFAB(userDto.getShowEmergencyFAB());
+		}
+
 		UserEty updatedUser = userRepository.save(user);
 		return UserDto.fromEntity(updatedUser);
 	}
 
 	/**
-	 * Restituisce lo stato di privacy del profilo utente.
+	 * Restituisce lo stato di privacy e delle preferenze del profilo utente.
 	 *
 	 */
 	@Override
-	public boolean getPrivacyStatus(String firebaseId) {
-		return userRepository.findPrivacyStatusById(firebaseId).orElseThrow(() -> new NotFoundException("Utente non presente"));
+	public PrivacyStatusResponse getPrivacyStatus(String firebaseId) {
+		UserEty user = userRepository.findById(firebaseId)
+			.orElseThrow(() -> new NotFoundException("Utente non presente"));
+		return new PrivacyStatusResponse(user.isPrivate(), user.isShowEmergencyFAB());
 	}
 
 

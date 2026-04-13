@@ -55,6 +55,9 @@ public class UserEty {
     @Column(name = "is_private", nullable = false)
     private boolean isPrivate = false;
 
+    @Column(name = "show_emergency_fab", nullable = false, columnDefinition = "boolean default true")
+    private boolean showEmergencyFAB = true;
+
     @Column(name = "bio", columnDefinition = "TEXT")
     private String bio;
 

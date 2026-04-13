@@ -1,6 +1,7 @@
 package it.voyage.ms.service;
 
 import it.voyage.ms.dto.response.UserDto;
+import it.voyage.ms.response.PrivacyStatusResponse;
 import it.voyage.ms.security.user.CustomUserDetails;
 
 public interface IUserService {
@@ -9,7 +10,7 @@ public interface IUserService {
 	
 	UserDto update(String firebaseId,UserDto userDto);
 	
-	boolean getPrivacyStatus(String firebaseId);
+	PrivacyStatusResponse getPrivacyStatus(String firebaseId);
 	
 	void deleteFromDb(String userId);
 	
