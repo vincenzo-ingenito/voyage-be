@@ -13,7 +13,11 @@ import lombok.NoArgsConstructor;
 public class TravelDTO {
 	private Long travelId;
 	private String travelName;
-	private List<DailyItineraryDTO> itinerary;
+	private String userId;
+	private String city;
+	private String country;
+	private String coverImageUri;
+	private List<DailyItineraryDTO> itinerary = new ArrayList<>();
 	private String dateFrom; 
 	private String dateTo;
 	private Boolean isCopied; 
@@ -43,4 +47,10 @@ public class TravelDTO {
 	 * Email del proprietario del viaggio
 	 */
 	private String ownerEmail;
+	
+	/**
+	 * Statistiche di voto (upvotes, downvotes, punteggio netto)
+	 * Popolato opzionalmente quando richiesto (es. nel feed)
+	 */
+	private VoteStatsDTO voteStats;
 }

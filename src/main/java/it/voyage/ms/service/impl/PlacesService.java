@@ -18,8 +18,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static it.voyage.ms.config.Constants.Google.PLACES_AUTOCOMPLETE_URL;
-import static it.voyage.ms.config.Constants.Google.PLACES_DETAILS_URL;
+import it.voyage.ms.dto.response.NearbyPlaceDTO;
+
+import static it.voyage.ms.config.Constants.Google.*;
 
 /**
  * Servizio ottimizzato per l'integrazione con Google Places API
@@ -158,6 +159,61 @@ public class PlacesService implements IPlacesService {
     }
 
     /**
+     * Ottiene luoghi nelle vicinanze di una coordinata
+     * 
+     * @param latitude latitudine del punto centrale
+     * @param longitude longitudine del punto centrale
+     * @param radius raggio di ricerca in metri
+     * @param type tipo di luogo da cercare
+     * @return lista di luoghi vicini (max NEARBY_MAX_RESULTS)
+     * 
+     * Cache: chiave basata su coordinata+raggio+tipo, TTL 1h, skip errori
+     */
+    @Cacheable(value = "nearbyPlaces", key = "'nearby_' + #latitude + '_' + #longitude + '_' + #radius + '_' + #type")
+    @Override
+    public List<NearbyPlaceDTO> getNearbyPlaces(double latitude, double longitude, int radius, String type) {
+        // 1. Costruzione URL sicura con encoding automatico
+        String url = buildNearbyUrl(latitude, longitude, radius, type);
+        
+        try {
+            // 2. Chiamata API con deserializzazione automatica
+            ResponseEntity<NearbySearchResponse> response = restTemplate.getForEntity(url, NearbySearchResponse.class);
+            
+            // 3. Validazione risposta
+            if (!response.hasBody() || response.getBody() == null) {
+                log.warn("Risposta vuota da Google Places Nearby API per lat={}, lng={}", latitude, longitude);
+                return Collections.emptyList();
+            }
+            
+            NearbySearchResponse body = response.getBody();
+            
+            // 4. Verifica status
+            if (!"OK".equals(body.getStatus()) && !"ZERO_RESULTS".equals(body.getStatus())) {
+                log.warn("Google Places Nearby API returned status: {} - {}", 
+                    body.getStatus(), body.getErrorMessage());
+                return Collections.emptyList();
+            }
+            
+            // 5. Trasformazione risultati (max NEARBY_MAX_RESULTS)
+            List<NearbyResult> results = Optional.ofNullable(body.getResults())
+                .orElse(Collections.emptyList());
+            
+            return results.stream()
+                .limit(NEARBY_MAX_RESULTS)
+                .map(this::toNearbyPlaceDTO)
+                .collect(Collectors.toList());
+            
+        } catch (RestClientException e) {
+            log.error("Errore chiamata Google Places Nearby API per lat={}, lng={}: {}", 
+                latitude, longitude, e.getMessage());
+            return Collections.emptyList();
+        } catch (Exception e) {
+            log.error("Errore imprevisto durante ricerca luoghi vicini", e);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
      * Ottiene dettagli di un luogo specifico da Google Places API
      * 
      * @param placeId ID univoco del luogo Google
@@ -249,6 +305,65 @@ public class PlacesService implements IPlacesService {
             .queryParam("fields", "geometry,types,address_components")
             .build()
             .toUriString();
+    }
+
+    /**
+     * Costruisce URL per nearby search con encoding automatico
+     */
+    private String buildNearbyUrl(double latitude, double longitude, int radius, String type) {
+        String location = latitude + "," + longitude;
+        return UriComponentsBuilder.fromUriString(PLACES_NEARBY_URL)
+            .queryParam("location", location)
+            .queryParam("radius", radius)
+            .queryParam("type", type)
+            .queryParam("language", DEFAULT_LANGUAGE)
+            .queryParam("key", googleApiKey)
+            .build()
+            .toUriString();
+    }
+
+    /**
+     * Converte un NearbyResult Google in NearbyPlaceDTO
+     * Nota: distanceMeters e alreadyInTravel vengono impostati dal chiamante
+     */
+    private NearbyPlaceDTO toNearbyPlaceDTO(NearbyResult result) {
+        NearbyPlaceDTO dto = new NearbyPlaceDTO();
+        dto.setPlaceId(result.getPlaceId());
+        dto.setName(result.getName());
+        dto.setAddress(Optional.ofNullable(result.getVicinity()).orElse(""));
+        
+        // Estrai coordinate
+        if (result.getGeometry() != null && result.getGeometry().getLocation() != null) {
+            dto.setLatitude(result.getGeometry().getLocation().getLat());
+            dto.setLongitude(result.getGeometry().getLocation().getLng());
+        } else {
+            dto.setLatitude(0.0);
+            dto.setLongitude(0.0);
+        }
+        
+        // Mappa tipo con enum esistente
+        List<String> googleTypes = Optional.ofNullable(result.getTypes())
+            .orElse(Collections.emptyList());
+        dto.setType(PlaceTypeCategory.mapToItalian(googleTypes));
+        
+        // Estrai photoReference se presente
+        dto.setPhotoReference(extractPhotoReference(result));
+        
+        // Questi campi vengono impostati dal servizio chiamante
+        dto.setDistanceMeters(0);
+        dto.setAlreadyInTravel(false);
+        
+        return dto;
+    }
+
+    /**
+     * Estrae il photo reference dal primo elemento dell'array photos
+     */
+    private String extractPhotoReference(NearbyResult result) {
+        return Optional.ofNullable(result.getPhotos())
+            .filter(photos -> !photos.isEmpty())
+            .map(photos -> photos.get(0).getPhotoReference())
+            .orElse(null);
     }
 
     /**
@@ -464,5 +579,40 @@ public class PlacesService implements IPlacesService {
         private String shortName;
         
         private List<String> types;
+    }
+
+    // ========== Inner classes per Nearby Search API ==========
+
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class NearbySearchResponse {
+        private String status;
+        private List<NearbyResult> results;
+        
+        @JsonProperty("error_message")
+        private String errorMessage;
+    }
+
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class NearbyResult {
+        @JsonProperty("place_id")
+        private String placeId;
+        
+        private String name;
+        private String vicinity;
+        private Geometry geometry;
+        private List<String> types;
+        private List<Photo> photos;
+    }
+
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class Photo {
+        @JsonProperty("photo_reference")
+        private String photoReference;
+        
+        private int width;
+        private int height;
     }
 }
