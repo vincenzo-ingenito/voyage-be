@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.web.multipart.MultipartFile;
 
 import it.voyage.ms.dto.response.CountryVisit;
+import it.voyage.ms.dto.response.FeedPageDTO;
 import it.voyage.ms.dto.response.TravelDTO;
 import it.voyage.ms.security.user.CustomUserDetails;
 
@@ -23,4 +24,10 @@ public interface ITravelService {
 	TravelDTO confirmTravelDates(String userId, String travelId);
 	
 	List<CountryVisit> getConsolidatedCountryVisits(String userId);
+	
+	/**
+	 * Recupera il feed paginato dei viaggi (propri + amici)
+	 * con cursor-based pagination per ottimizzare performance e memoria
+	 */
+	FeedPageDTO getFeedPaginated(String userId, int pageSize, String cursor, boolean includePhotos);
 }

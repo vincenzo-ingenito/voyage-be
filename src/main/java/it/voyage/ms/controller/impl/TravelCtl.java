@@ -6,11 +6,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import it.voyage.ms.controller.ITravelCtl;
+import it.voyage.ms.dto.response.FeedPageDTO;
 import it.voyage.ms.dto.response.TravelDTO;
 import it.voyage.ms.security.user.CustomUserDetails;
 import it.voyage.ms.service.IFriendshipService;
@@ -103,6 +105,32 @@ public class TravelCtl implements ITravelCtl {
 		log.info("Called confirm travel dates ep for travelId: {}", travelId);
 		TravelDTO confirmedTravel = travelService.confirmTravelDates(userDetails.getUserId(), travelId);
 		return ResponseEntity.ok(confirmedTravel);
+	}
+	
+	@Override
+	public ResponseEntity<FeedPageDTO> getFeedPaginated(
+			@RequestParam(defaultValue = "15") int pageSize,
+			@RequestParam(required = false) String cursor,
+			@RequestParam(defaultValue = "false") boolean includePhotos,
+			@AuthenticationPrincipal CustomUserDetails userDetails) {
+		
+		log.info("Called get feed paginated ep - pageSize: {}, cursor: {}, includePhotos: {}", 
+				pageSize, cursor, includePhotos);
+		
+		// Limita pageSize a max 50 per sicurezza
+		int safePageSize = Math.min(pageSize, 50);
+		
+		FeedPageDTO feedPage = travelService.getFeedPaginated(
+				userDetails.getUserId(), 
+				safePageSize, 
+				cursor, 
+				includePhotos
+		);
+		
+		log.info("Returning feed page with {} travels, hasMore: {}", 
+				feedPage.getTravels().size(), feedPage.isHasMore());
+		
+		return ResponseEntity.ok(feedPage);
 	}
 
 }

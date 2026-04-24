@@ -22,6 +22,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import it.voyage.ms.dto.response.FeedPageDTO;
 import it.voyage.ms.dto.response.TravelDTO;
 import it.voyage.ms.security.user.CustomUserDetails; 
 
@@ -55,6 +56,26 @@ public interface ITravelCtl {
 			@AuthenticationPrincipal CustomUserDetails userDetails
 	);
 
+	@GetMapping(value = "/feed", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(
+		summary = "Recupera il feed paginato", 
+		description = "Restituisce il feed dei viaggi (propri + amici) con paginazione cursor-based. Ottimizzato per performance e gestione memoria."
+	)
+	@ApiResponses(value = { 
+			@ApiResponse(responseCode = "200", description = "Feed recuperato con successo.", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = FeedPageDTO.class))),
+			@ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato."),
+			@ApiResponse(responseCode = "400", description = "Bad Request: Cursor non valido."),
+			@ApiResponse(responseCode = "500", description = "Internal Server Error")
+	})
+	ResponseEntity<FeedPageDTO> getFeedPaginated(
+			@Parameter(description = "Numero di elementi per pagina (default: 15, max: 50)") 
+			@RequestParam(defaultValue = "15") int pageSize,
+			@Parameter(description = "Cursor per la paginazione (formato: timestamp_travelId)") 
+			@RequestParam(required = false) String cursor,
+			@Parameter(description = "Include URL signed delle foto (default: false per ridurre payload)") 
+			@RequestParam(defaultValue = "false") boolean includePhotos,
+			@AuthenticationPrincipal CustomUserDetails userDetails
+	);
 
 	@DeleteMapping(value = "/{travelId}", produces = MediaType.TEXT_PLAIN_VALUE)
 	@Operation(summary = "Elimina un viaggio", description = "Elimina il viaggio specificato, solo se appartenente all'utente autenticato.")
