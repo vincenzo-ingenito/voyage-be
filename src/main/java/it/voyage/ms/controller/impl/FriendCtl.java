@@ -14,6 +14,7 @@ import it.voyage.ms.dto.response.FriendRelationshipDto;
 import it.voyage.ms.dto.response.SearchRequest;
 import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.dto.response.UserSearchResult;
+import it.voyage.ms.dto.response.UserSuggestionDTO;
 import it.voyage.ms.security.user.CustomUserDetails;
 import it.voyage.ms.service.IFriendshipService;
 import it.voyage.ms.service.ITravelService;
@@ -57,6 +58,18 @@ public class FriendCtl implements IFriendCtl {
 		List<UserSearchResult> results = friendshipService.searchUsersAndDetermineStatus(query, userFirebase.getUserId());
 
 		return ResponseEntity.ok(results);
+	}
+
+	@Override
+	public ResponseEntity<List<UserSuggestionDTO>> getFriendSuggestions(Integer limit, CustomUserDetails user) {
+		log.info("Called get friend suggestions ep for user: {} with limit: {}", user.getUserId(), limit);
+		
+		// Limita il numero massimo di suggerimenti a 20
+		int actualLimit = Math.min(limit != null ? limit : 10, 20);
+		
+		List<UserSuggestionDTO> suggestions = friendshipService.getFriendSuggestions(user.getUserId(), actualLimit);
+		
+		return ResponseEntity.ok(suggestions);
 	}
 
 	@Override

@@ -13,6 +13,7 @@ import it.voyage.ms.dto.response.BlockedUserDTO;
 import it.voyage.ms.dto.response.FriendRelationshipDto;
 import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.dto.response.UserSearchResult;
+import it.voyage.ms.dto.response.UserSuggestionDTO;
 import it.voyage.ms.enums.BlockActionEnum;
 import it.voyage.ms.enums.FriendRelationshipStatusEnum;
 import it.voyage.ms.exceptions.ConflictException;
@@ -243,5 +244,151 @@ public class FriendshipService implements IFriendshipService {
         out.setAvatar(userEty.getAvatar());
         out.setName(userEty.getName());
         return out;
+    }
+
+    @Override
+    public List<UserSuggestionDTO> getFriendSuggestions(String currentUserId, int limit) {
+        // 1. Recupera gli amici dell'utente corrente
+        List<String> currentUserFriendIds = friendRelationshipRepository
+            .findFriendshipsByUserIdAndStatus(currentUserId, Status.ACCEPTED).stream()
+            .map(rel -> rel.getRequesterId().equals(currentUserId) 
+                ? rel.getReceiverId() 
+                : rel.getRequesterId())
+            .collect(Collectors.toList());
+
+        // 2. Recupera utenti con cui esiste già una relazione (amici, bloccati, pending)
+        Set<String> usersToExclude = new java.util.HashSet<>(currentUserFriendIds);
+        usersToExclude.add(currentUserId); // Escludi se stesso
+
+        // Aggiungi utenti bloccati (da entrambe le direzioni)
+        friendRelationshipRepository.findByRequesterIdOrReceiverId(currentUserId, currentUserId).stream()
+            .filter(rel -> rel.getStatus() == Status.BLOCKED || rel.getStatus() == Status.PENDING)
+            .forEach(rel -> {
+                usersToExclude.add(rel.getRequesterId());
+                usersToExclude.add(rel.getReceiverId());
+            });
+
+        // 3. Recupera tutti gli utenti registrati esclusi quelli già filtrati
+        List<UserEty> potentialSuggestions = userRepository.findAll().stream()
+            .filter(user -> !usersToExclude.contains(user.getId()))
+            .collect(Collectors.toList());
+
+        if (potentialSuggestions.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 4. Per ogni utente potenziale, calcola il punteggio di suggerimento
+        List<ScoredSuggestion> scoredSuggestions = potentialSuggestions.stream()
+            .map(user -> calculateSuggestionScore(user, currentUserId, currentUserFriendIds))
+            .filter(scored -> scored.score > 0)
+            .sorted((a, b) -> Integer.compare(b.score, a.score)) // Ordina per score decrescente
+            .limit(limit)
+            .collect(Collectors.toList());
+
+        // 5. Converti in DTO
+        return scoredSuggestions.stream()
+            .map(scored -> buildSuggestionDTO(scored))
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Calcola il punteggio di un utente come suggerimento
+     */
+    private ScoredSuggestion calculateSuggestionScore(UserEty user, String currentUserId, List<String> currentUserFriendIds) {
+        int score = 0;
+        String reason = "new_user";
+        int mutualFriendsCount = 0;
+        List<String> mutualFriendNames = new ArrayList<>();
+
+        // 1. Calcola amici in comune (peso maggiore)
+        List<String> userFriendIds = friendRelationshipRepository
+            .findFriendshipsByUserIdAndStatus(user.getId(), Status.ACCEPTED).stream()
+            .map(rel -> rel.getRequesterId().equals(user.getId()) 
+                ? rel.getReceiverId() 
+                : rel.getRequesterId())
+            .collect(Collectors.toList());
+
+        mutualFriendsCount = (int) userFriendIds.stream()
+            .filter(currentUserFriendIds::contains)
+            .count();
+
+        if (mutualFriendsCount > 0) {
+            score += mutualFriendsCount * 100; // Peso alto per amici in comune
+            reason = "mutual_friends";
+            
+            // Ottieni i nomi dei primi 3 amici in comune
+            mutualFriendNames = userFriendIds.stream()
+                .filter(currentUserFriendIds::contains)
+                .limit(3)
+                .map(friendId -> userRepository.findById(friendId)
+                    .map(UserEty::getName)
+                    .orElse(""))
+                .filter(name -> !name.isEmpty())
+                .collect(Collectors.toList());
+        }
+
+        // 2. Conta i viaggi dell'utente (viaggiatori attivi)
+        int travelsCount = userRepository.findById(user.getId())
+            .map(u -> u.getTravels() != null ? u.getTravels().size() : 0)
+            .orElse(0);
+
+        if (travelsCount > 5) {
+            score += 50;
+            if (reason.equals("new_user")) {
+                reason = "active_traveler";
+            }
+        } else if (travelsCount > 0) {
+            score += travelsCount * 5;
+        }
+
+        // 3. Bonus per utenti con profilo completo (hanno avatar e bio)
+        if (user.getAvatar() != null && !user.getAvatar().isEmpty()) {
+            score += 10;
+        }
+
+        return new ScoredSuggestion(user, score, reason, mutualFriendsCount, mutualFriendNames, travelsCount);
+    }
+
+    /**
+     * Costruisce il DTO finale per il suggerimento
+     */
+    private UserSuggestionDTO buildSuggestionDTO(ScoredSuggestion scored) {
+        String mutualFriendsPreview = scored.mutualFriendNames.isEmpty() 
+            ? null 
+            : String.join(", ", scored.mutualFriendNames);
+
+        return UserSuggestionDTO.builder()
+            .id(scored.user.getId())
+            .name(scored.user.getName())
+            .avatar(scored.user.getAvatar() != null ? scored.user.getAvatar() : 
+                "https://ui-avatars.com/api/?name=" + scored.user.getName().replace(" ", "+") + "&background=random")
+            .bio(null) // Se hai un campo bio nell'entità UserEty, aggiungilo qui
+            .travelsCount(scored.travelsCount)
+            .mutualFriendsCount(scored.mutualFriendsCount)
+            .mutualFriendsPreview(mutualFriendsPreview)
+            .reason(scored.reason)
+            .build();
+    }
+
+    /**
+     * Classe interna per tenere traccia del punteggio dei suggerimenti
+     */
+    private static class ScoredSuggestion {
+        final UserEty user;
+        final int score;
+        final String reason;
+        final int mutualFriendsCount;
+        final List<String> mutualFriendNames;
+        final int travelsCount;
+
+        ScoredSuggestion(UserEty user, int score, String reason, int mutualFriendsCount, 
+                        List<String> mutualFriendNames, int travelsCount) {
+            this.user = user;
+            this.score = score;
+            this.reason = reason;
+            this.mutualFriendsCount = mutualFriendsCount;
+            this.mutualFriendNames = mutualFriendNames;
+            this.travelsCount = travelsCount;
+        }
     }
 }

@@ -6,6 +6,7 @@ import it.voyage.ms.dto.response.BlockedUserDTO;
 import it.voyage.ms.dto.response.FriendRelationshipDto;
 import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.dto.response.UserSearchResult;
+import it.voyage.ms.dto.response.UserSuggestionDTO;
 import it.voyage.ms.enums.BlockActionEnum;
 
 public interface IFriendshipService {
@@ -27,4 +28,18 @@ public interface IFriendshipService {
 	void executeBlockAction(String currentUserId, String friendId, BlockActionEnum action);
 	
 	List<BlockedUserDTO> getBlockedUsers(String currentUserId);
+	
+	/**
+	 * Recupera suggerimenti di amici per l'utente specificato.
+	 * I suggerimenti sono basati su:
+	 * 1. Amici di amici (priorità alta)
+	 * 2. Utenti con destinazioni di viaggio simili
+	 * 3. Viaggiatori attivi di recente
+	 * 4. Utenti casuali
+	 * 
+	 * @param currentUserId ID dell'utente corrente
+	 * @param limit Numero massimo di suggerimenti da restituire
+	 * @return Lista di suggerimenti ordinata per rilevanza
+	 */
+	List<UserSuggestionDTO> getFriendSuggestions(String currentUserId, int limit);
 }

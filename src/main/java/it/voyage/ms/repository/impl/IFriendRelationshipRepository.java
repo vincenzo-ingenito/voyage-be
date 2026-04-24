@@ -148,4 +148,29 @@ public interface IFriendRelationshipRepository extends JpaRepository<FriendRelat
     List<FriendRelationshipEty> findPendingRequestsWithRequester(
             @Param("receiverId") String receiverId,
             @Param("status")     Status status);
+
+    // -------------------------------------------------------------------------
+    // Find all friendships by user ID and status (bidirectional)
+    // Useful for getting all friends of a user
+    // -------------------------------------------------------------------------
+    @Query("""
+        SELECT f FROM FriendRelationshipEty f
+        WHERE (f.requesterId = :userId OR f.receiverId = :userId)
+          AND f.status = :status
+    """)
+    List<FriendRelationshipEty> findFriendshipsByUserIdAndStatus(
+            @Param("userId") String userId,
+            @Param("status") Status status);
+
+    // -------------------------------------------------------------------------
+    // Find all relationships involving a user (as requester OR receiver)
+    // Useful for finding all relationships for suggestions filtering
+    // -------------------------------------------------------------------------
+    @Query("""
+        SELECT f FROM FriendRelationshipEty f
+        WHERE f.requesterId = :userId OR f.receiverId = :userId
+    """)
+    List<FriendRelationshipEty> findByRequesterIdOrReceiverId(
+            @Param("userId") String userId,
+            @Param("userId") String userId2);
 }

@@ -10,8 +10,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -23,6 +25,7 @@ import it.voyage.ms.dto.response.FriendRelationshipDto;
 import it.voyage.ms.dto.response.SearchRequest;
 import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.dto.response.UserSearchResult;
+import it.voyage.ms.dto.response.UserSuggestionDTO;
 import it.voyage.ms.security.user.CustomUserDetails;
 
 @RequestMapping(path = "/api/friends")
@@ -70,6 +73,38 @@ public interface IFriendCtl {
 			@ApiResponse(responseCode = "401", description = "Non autorizzato")
 	})
 	ResponseEntity<List<UserSearchResult>> searchUsers(@RequestBody SearchRequest searchRequest, @AuthenticationPrincipal CustomUserDetails user);
+	
+	/**
+	 * Recupera suggerimenti di amici per l'utente corrente.
+	 * I suggerimenti sono basati su amici in comune, destinazioni simili e viaggiatori attivi.
+	 * 
+	 * @param limit Numero massimo di suggerimenti da restituire (default: 10, max: 20)
+	 * @param user Dettagli dell'utente autenticato
+	 * @return Lista di suggerimenti di utenti da aggiungere come amici
+	 */
+	@GetMapping(path = "/suggestions", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(
+		summary = "Recupera suggerimenti di amici", 
+		description = "Restituisce una lista di utenti suggeriti basata su amici in comune, destinazioni simili e attività recente. " +
+					  "Gli utenti già amici, bloccati o con richieste pendenti sono esclusi."
+	)
+	@ApiResponses(value = {
+			@ApiResponse(
+				responseCode = "200", 
+				description = "Suggerimenti recuperati con successo.", 
+				content = @Content(
+					mediaType = MediaType.APPLICATION_JSON_VALUE, 
+					array = @ArraySchema(schema = @Schema(implementation = UserSuggestionDTO.class))
+				)
+			),
+			@ApiResponse(responseCode = "401", description = "Non autorizzato"),
+			@ApiResponse(responseCode = "500", description = "Errore interno del server")
+	})
+	ResponseEntity<List<UserSuggestionDTO>> getFriendSuggestions(
+		@Parameter(description = "Numero massimo di suggerimenti (default: 10, max: 20)")
+		@RequestParam(defaultValue = "10", required = false) Integer limit,
+		@AuthenticationPrincipal CustomUserDetails user
+	);
 	
 	/**
 	 * Recupera la lista consolidata e arricchita dei Paesi visitati da un utente o amico.
