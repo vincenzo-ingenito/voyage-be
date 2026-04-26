@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import it.voyage.ms.dto.response.BlockedUserDTO;
 import it.voyage.ms.dto.response.FriendRelationshipDto;
@@ -247,7 +248,10 @@ public class FriendshipService implements IFriendshipService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<UserSuggestionDTO> getFriendSuggestions(String currentUserId, int limit) {
+        System.out.println("🔍 DEBUG: getFriendSuggestions called for userId: " + currentUserId);
+        
         // 1. Recupera gli amici dell'utente corrente
         List<String> currentUserFriendIds = friendRelationshipRepository
             .findFriendshipsByUserIdAndStatus(currentUserId, Status.ACCEPTED).stream()
@@ -255,23 +259,36 @@ public class FriendshipService implements IFriendshipService {
                 ? rel.getReceiverId() 
                 : rel.getRequesterId())
             .collect(Collectors.toList());
+        
+        System.out.println("🔍 DEBUG: Found " + currentUserFriendIds.size() + " friends: " + currentUserFriendIds);
 
         // 2. Recupera utenti con cui esiste già una relazione (amici, bloccati, pending)
         Set<String> usersToExclude = new java.util.HashSet<>(currentUserFriendIds);
         usersToExclude.add(currentUserId); // Escludi se stesso
+        
+        System.out.println("🔍 DEBUG: usersToExclude after adding self: " + usersToExclude);
 
-        // Aggiungi utenti bloccati (da entrambe le direzioni)
+        // Aggiungi TUTTE le relazioni esistenti (ACCEPTED, BLOCKED, PENDING) per sicurezza
         friendRelationshipRepository.findByRequesterIdOrReceiverId(currentUserId, currentUserId).stream()
-            .filter(rel -> rel.getStatus() == Status.BLOCKED || rel.getStatus() == Status.PENDING)
             .forEach(rel -> {
                 usersToExclude.add(rel.getRequesterId());
                 usersToExclude.add(rel.getReceiverId());
             });
+        
+        System.out.println("🔍 DEBUG: Final usersToExclude: " + usersToExclude);
 
         // 3. Recupera tutti gli utenti registrati esclusi quelli già filtrati
         List<UserEty> potentialSuggestions = userRepository.findAll().stream()
-            .filter(user -> !usersToExclude.contains(user.getId()))
+            .filter(user -> {
+                boolean shouldExclude = usersToExclude.contains(user.getId()) || user.getId().equals(currentUserId);
+                if (shouldExclude) {
+                    System.out.println("🔍 DEBUG: Excluding user " + user.getId() + " (" + user.getName() + ")");
+                }
+                return !shouldExclude;
+            })
             .collect(Collectors.toList());
+        
+        System.out.println("🔍 DEBUG: potentialSuggestions count: " + potentialSuggestions.size());
 
         if (potentialSuggestions.isEmpty()) {
             return Collections.emptyList();
@@ -280,15 +297,34 @@ public class FriendshipService implements IFriendshipService {
         // 4. Per ogni utente potenziale, calcola il punteggio di suggerimento
         List<ScoredSuggestion> scoredSuggestions = potentialSuggestions.stream()
             .map(user -> calculateSuggestionScore(user, currentUserId, currentUserFriendIds))
-            .filter(scored -> scored.score > 0)
+            .filter(scored -> {
+                // TRIPLO FILTRO DI SICUREZZA
+                boolean isCurrentUser = scored.user.getId().equals(currentUserId);
+                boolean isFriend = currentUserFriendIds.contains(scored.user.getId());
+                boolean hasScore = scored.score > 0;
+                
+                if (isCurrentUser) {
+                    System.out.println("🚫 DEBUG: Filtering out CURRENT USER: " + scored.user.getId());
+                }
+                if (isFriend) {
+                    System.out.println("🚫 DEBUG: Filtering out FRIEND: " + scored.user.getId() + " (" + scored.user.getName() + ")");
+                }
+                
+                return hasScore && !isCurrentUser && !isFriend;
+            })
             .sorted((a, b) -> Integer.compare(b.score, a.score)) // Ordina per score decrescente
             .limit(limit)
             .collect(Collectors.toList());
+        
+        System.out.println("🔍 DEBUG: Final suggestions count: " + scoredSuggestions.size());
 
         // 5. Converti in DTO
-        return scoredSuggestions.stream()
+        List<UserSuggestionDTO> result = scoredSuggestions.stream()
             .map(scored -> buildSuggestionDTO(scored))
             .collect(Collectors.toList());
+        
+        System.out.println("✅ DEBUG: Returning " + result.size() + " suggestions");
+        return result;
     }
 
     /**
@@ -328,9 +364,8 @@ public class FriendshipService implements IFriendshipService {
         }
 
         // 2. Conta i viaggi dell'utente (viaggiatori attivi)
-        int travelsCount = userRepository.findById(user.getId())
-            .map(u -> u.getTravels() != null ? u.getTravels().size() : 0)
-            .orElse(0);
+        // Accedi direttamente alla collezione travels dall'oggetto user già caricato
+        int travelsCount = (user.getTravels() != null) ? user.getTravels().size() : 0;
 
         if (travelsCount > 5) {
             score += 50;
