@@ -26,17 +26,12 @@ public class NotificationService implements INotificationService {
     private final UserRepository userRepository;
 
     @Override
-    public void sendGroupTravelInviteNotification(
-            String userId,
+    public void sendGroupTravelInviteNotification(String userId,
             String inviterName,
             String travelName,
             Long travelId) {
         
-        log.info("📧 NOTIFICA: Invito viaggio di gruppo");
-        log.info("   Destinatario: {}", userId);
-        log.info("   Da: {}", inviterName);
-        log.info("   Viaggio: {}", travelName);
-        log.info("   ID Viaggio: {}", travelId);
+        log.info("NOTIFICA: Invito viaggio di gruppo");
         
         UserEty user = userRepository.findById(userId).orElse(null);
         if (user == null) {
@@ -59,27 +54,19 @@ public class NotificationService implements INotificationService {
         //             .build();
         //         
         //         String response = FirebaseMessaging.getInstance().send(message);
-        //         log.info("✅ Notifica FCM inviata: {}", response);
+        //         log.info("Notifica FCM inviata: {}", response);
         //     } catch (Exception e) {
-        //         log.error("❌ Errore invio notifica FCM", e);
+        //         log.error("Errore invio notifica FCM", e);
         //     }
         // }
         
-        log.info("⚠️ NOTIFICA SIMULATA (FCM non configurato)");
-        log.info("   Titolo: Nuovo invito viaggio!");
-        log.info("   Messaggio: {} ti ha invitato a {}", inviterName, travelName);
+        log.info("NOTIFICA SIMULATA (FCM non configurato)");
     }
 
     @Override
-    public void sendInviteAcceptedNotification(
-            String ownerId,
-            String accepterName,
-            String travelName) {
+    public void sendInviteAcceptedNotification(String ownerId, String accepterName, String travelName) {
         
-        log.info("📧 NOTIFICA: Invito accettato");
-        log.info("   Destinatario: {}", ownerId);
-        log.info("   Chi ha accettato: {}", accepterName);
-        log.info("   Viaggio: {}", travelName);
+        log.info("NOTIFICA: Invito accettato");
         
         UserEty owner = userRepository.findById(ownerId).orElse(null);
         if (owner == null) {
@@ -88,8 +75,8 @@ public class NotificationService implements INotificationService {
         }
         
         // TODO: Implementare invio FCM quando disponibile
-        log.info("⚠️ NOTIFICA SIMULATA (FCM non configurato)");
-        log.info("   Titolo: Invito accettato!");
-        log.info("   Messaggio: {} ha accettato l'invito a {}", accepterName, travelName);
+        log.info("NOTIFICA SIMULATA (FCM non configurato)");
+        log.info("Titolo: Invito accettato!");
+        log.info("Messaggio: {} ha accettato l'invito a {}", accepterName, travelName);
     }
 }

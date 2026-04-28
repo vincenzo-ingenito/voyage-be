@@ -17,7 +17,15 @@ public interface ITravelService {
 	
 	List<TravelDTO> getTravelsForUser(String userId);
 	
-	TravelDTO getTravelWithUrls(String userId, Long travelId);
+	/**
+	 * Recupera un viaggio con gli URL delle foto.
+	 * 
+	 * @param currentUserId L'userId dell'utente corrente (per i voteStats)
+	 * @param travelId L'ID del viaggio da recuperare
+	 * @param targetUserId L'userId del proprietario del viaggio (opzionale, per viaggi di amici)
+	 * @return Il viaggio con URL e voteStats dell'utente corrente
+	 */
+	TravelDTO getTravelWithUrls(String currentUserId, Long travelId, String targetUserId);
 	
 	TravelDTO saveTravel(TravelDTO travelData, List<MultipartFile> files, CustomUserDetails userDetails);
 	

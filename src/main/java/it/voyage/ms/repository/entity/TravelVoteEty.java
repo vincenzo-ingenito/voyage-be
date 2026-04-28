@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * Entità per i voti sui viaggi (upvote/downvote tipo Reddit)
+ * Entità per i like sui viaggi
  */
 @Entity
 @Table(name = "travel_votes", 

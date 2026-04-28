@@ -30,44 +30,28 @@ public interface IGroupTravelCtl {
      * POST /api/travel/{travelId}/participants
      */
     @PostMapping("/{travelId}/participants")
-    ResponseEntity<List<ParticipantDTO>> inviteParticipants(
-        @PathVariable Long travelId,
-        @Valid @RequestBody List<ParticipantInviteRequest> invites,
-        @AuthenticationPrincipal CustomUserDetails userDetails
-    );
+    ResponseEntity<List<ParticipantDTO>> inviteParticipants(@PathVariable Long travelId, @Valid @RequestBody List<ParticipantInviteRequest> invites, @AuthenticationPrincipal CustomUserDetails userDetails);
 
     /**
      * Ottiene tutti i partecipanti di un viaggio
      * GET /api/travel/{travelId}/participants
      */
     @GetMapping("/{travelId}/participants")
-    ResponseEntity<List<ParticipantDTO>> getParticipants(
-        @PathVariable Long travelId,
-        @AuthenticationPrincipal CustomUserDetails userDetails
-    );
+    ResponseEntity<List<ParticipantDTO>> getParticipants(@PathVariable Long travelId, @AuthenticationPrincipal CustomUserDetails userDetails);
 
     /**
      * Risponde a un invito (accetta o rifiuta)
      * POST /api/travel/{travelId}/invite/respond
      */
     @PostMapping("/{travelId}/invite/respond")
-    ResponseEntity<ParticipantDTO> respondToInvite(
-        @PathVariable Long travelId,
-        @RequestParam boolean accept,
-        @AuthenticationPrincipal CustomUserDetails userDetails
-    );
+    ResponseEntity<ParticipantDTO> respondToInvite(@PathVariable Long travelId, @RequestParam boolean accept, @AuthenticationPrincipal CustomUserDetails userDetails);
 
     /**
      * Cambia il ruolo di un partecipante
      * PUT /api/travel/{travelId}/participants/{userId}
      */
     @PutMapping("/{travelId}/participants/{userId}")
-    ResponseEntity<ParticipantDTO> updateParticipantRole(
-        @PathVariable Long travelId,
-        @PathVariable String userId,
-        @RequestParam ParticipantRole newRole,
-        @AuthenticationPrincipal CustomUserDetails userDetails
-    );
+    ResponseEntity<ParticipantDTO> updateParticipantRole(@PathVariable Long travelId, @PathVariable String userId, @RequestParam ParticipantRole newRole, @AuthenticationPrincipal CustomUserDetails userDetails);
 
     /**
      * Rimuove un partecipante da un viaggio

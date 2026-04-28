@@ -42,6 +42,7 @@ import it.voyage.ms.security.user.CustomUserDetails;
 import it.voyage.ms.service.IFriendshipService;
 import it.voyage.ms.service.IGroupTravelService;
 import it.voyage.ms.service.ITravelService;
+import it.voyage.ms.service.ITravelVoteService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -66,6 +67,7 @@ public class TravelService implements ITravelService {
     private final BookmarkRepository bookmarkRepository;
     private final IGroupTravelService groupTravelService;
     private final IFriendshipService friendshipService;
+    private final ITravelVoteService travelVoteService;
 
 
     @Override
@@ -205,7 +207,31 @@ public class TravelService implements ITravelService {
     @Override
     @Transactional(readOnly = true)
     public List<TravelDTO> getTravelsForUser(String userId) {
-        return travelRepository.findByUserId(userId).stream().map(this::toTravelDtoWithMetadataOnly).collect(Collectors.toList());
+    	List<TravelDTO> out = new ArrayList<>();
+    	List<TravelEty> travels = travelRepository.findByUserId(userId);
+    	for(TravelEty travel : travels) {
+    		TravelDTO dto = enrichWithVoteStats(toTravelDtoWithMetadataOnly(travel), userId);
+    		out.add(dto);
+    	}
+//        return travelRepository.findByUserId(userId).stream()
+//                .map(entity -> enrichWithVoteStats(toTravelDtoWithMetadataOnly(entity), userId))
+//                .collect(Collectors.toList());
+    	return out;
+    }
+    
+    /**
+     * Arricchisce un TravelDTO con i voteStats
+     */
+    private TravelDTO enrichWithVoteStats(TravelDTO dto, String currentUserId) {
+        if (dto.getTravelId() != null) {
+            log.info("🔄 [TravelService] enrichWithVoteStats - travelId: {}, userId: '{}', userId.length: {}", 
+                     dto.getTravelId(), currentUserId, currentUserId != null ? currentUserId.length() : 0);
+            var voteStats = travelVoteService.getVoteStats(dto.getTravelId(), currentUserId);
+            log.info("📊 [TravelService] voteStats ricevuti: likes={}, userVote={}", 
+                     voteStats.getLikes(), voteStats.getUserVote());
+            dto.setVoteStats(voteStats);
+        }
+        return dto;
     }
 
     /**
@@ -248,33 +274,47 @@ public class TravelService implements ITravelService {
     // GET SINGLE WITH URLS
     // =========================================================================
 
+    /**
+     * Recupera un viaggio con gli URL delle foto.
+     * 
+     * @param currentUserId L'userId dell'utente corrente (per i voteStats e per verificare i permessi se targetUserId è null)
+     * @param travelId L'ID del viaggio da recuperare
+     * @param targetUserId L'userId del proprietario del viaggio (opzionale, usato per viaggi di amici)
+     * @return Il viaggio con URL e voteStats dell'utente corrente
+     */
     @Transactional(readOnly = true)
-    public TravelDTO getTravelWithUrls(String userId, Long travelId) {
-        log.info("GET TRAVEL WITH URLS - Caricamento viaggio ID: {} per utente: {}", travelId, userId);
+    public TravelDTO getTravelWithUrls(String currentUserId, Long travelId, String targetUserId) {
+        log.info("🔍 GET TRAVEL WITH URLS - travelId: {}, currentUserId: '{}', targetUserId: '{}'", 
+                 travelId, currentUserId, targetUserId);
 
+        // Se targetUserId è null, significa che è un viaggio proprio
+        String ownerUserId = (targetUserId != null && !targetUserId.isEmpty()) ? targetUserId : currentUserId;
+        
         // FIX: Prima cerca se è il proprietario
-        Optional<TravelEty> ownerTravel = travelRepository.findByIdAndUserId(travelId, userId);
+        Optional<TravelEty> ownerTravel = travelRepository.findByIdAndUserId(travelId, ownerUserId);
         if (ownerTravel.isPresent()) {
-            log.info("Utente {} è il proprietario del viaggio {}", userId, travelId);
-            return buildTravelDtoWithUrls(ownerTravel.get());
+            log.info("✅ Viaggio {} trovato per proprietario: {}", travelId, ownerUserId);
+            // FIX CRITICO: Usa SEMPRE currentUserId per i voteStats, non ownerUserId!
+            return enrichWithVoteStats(buildTravelDtoWithUrls(ownerTravel.get()), currentUserId);
         }
 
         // FIX: Se non è il proprietario, verifica se è un partecipante ACCEPTED
         TravelEty entity = travelRepository.findById(travelId)
             .orElseThrow(() -> new BusinessException("Viaggio non trovato."));
         
-        // Verifica se l'utente è un partecipante accettato
+        // Verifica se l'utente corrente è un partecipante accettato
         boolean isAcceptedParticipant = entity.getParticipants().stream()
-            .anyMatch(p -> p.getUserId().equals(userId) && 
+            .anyMatch(p -> p.getUserId().equals(currentUserId) && 
                           p.getStatus() == it.voyage.ms.repository.entity.ParticipantStatus.ACCEPTED);
         
         if (!isAcceptedParticipant) {
-            log.warn("Utente {} non autorizzato ad accedere al viaggio {}", userId, travelId);
+            log.warn("⛔ Utente {} non autorizzato ad accedere al viaggio {}", currentUserId, travelId);
             throw new BusinessException("Viaggio non trovato o non autorizzato.");
         }
         
-        log.info("Utente {} è un partecipante ACCEPTED del viaggio {}", userId, travelId);
-        return buildTravelDtoWithUrls(entity);
+        log.info("✅ Utente {} è un partecipante ACCEPTED del viaggio {}", currentUserId, travelId);
+        // FIX CRITICO: Usa SEMPRE currentUserId per i voteStats!
+        return enrichWithVoteStats(buildTravelDtoWithUrls(entity), currentUserId);
     }
 
     /**
@@ -784,13 +824,15 @@ public class TravelService implements ITravelService {
         // 5. Converti in DTO
         List<TravelDTO> travelDTOs = new ArrayList<>();
         for (TravelEty travel : pageTravels) {
+            TravelDTO dto;
             if (includePhotos) {
                 // Con foto (più pesante)
-                travelDTOs.add(buildTravelDtoWithUrls(travel));
+                dto = buildTravelDtoWithUrls(travel);
             } else {
                 // Solo metadati (più leggero)
-                travelDTOs.add(toTravelDtoWithMetadataOnly(travel));
+                dto = toTravelDtoWithMetadataOnly(travel);
             }
+            travelDTOs.add(enrichWithVoteStats(dto, userId));
         }
         
         // 6. Costruisci il cursor per la prossima pagina

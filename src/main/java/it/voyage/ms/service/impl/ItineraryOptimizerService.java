@@ -103,7 +103,7 @@ public class ItineraryOptimizerService implements IItineraryOptimizerService {
         if (applied) {
             // Salva sul DB e costruisci DTO completo
             TravelEty savedTravel = travelRepository.save(travel);
-            travelDTO = travelService.getTravelWithUrls(userId, savedTravel.getId());
+//            travelDTO = travelService.getTravelWithUrls(userId, savedTravel.getId());
             log.info("Ottimizzazione applicata e salvata sul DB");
         } else {
             // Solo anteprima, non salvare
@@ -113,7 +113,7 @@ public class ItineraryOptimizerService implements IItineraryOptimizerService {
 
         // 9. Costruisci risultato
         OptimizationResult result = new OptimizationResult();
-        result.setTravel(travelDTO);
+//        result.setTravel(travelDTO);
         result.setScope(request.getScope());
         result.setDayOptimized(request.getScope() == OptimizationScope.SINGLE_DAY ? request.getDayNumber() : null);
         result.setTotalDistanceBefore(totalDistanceBefore);

@@ -19,7 +19,7 @@ public interface TravelVoteRepository extends JpaRepository<TravelVoteEty, Long>
     Optional<TravelVoteEty> findByTravelIdAndUserId(Long travelId, String userId);
     
     /**
-     * Conta gli upvotes per un viaggio
+     * Conta i like per un viaggio
      */
     Long countByTravelIdAndVoteType(Long travelId, VoteType voteType);
     
@@ -43,12 +43,5 @@ public interface TravelVoteRepository extends JpaRepository<TravelVoteEty, Long>
      */
     List<TravelVoteEty> findByTravelId(Long travelId);
     
-    /**
-     * Calcola il punteggio netto di un viaggio (upvotes - downvotes)
-     */
-    @Query("SELECT " +
-           "(SELECT COUNT(v1) FROM TravelVoteEty v1 WHERE v1.travelId = :travelId AND v1.voteType = 'UPVOTE') - " +
-           "(SELECT COUNT(v2) FROM TravelVoteEty v2 WHERE v2.travelId = :travelId AND v2.voteType = 'DOWNVOTE') " +
-           "FROM TravelVoteEty v WHERE v.travelId = :travelId")
-    Long calculateNetScore(@Param("travelId") Long travelId);
+    // calculateNetScore rimosso - non più necessario con sistema like semplice
 }

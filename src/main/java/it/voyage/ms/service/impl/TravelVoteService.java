@@ -62,19 +62,27 @@ public class TravelVoteService implements ITravelVoteService {
     
     @Override
     public VoteStatsDTO getVoteStats(Long travelId, String userId) {
-        Long upvotes = voteRepository.countByTravelIdAndVoteType(travelId, VoteType.UPVOTE);
-        Long downvotes = voteRepository.countByTravelIdAndVoteType(travelId, VoteType.DOWNVOTE);
-        Long netScore = upvotes - downvotes;
+        log.info("🔍 getVoteStats chiamato - travelId: {}, userId: '{}'", travelId, userId);
+        
+        Long likes = voteRepository.countByTravelIdAndVoteType(travelId, VoteType.UPVOTE);
+        log.info("📊 Trovati {} likes per il viaggio {}", likes, travelId);
         
         VoteType userVote = null;
         Optional<TravelVoteEty> vote = voteRepository.findByTravelIdAndUserId(travelId, userId);
+        
         if (vote.isPresent()) {
-            userVote = vote.get().getVoteType();
+            TravelVoteEty voteEntity = vote.get();
+            userVote = voteEntity.getVoteType();
+            log.info("✅ Trovato voto utente per travel {}: userId='{}', voteType={}, voteId={}", 
+                     travelId, voteEntity.getUserId(), userVote, voteEntity.getId());
+        } else {
+            log.warn("⚠️ NESSUN voto trovato per travel {} e userId '{}'", travelId, userId);
+            log.warn("⚠️ Verifica che l'userId passato corrisponda esattamente a quello nel DB (case sensitive!)");
         }
         
-        log.debug("Vote stats for travel {}: upvotes={}, downvotes={}, netScore={}, userVote={}", 
-                  travelId, upvotes, downvotes, netScore, userVote);
+        VoteStatsDTO result = new VoteStatsDTO(likes, userVote);
+        log.info("📤 Ritorno VoteStatsDTO: likes={}, userVote={}", result.getLikes(), result.getUserVote());
         
-        return new VoteStatsDTO(upvotes, downvotes, netScore, userVote);
+        return result;
     }
 }

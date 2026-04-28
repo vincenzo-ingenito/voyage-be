@@ -14,17 +14,17 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Controller per la gestione dei voti sui viaggi (sistema tipo Reddit)
+ * Controller per la gestione dei like sui viaggi
  */
 @RequestMapping(path = "/api/travel")
-@Tag(name = "Travel Votes", description = "Endpoints per il sistema di voto sui viaggi (upvote/downvote)")
+@Tag(name = "Travel Likes", description = "Endpoints per il sistema di like sui viaggi")
 public interface ITravelVoteCtl {
     
     @PostMapping(value = "/{travelId}/vote", 
                  consumes = MediaType.APPLICATION_JSON_VALUE,
                  produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(summary = "Vota un viaggio", 
-               description = "Permette di votare un viaggio (upvote o downvote). Se l'utente vota due volte la stessa opzione, il voto viene rimosso (toggle).")
+    @Operation(summary = "Metti/rimuovi like a un viaggio", 
+               description = "Permette di mettere like a un viaggio. Se l'utente clicca due volte, il like viene rimosso (toggle).")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Voto registrato con successo"),
         @ApiResponse(responseCode = "400", description = "Bad Request: Dati non validi"),
@@ -51,8 +51,8 @@ public interface ITravelVoteCtl {
     );
     
     @GetMapping(value = "/{travelId}/vote-stats", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(summary = "Ottieni statistiche di voto", 
-               description = "Restituisce le statistiche di voto per un viaggio (upvotes, downvotes, punteggio netto e voto dell'utente)")
+    @Operation(summary = "Ottieni statistiche like", 
+               description = "Restituisce le statistiche dei like per un viaggio (numero di like e se l'utente ha messo like)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Statistiche recuperate con successo"),
         @ApiResponse(responseCode = "401", description = "Unauthorized: Utente non autenticato"),

@@ -15,7 +15,12 @@ import it.voyage.ms.repository.entity.TravelEty;
 @Repository
 public interface TravelRepository extends JpaRepository<TravelEty, Long> {
 
-    List<TravelEty> findByUserId(String userId);
+    @Query("""
+        SELECT DISTINCT t FROM TravelEty t
+        WHERE t.user.id = :userId
+        """)
+    List<TravelEty> findByUserId(@Param("userId") String userId);
+    
     Optional<TravelEty> findByIdAndUserId(Long id, String userId);
 
     @Modifying
