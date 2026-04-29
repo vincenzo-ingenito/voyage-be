@@ -34,8 +34,7 @@ public class TravelVoteService implements ITravelVoteService {
                 voteRepository.delete(vote);
             } else {
                 // Cambia il voto
-                log.info("Changing vote from {} to {} for user {} on travel {}", 
-                         vote.getVoteType(), voteType, userId, travelId);
+                log.info("Changing vote from {} to {} for user {} on travel {}", vote.getVoteType(), voteType, userId, travelId);
                 vote.setVoteType(voteType);
                 voteRepository.save(vote);
             }
@@ -62,10 +61,8 @@ public class TravelVoteService implements ITravelVoteService {
     
     @Override
     public VoteStatsDTO getVoteStats(Long travelId, String userId) {
-        log.info("🔍 getVoteStats chiamato - travelId: {}, userId: '{}'", travelId, userId);
-        
         Long likes = voteRepository.countByTravelIdAndVoteType(travelId, VoteType.UPVOTE);
-        log.info("📊 Trovati {} likes per il viaggio {}", likes, travelId);
+        log.info("Trovati {} likes per il viaggio {}", likes, travelId);
         
         VoteType userVote = null;
         Optional<TravelVoteEty> vote = voteRepository.findByTravelIdAndUserId(travelId, userId);
@@ -73,16 +70,8 @@ public class TravelVoteService implements ITravelVoteService {
         if (vote.isPresent()) {
             TravelVoteEty voteEntity = vote.get();
             userVote = voteEntity.getVoteType();
-            log.info("✅ Trovato voto utente per travel {}: userId='{}', voteType={}, voteId={}", 
-                     travelId, voteEntity.getUserId(), userVote, voteEntity.getId());
-        } else {
-            log.warn("⚠️ NESSUN voto trovato per travel {} e userId '{}'", travelId, userId);
-            log.warn("⚠️ Verifica che l'userId passato corrisponda esattamente a quello nel DB (case sensitive!)");
-        }
-        
-        VoteStatsDTO result = new VoteStatsDTO(likes, userVote);
-        log.info("📤 Ritorno VoteStatsDTO: likes={}, userVote={}", result.getLikes(), result.getUserVote());
-        
-        return result;
+            log.info("Trovato voto utente per travel {}: userId='{}', voteType={}, voteId={}", travelId, voteEntity.getUserId(), userVote, voteEntity.getId());
+        }  
+        return new VoteStatsDTO(likes, userVote);
     }
 }

@@ -28,6 +28,7 @@ import it.voyage.ms.dto.response.PointDTO;
 import it.voyage.ms.dto.response.RegionVisit;
 import it.voyage.ms.dto.response.TravelDTO;
 import it.voyage.ms.dto.response.UserDto;
+import it.voyage.ms.dto.response.VoteStatsDTO;
 import it.voyage.ms.exceptions.BusinessException;
 import it.voyage.ms.mapper.TravelMapper;
 import it.voyage.ms.repository.entity.DailyItineraryEty;
@@ -213,9 +214,6 @@ public class TravelService implements ITravelService {
     		TravelDTO dto = enrichWithVoteStats(toTravelDtoWithMetadataOnly(travel), userId);
     		out.add(dto);
     	}
-//        return travelRepository.findByUserId(userId).stream()
-//                .map(entity -> enrichWithVoteStats(toTravelDtoWithMetadataOnly(entity), userId))
-//                .collect(Collectors.toList());
     	return out;
     }
     
@@ -224,11 +222,8 @@ public class TravelService implements ITravelService {
      */
     private TravelDTO enrichWithVoteStats(TravelDTO dto, String currentUserId) {
         if (dto.getTravelId() != null) {
-            log.info("🔄 [TravelService] enrichWithVoteStats - travelId: {}, userId: '{}', userId.length: {}", 
-                     dto.getTravelId(), currentUserId, currentUserId != null ? currentUserId.length() : 0);
-            var voteStats = travelVoteService.getVoteStats(dto.getTravelId(), currentUserId);
-            log.info("📊 [TravelService] voteStats ricevuti: likes={}, userVote={}", 
-                     voteStats.getLikes(), voteStats.getUserVote());
+            VoteStatsDTO voteStats = travelVoteService.getVoteStats(dto.getTravelId(), currentUserId);
+            log.info("[TravelService] voteStats ricevuti: likes={}, userVote={}", voteStats.getLikes(), voteStats.getUserVote());
             dto.setVoteStats(voteStats);
         }
         return dto;
@@ -284,7 +279,7 @@ public class TravelService implements ITravelService {
      */
     @Transactional(readOnly = true)
     public TravelDTO getTravelWithUrls(String currentUserId, Long travelId, String targetUserId) {
-        log.info("🔍 GET TRAVEL WITH URLS - travelId: {}, currentUserId: '{}', targetUserId: '{}'", 
+        log.info("GET TRAVEL WITH URLS - travelId: {}, currentUserId: '{}', targetUserId: '{}'", 
                  travelId, currentUserId, targetUserId);
 
         // Se targetUserId è null, significa che è un viaggio proprio
@@ -293,7 +288,7 @@ public class TravelService implements ITravelService {
         // FIX: Prima cerca se è il proprietario
         Optional<TravelEty> ownerTravel = travelRepository.findByIdAndUserId(travelId, ownerUserId);
         if (ownerTravel.isPresent()) {
-            log.info("✅ Viaggio {} trovato per proprietario: {}", travelId, ownerUserId);
+            log.info("Viaggio {} trovato per proprietario: {}", travelId, ownerUserId);
             // FIX CRITICO: Usa SEMPRE currentUserId per i voteStats, non ownerUserId!
             return enrichWithVoteStats(buildTravelDtoWithUrls(ownerTravel.get()), currentUserId);
         }
@@ -308,11 +303,11 @@ public class TravelService implements ITravelService {
                           p.getStatus() == it.voyage.ms.repository.entity.ParticipantStatus.ACCEPTED);
         
         if (!isAcceptedParticipant) {
-            log.warn("⛔ Utente {} non autorizzato ad accedere al viaggio {}", currentUserId, travelId);
+            log.warn("Utente {} non autorizzato ad accedere al viaggio {}", currentUserId, travelId);
             throw new BusinessException("Viaggio non trovato o non autorizzato.");
         }
         
-        log.info("✅ Utente {} è un partecipante ACCEPTED del viaggio {}", currentUserId, travelId);
+        log.info("Utente {} è un partecipante ACCEPTED del viaggio {}", currentUserId, travelId);
         // FIX CRITICO: Usa SEMPRE currentUserId per i voteStats!
         return enrichWithVoteStats(buildTravelDtoWithUrls(entity), currentUserId);
     }

@@ -47,9 +47,6 @@ public class FirebaseStorageService implements IFirebaseStorageService {
 
     private static final String BUCKET_NAME = "voyage-ed2d0.firebasestorage.app";
 
-    // =========================================================================
-    // UPLOAD
-    // =========================================================================
 
     /**
      * Carica un file su Firebase Storage e restituisce i metadati completi.
@@ -66,15 +63,10 @@ public class FirebaseStorageService implements IFirebaseStorageService {
         log.info("Caricamento file per categoria: {}", category);
 
         // getOriginalFilename() e getContentType() possono restituire null
-        String originalFileName = file.getOriginalFilename() != null
-                ? file.getOriginalFilename()
-                : "file";
-        String contentType = file.getContentType() != null
-                ? file.getContentType()
-                : "application/octet-stream";
+        String originalFileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "file";
+        String contentType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
 
-        String filePath = String.format("travel-files/%s/%s/%s/%s_%s",
-                userId, travelId, category, UUID.randomUUID(), originalFileName);
+        String filePath = String.format("travel-files/%s/%s/%s/%s_%s", userId, travelId, category, UUID.randomUUID(), originalFileName);
 
         Map<String, String> metadata = new HashMap<>();
         metadata.put("original-filename", originalFileName);
@@ -90,11 +82,7 @@ public class FirebaseStorageService implements IFirebaseStorageService {
         log.info("File caricato con successo: {}", filePath);
         return new FileMetadata(filePath, originalFileName, contentType);
     }
-
-    // =========================================================================
-    // DOWNLOAD / URL
-    // =========================================================================
-
+ 
     /**
      * Restituisce un URL firmato valido per 7 giorni.
      * In caso di errore restituisce un URL pubblico diretto come fallback.
@@ -147,11 +135,7 @@ public class FirebaseStorageService implements IFirebaseStorageService {
         log.info("File scaricato con successo, dimensione: {} bytes", fileData.length);
         return fileData;
     }
-
-    // =========================================================================
-    // DELETE — cartella viaggio
-    // =========================================================================
-
+ 
     /**
      * Elimina tutti i file nella cartella travel-files/{userId}/{travelId}/.
      * Usato alla cancellazione di un intero viaggio.
@@ -186,10 +170,6 @@ public class FirebaseStorageService implements IFirebaseStorageService {
             return 0;
         }
     }
-
-    // =========================================================================
-    // DELETE — foto di un viaggio (per cancellazione account)
-    // =========================================================================
 
     /**
      * Elimina tutte le foto associate a un viaggio (ricordi giornalieri + allFileIds).
@@ -231,11 +211,7 @@ public class FirebaseStorageService implements IFirebaseStorageService {
                     travel.getId(), e.getMessage());
         }
     }
-
-    // =========================================================================
-    // PRIVATE HELPERS
-    // =========================================================================
-
+ 
     /**
      * Elimina un singolo blob da Firebase Storage tramite path diretto.
      * Operazione best-effort: logga warning in caso di errore senza propagarlo.

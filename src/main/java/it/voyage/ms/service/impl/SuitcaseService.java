@@ -1,4 +1,4 @@
-package it.voyage.ms.service;
+package it.voyage.ms.service.impl;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,23 +32,17 @@ public class SuitcaseService {
     private final UserCustomItemRepository userCustomItemRepository;
     
     // Lista degli oggetti preimpostati di default
-    private static final List<String> DEFAULT_PRESET_ITEMS = List.of(
-        "Spazzolino", "Dentifricio", "Passaporto", "Caricabatterie"
-    );
+    private static final List<String> DEFAULT_PRESET_ITEMS = List.of("Spazzolino", "Dentifricio", "Passaporto", "Caricabatterie");
 
     @Transactional
     public SuitcaseDTO createSuitcase(String userId, CreateSuitcaseRequest request) {
         log.info("Creating suitcase for user: {}, name: {}", userId, request.getName());
 
-        SuitcaseEty suitcase = SuitcaseEty.builder()
-                .name(request.getName())
-                .userId(userId)
-                .build();
+        SuitcaseEty suitcase = SuitcaseEty.builder().name(request.getName()).userId(userId).build();
 
         // Se specificato un travelId, associa la valigia al viaggio
         if (request.getTravelId() != null) {
-            TravelEty travel = travelRepository.findById(request.getTravelId())
-                    .orElseThrow(() -> new RuntimeException("Travel not found with id: " + request.getTravelId()));
+            TravelEty travel = travelRepository.findById(request.getTravelId()).orElseThrow(() -> new RuntimeException("Travel not found with id: " + request.getTravelId()));
             
             // Verifica che il viaggio appartenga all'utente
             if (!travel.getUser().getId().equals(userId)) {
@@ -181,7 +175,6 @@ public class SuitcaseService {
             throw new RuntimeException("User does not have access to this travel");
         }
 
-        // 🧳 CONSTRAINT: Una sola valigia per viaggio
         // Se esiste già una valigia associata a questo viaggio, dissociala prima
         List<SuitcaseEty> existingSuitcases = suitcaseRepository.findByUserIdAndTravelId(userId, travelId);
         for (SuitcaseEty existingSuitcase : existingSuitcases) {

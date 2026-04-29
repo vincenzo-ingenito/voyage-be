@@ -1,14 +1,13 @@
 package it.voyage.ms.repository;
 
-import it.voyage.ms.repository.entity.TravelVoteEty;
-import it.voyage.ms.repository.entity.VoteType;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import it.voyage.ms.repository.entity.TravelVoteEty;
+import it.voyage.ms.repository.entity.VoteType;
 
 @Repository
 public interface TravelVoteRepository extends JpaRepository<TravelVoteEty, Long> {
@@ -43,5 +42,4 @@ public interface TravelVoteRepository extends JpaRepository<TravelVoteEty, Long>
      */
     List<TravelVoteEty> findByTravelId(Long travelId);
     
-    // calculateNetScore rimosso - non più necessario con sistema like semplice
 }

@@ -45,8 +45,7 @@ public class FriendshipService implements IFriendshipService {
 
     @Override
     public List<UserDto> getAcceptedFriendsList(String currentUserId) {
-        List<UserEty> users = userRepository
-            .findAcceptedFriendsAndSelf(currentUserId, Status.ACCEPTED);
+        List<UserEty> users = userRepository.findAcceptedFriendsAndSelf(currentUserId, Status.ACCEPTED);
 
         List<UserDto> output = new ArrayList<>();
         List<UserDto> others = new ArrayList<>();
@@ -127,7 +126,6 @@ public class FriendshipService implements IFriendshipService {
         FriendRelationshipStatusEnum status = FriendRelationshipStatusEnum.AVAILABLE;
 
         if (relationship != null) {
-            // relationship.getStatus() è ora FriendRelationshipEty.Status (enum)
             switch (relationship.getStatus()) {
                 case BLOCKED:
                     status = FriendRelationshipStatusEnum.BLOCKED;
@@ -153,11 +151,8 @@ public class FriendshipService implements IFriendshipService {
         UserEty receiverUser = userRepository.findById(receiverId)
             .orElseThrow(() -> new NotFoundException("Utente destinatario non trovato."));
 
-        if (friendRelationshipRepository
-                .existsByRequesterIdAndReceiverIdOrReceiverIdAndRequesterId(
-                    requesterId, receiverId, requesterId, receiverId)) {
-            throw new ConflictException(
-                "Una richiesta o una relazione di amicizia con questo utente esiste già.");
+        if (friendRelationshipRepository.existsByRequesterIdAndReceiverIdOrReceiverIdAndRequesterId(requesterId, receiverId, requesterId, receiverId)) {
+            throw new ConflictException("Una richiesta o una relazione di amicizia con questo utente esiste già.");
         }
 
         FriendRelationshipEty newRequest = new FriendRelationshipEty();
@@ -168,9 +163,7 @@ public class FriendshipService implements IFriendshipService {
 
         friendRelationshipRepository.save(newRequest);
 
-        return receiverUser.isPrivate()
-            ? "Richiesta di amicizia inviata con successo."
-            : "Amico aggiunto con successo! Il profilo è pubblico.";
+        return receiverUser.isPrivate() ? "Richiesta di amicizia inviata con successo." : "Amico aggiunto con successo! Il profilo è pubblico.";
     }
 
     @Override
@@ -179,12 +172,10 @@ public class FriendshipService implements IFriendshipService {
         String successMessage;
 
         if ("accept".equalsIgnoreCase(action)) {
-            updatedCount = friendRelationshipRepository
-                .updateRequestStatus(requesterId, receiverId, Status.ACCEPTED);
+            updatedCount = friendRelationshipRepository.updateRequestStatus(requesterId, receiverId, Status.ACCEPTED);
             successMessage = "Richiesta di amicizia accettata.";
         } else if ("decline".equalsIgnoreCase(action)) {
-            updatedCount = (int) friendRelationshipRepository
-                .deleteFriendship(receiverId, requesterId);
+            updatedCount = (int) friendRelationshipRepository.deleteFriendship(receiverId, requesterId);
             successMessage = "Richiesta di amicizia rifiutata.";
         } else {
             throw new IllegalArgumentException("Azione non valida. Usa 'accept' o 'decline'.");
@@ -214,22 +205,17 @@ public class FriendshipService implements IFriendshipService {
     }
 
     private void blockUser(String currentUserId, String userToBlockId, String blockerId) {
-        friendRelationshipRepository.updateRelationshipStatus(
-            currentUserId, userToBlockId, Status.BLOCKED, blockerId);
+        friendRelationshipRepository.updateRelationshipStatus(currentUserId, userToBlockId, Status.BLOCKED, blockerId);
     }
 
     private void unblockUser(String currentUserId, String userToUnblockId, String blockerId) {
-        friendRelationshipRepository.deleteRelationship(
-            currentUserId, userToUnblockId, blockerId);
+        friendRelationshipRepository.deleteRelationship(currentUserId, userToUnblockId, blockerId);
     }
 
     @Override
     public List<BlockedUserDTO> getBlockedUsers(String currentUserId) {
-        List<FriendRelationshipEty> etys =
-            friendRelationshipRepository.findMyBlockedRelationships(currentUserId);
-        return etys.stream()
-            .map(e -> getDtoFromEty(e, currentUserId))
-            .collect(Collectors.toList());
+        List<FriendRelationshipEty> etys = friendRelationshipRepository.findMyBlockedRelationships(currentUserId);
+        return etys.stream().map(e -> getDtoFromEty(e, currentUserId)).collect(Collectors.toList());
     }
 
     private BlockedUserDTO getDtoFromEty(FriendRelationshipEty ety, String currentUser) {
@@ -250,8 +236,6 @@ public class FriendshipService implements IFriendshipService {
     @Override
     @Transactional(readOnly = true)
     public List<UserSuggestionDTO> getFriendSuggestions(String currentUserId, int limit) {
-        System.out.println("🔍 DEBUG: getFriendSuggestions called for userId: " + currentUserId);
-        
         // 1. Recupera gli amici dell'utente corrente
         List<String> currentUserFriendIds = friendRelationshipRepository
             .findFriendshipsByUserIdAndStatus(currentUserId, Status.ACCEPTED).stream()
@@ -260,14 +244,10 @@ public class FriendshipService implements IFriendshipService {
                 : rel.getRequesterId())
             .collect(Collectors.toList());
         
-        System.out.println("🔍 DEBUG: Found " + currentUserFriendIds.size() + " friends: " + currentUserFriendIds);
-
         // 2. Recupera utenti con cui esiste già una relazione (amici, bloccati, pending)
         Set<String> usersToExclude = new java.util.HashSet<>(currentUserFriendIds);
         usersToExclude.add(currentUserId); // Escludi se stesso
         
-        System.out.println("🔍 DEBUG: usersToExclude after adding self: " + usersToExclude);
-
         // Aggiungi TUTTE le relazioni esistenti (ACCEPTED, BLOCKED, PENDING) per sicurezza
         friendRelationshipRepository.findByRequesterIdOrReceiverId(currentUserId, currentUserId).stream()
             .forEach(rel -> {
@@ -275,20 +255,15 @@ public class FriendshipService implements IFriendshipService {
                 usersToExclude.add(rel.getReceiverId());
             });
         
-        System.out.println("🔍 DEBUG: Final usersToExclude: " + usersToExclude);
 
         // 3. Recupera tutti gli utenti registrati esclusi quelli già filtrati
         List<UserEty> potentialSuggestions = userRepository.findAll().stream()
             .filter(user -> {
                 boolean shouldExclude = usersToExclude.contains(user.getId()) || user.getId().equals(currentUserId);
-                if (shouldExclude) {
-                    System.out.println("🔍 DEBUG: Excluding user " + user.getId() + " (" + user.getName() + ")");
-                }
                 return !shouldExclude;
             })
             .collect(Collectors.toList());
         
-        System.out.println("🔍 DEBUG: potentialSuggestions count: " + potentialSuggestions.size());
 
         if (potentialSuggestions.isEmpty()) {
             return Collections.emptyList();
@@ -303,27 +278,18 @@ public class FriendshipService implements IFriendshipService {
                 boolean isFriend = currentUserFriendIds.contains(scored.user.getId());
                 boolean hasScore = scored.score > 0;
                 
-                if (isCurrentUser) {
-                    System.out.println("🚫 DEBUG: Filtering out CURRENT USER: " + scored.user.getId());
-                }
-                if (isFriend) {
-                    System.out.println("🚫 DEBUG: Filtering out FRIEND: " + scored.user.getId() + " (" + scored.user.getName() + ")");
-                }
-                
                 return hasScore && !isCurrentUser && !isFriend;
             })
             .sorted((a, b) -> Integer.compare(b.score, a.score)) // Ordina per score decrescente
             .limit(limit)
             .collect(Collectors.toList());
         
-        System.out.println("🔍 DEBUG: Final suggestions count: " + scoredSuggestions.size());
 
         // 5. Converti in DTO
         List<UserSuggestionDTO> result = scoredSuggestions.stream()
             .map(scored -> buildSuggestionDTO(scored))
             .collect(Collectors.toList());
         
-        System.out.println("✅ DEBUG: Returning " + result.size() + " suggestions");
         return result;
     }
 

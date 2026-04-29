@@ -44,8 +44,7 @@ public class GroupTravelService implements IGroupTravelService {
         log.info("Invito {} partecipanti al viaggio {}", invites.size(), travelId);
         
         // Verifica che il viaggio esista e sia di tipo GROUP
-        TravelEty travel = travelRepository.findById(travelId)
-                .orElseThrow(() -> new BusinessException("Viaggio non trovato"));
+        TravelEty travel = travelRepository.findById(travelId).orElseThrow(() -> new BusinessException("Viaggio non trovato"));
         
         if (travel.getTravelType() != TravelType.GROUP) {
             throw new BusinessException("Solo i viaggi di gruppo possono avere partecipanti");

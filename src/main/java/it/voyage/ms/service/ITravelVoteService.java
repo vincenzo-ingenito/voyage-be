@@ -1,6 +1,5 @@
 package it.voyage.ms.service;
 
-import it.voyage.ms.dto.request.VoteRequest;
 import it.voyage.ms.dto.response.VoteStatsDTO;
 import it.voyage.ms.repository.entity.VoteType;
 

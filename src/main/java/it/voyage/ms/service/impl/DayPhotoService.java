@@ -29,8 +29,7 @@ public class DayPhotoService implements IDayPhotoService {
     @Transactional
     public String addOrReplacePhotoToDay(Long travelId, Integer dayNumber, MultipartFile file, String userId) throws Exception {
         // 1. Trova il viaggio e verifica proprietà
-        TravelEty travel = travelRepository.findById(travelId)
-                .orElseThrow(() -> new RuntimeException("Travel not found with id: " + travelId));
+        TravelEty travel = travelRepository.findById(travelId).orElseThrow(() -> new RuntimeException("Travel not found with id: " + travelId));
         
         // Verifica se l'utente può modificare questo viaggio (owner o editor)
         if (!groupTravelService.canUserEditTravel(travelId, userId)) {
@@ -76,12 +75,7 @@ public class DayPhotoService implements IDayPhotoService {
         }
 
         // 4. Carica la nuova foto su Firebase Storage
-        FileMetadata metadata = firebaseStorageService.uploadFileWithMetadata(
-                file, 
-                userId, 
-                travelId, 
-                "day-memory"
-        );
+        FileMetadata metadata = firebaseStorageService.uploadFileWithMetadata(file, userId, travelId, "day-memory");
 
         // 5. AGGIUNGI IL FILE ALLA LISTA travel_files
         TravelFileEty travelFile = new TravelFileEty();
@@ -104,8 +98,7 @@ public class DayPhotoService implements IDayPhotoService {
         // 8. Salva il viaggio aggiornato
         travelRepository.save(travel);
         
-        log.info("Foto sostituita con successo per travel {} day {} at index {}: {}", 
-                travelId, dayNumber, newFileIndex, metadata.getFileId());
+        log.info("Foto sostituita con successo per travel {} day {} at index {}: {}", travelId, dayNumber, newFileIndex, metadata.getFileId());
         
         return metadata.getFileId();
     }
@@ -114,8 +107,7 @@ public class DayPhotoService implements IDayPhotoService {
     @Transactional
     public void removePhotoFromDay(Long travelId, Integer dayNumber, String userId) throws Exception {
         // 1. Trova il viaggio e verifica proprietà
-        TravelEty travel = travelRepository.findById(travelId)
-                .orElseThrow(() -> new RuntimeException("Travel not found with id: " + travelId));
+        TravelEty travel = travelRepository.findById(travelId).orElseThrow(() -> new RuntimeException("Travel not found with id: " + travelId));
         
         // Verifica se l'utente può modificare questo viaggio (owner o editor)
         if (!groupTravelService.canUserEditTravel(travelId, userId)) {

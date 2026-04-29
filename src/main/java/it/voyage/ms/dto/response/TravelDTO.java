@@ -1,6 +1,5 @@
 package it.voyage.ms.dto.response;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 

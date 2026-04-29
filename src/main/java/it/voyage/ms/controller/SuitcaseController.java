@@ -22,7 +22,7 @@ import it.voyage.ms.dto.SuitcaseDTO;
 import it.voyage.ms.dto.SuitcaseItemDTO;
 import it.voyage.ms.dto.UserCustomItemDTO;
 import it.voyage.ms.security.user.CustomUserDetails;
-import it.voyage.ms.service.SuitcaseService;
+import it.voyage.ms.service.impl.SuitcaseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
