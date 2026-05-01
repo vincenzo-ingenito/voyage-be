@@ -32,6 +32,7 @@ public class UserService implements IUserService {
 	/**
 	 * Sincronizza l'utente Firebase con il database locale.
 	 * Se l'utente non esiste viene creato, altrimenti viene aggiornato il lastLogin.
+	 * IMPORTANTE: Preserva il token FCM esistente durante la sincronizzazione.
 	 */
 	@Override
 	@Transactional
@@ -40,9 +41,18 @@ public class UserService implements IUserService {
 		UserEty user;
 
 		if (existingUser.isPresent()) {
+			// Utente esistente: aggiorna solo lastLogin e preserva il token FCM
 			user = existingUser.get();
 			user.setLastLogin(new Date());
+			
+			// Log per debug
+			if (user.getFcmToken() != null && !user.getFcmToken().isEmpty()) {
+				log.debug("✅ Token FCM preservato per utente {} durante sync", customUserDetails.getUserId());
+			} else {
+				log.debug("⚠️ Utente {} non ha token FCM durante sync", customUserDetails.getUserId());
+			}
 		} else {
+			// Nuovo utente: crea record senza token FCM (verrà aggiunto dopo)
 			user = new UserEty();
 			user.setId(customUserDetails.getUserId());
 			user.setName(customUserDetails.getFullName());
@@ -52,6 +62,9 @@ public class UserService implements IUserService {
 			user.setLastLogin(new Date());
 			user.setPrivate(true);
 			user.setBio("Nessuna biografia disponibile");
+			// fcmToken rimane null - verrà impostato dalla chiamata successiva
+			
+			log.info("🆕 Nuovo utente creato: {} - Token FCM sarà registrato dopo il login", customUserDetails.getUserId());
 		}
 
 		UserEty savedUser = userRepository.save(user);
@@ -100,5 +113,53 @@ public class UserService implements IUserService {
 			throw new NotFoundException("Utente non trovato");
 		}
 		userRepository.deleteById(userId);
+	}
+
+	@Override
+	@Transactional
+	public void updateFcmToken(String firebaseId, String fcmToken) {
+		log.info("Aggiornamento token FCM per utente: {}", firebaseId);
+		
+		UserEty user = userRepository.findById(firebaseId)
+			.orElseThrow(() -> new NotFoundException("Utente non trovato"));
+		
+		user.setFcmToken(fcmToken);
+		userRepository.save(user);
+		
+		log.info("Token FCM aggiornato con successo per utente: {}", firebaseId);
+	}
+
+	@Override
+	@Transactional
+	public void removeFcmToken(String firebaseId) {
+		log.info("Rimozione token FCM per utente: {}", firebaseId);
+		
+		UserEty user = userRepository.findById(firebaseId)
+			.orElseThrow(() -> new NotFoundException("Utente non trovato"));
+		
+		user.setFcmToken(null);
+		userRepository.save(user);
+		
+		log.info("Token FCM rimosso con successo per utente: {}", firebaseId);
+	}
+
+	@Override
+	@Transactional
+	public void completeLoginSetup(String firebaseId, String fcmToken) {
+		log.info("🔧 Completamento setup login per utente: {}", firebaseId);
+		log.debug("🔧 Token FCM da registrare (primi 30 char): {}", 
+			fcmToken != null && fcmToken.length() > 30 ? fcmToken.substring(0, 30) + "..." : fcmToken);
+		
+		UserEty user = userRepository.findById(firebaseId)
+			.orElseThrow(() -> new NotFoundException("Utente non trovato durante setup login"));
+		
+		// Registra il token FCM se fornito
+		if (fcmToken != null && !fcmToken.isEmpty()) {
+			String oldToken = user.getFcmToken();
+			user.setFcmToken(fcmToken);
+			userRepository.save(user);
+		} else {
+			log.warn("⚠️ Setup login chiamato senza token FCM per utente: {}", firebaseId);
+		}
 	}
 }

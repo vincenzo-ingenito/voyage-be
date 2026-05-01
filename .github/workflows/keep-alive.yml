@@ -23,7 +23,7 @@ jobs:
           response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://voyage-be.onrender.com/health/ping)
           
           if [ $response -eq 200 ]; then
-            echo "✅ Server is alive (HTTP $response)"
+            echo "Server is alive (HTTP $response)"
           else
             echo "⚠️ Server responded with HTTP $response"
           fi
@@ -35,5 +35,5 @@ jobs:
           
       - name: Log completion
         run: |
-          echo "✅ Keep-alive cycle completed at $(date)"
+          echo "Keep-alive cycle completed at $(date)"
           echo "Next run in ~12 minutes"

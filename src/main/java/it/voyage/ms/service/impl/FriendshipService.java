@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -27,16 +28,20 @@ import it.voyage.ms.repository.entity.UserEty;
 import it.voyage.ms.repository.impl.IFriendRelationshipRepository;
 import it.voyage.ms.repository.impl.UserRepository;
 import it.voyage.ms.service.IFriendshipService;
+import it.voyage.ms.service.INotificationService;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @AllArgsConstructor
+@Slf4j
 public class FriendshipService implements IFriendshipService {
 
     private final UserRepository userRepository;
     private final IFriendRelationshipRepository friendRelationshipRepository;
     private final FriendrelationshipMapper friendrelationShipMapper;
     private final UserMapper userMapper;
+    private final INotificationService notificationService;
 
     @Override
     public boolean checkIfUserAreFriends(String userId, String friendId) {
@@ -99,47 +104,59 @@ public class FriendshipService implements IFriendshipService {
         List<FriendRelationshipEty> relevantRelationships = friendRelationshipRepository
             .findAllRelevantRelationships(currentUserId, userIdsToCheck);
 
-        Map<String, FriendRelationshipEty> relationshipMap =
-            buildRelationshipMap(relevantRelationships, currentUserId);
-
         return allMatchingUsers.stream()
-            .map(user -> mapToSearchResult(user, currentUserId, relationshipMap))
+            .map(user -> mapToSearchResult(user, currentUserId, relevantRelationships))
             .collect(Collectors.toList());
     }
 
-    private Map<String, FriendRelationshipEty> buildRelationshipMap(
-            List<FriendRelationshipEty> relationships, String currentUserId) {
-        return relationships.stream()
-            .collect(Collectors.toMap(
-                rel -> rel.getRequesterId().equals(currentUserId)
-                    ? rel.getReceiverId()
-                    : rel.getRequesterId(),
-                rel -> rel,
-                (existing, replacement) -> existing
-            ));
-    }
-
     private UserSearchResult mapToSearchResult(UserEty user, String currentUserId,
-            Map<String, FriendRelationshipEty> relationshipMap) {
+            List<FriendRelationshipEty> allRelationships) {
 
-        FriendRelationshipEty relationship = relationshipMap.get(user.getId());
+        // Trova TUTTE le relazioni con questo utente
+        FriendRelationshipEty outgoingRel = allRelationships.stream()
+            .filter(r -> r.getRequesterId().equals(currentUserId) && r.getReceiverId().equals(user.getId()))
+            .findFirst()
+            .orElse(null);
+            
+        FriendRelationshipEty incomingRel = allRelationships.stream()
+            .filter(r -> r.getRequesterId().equals(user.getId()) && r.getReceiverId().equals(currentUserId))
+            .findFirst()
+            .orElse(null);
+
         FriendRelationshipStatusEnum status = FriendRelationshipStatusEnum.AVAILABLE;
 
-        if (relationship != null) {
-            switch (relationship.getStatus()) {
-                case BLOCKED:
-                    status = FriendRelationshipStatusEnum.BLOCKED;
-                    break;
-                case ACCEPTED:
-                    status = FriendRelationshipStatusEnum.ALREADY_FRIENDS;
-                    break;
-                case PENDING:
-                    status = relationship.getRequesterId().equals(currentUserId)
-                        ? FriendRelationshipStatusEnum.PENDING_REQUEST_SENT
-                        : FriendRelationshipStatusEnum.PENDING_REQUEST_RECEIVED;
-                    break;
-                default:
-                    break;
+        // Priorità 1: Verifica se currentUser ha bloccato l'utente
+        if (outgoingRel != null && outgoingRel.getStatus() == Status.BLOCKED) {
+            status = FriendRelationshipStatusEnum.BLOCKED;
+        }
+        // Priorità 2: PENDING ha sempre precedenza su ACCEPTED
+        // Verifica se currentUser ha una richiesta PENDING in uscita
+        else if (outgoingRel != null && outgoingRel.getStatus() == Status.PENDING) {
+            status = FriendRelationshipStatusEnum.PENDING_REQUEST_SENT;
+        }
+        // Priorità 3: Verifica se c'è una richiesta PENDING in entrata
+        else if (incomingRel != null && incomingRel.getStatus() == Status.PENDING) {
+            status = FriendRelationshipStatusEnum.PENDING_REQUEST_RECEIVED;
+        }
+        // Priorità 4: Verifica relazioni ACCEPTED
+        else if (outgoingRel != null && outgoingRel.getStatus() == Status.ACCEPTED) {
+            // Entrambe le relazioni ACCEPTED → ALREADY_FRIENDS
+            if (incomingRel != null && incomingRel.getStatus() == Status.ACCEPTED) {
+                status = FriendRelationshipStatusEnum.ALREADY_FRIENDS;
+            }
+            // Solo outgoingRel ACCEPTED → Sempre ALREADY_FRIENDS
+            else {
+                status = FriendRelationshipStatusEnum.ALREADY_FRIENDS;
+            }
+        }
+        else if (incomingRel != null && incomingRel.getStatus() == Status.ACCEPTED) {
+            // C'è solo una relazione in entrata ACCEPTED
+            // Se l'utente è PRIVATO, currentUser può inviare richiesta
+            if (user.isPrivate()) {
+                status = FriendRelationshipStatusEnum.AVAILABLE;
+            } else {
+                // Utente pubblico con solo relazione in entrata → ALREADY_FRIENDS
+                status = FriendRelationshipStatusEnum.ALREADY_FRIENDS;
             }
         }
 
@@ -148,44 +165,189 @@ public class FriendshipService implements IFriendshipService {
 
     @Override
     public String sendFriendRequest(String requesterId, String receiverId) {
+        UserEty requesterUser = userRepository.findById(requesterId)
+            .orElseThrow(() -> new NotFoundException("Utente richiedente non trovato."));
         UserEty receiverUser = userRepository.findById(receiverId)
             .orElseThrow(() -> new NotFoundException("Utente destinatario non trovato."));
 
-        if (friendRelationshipRepository.existsByRequesterIdAndReceiverIdOrReceiverIdAndRequesterId(requesterId, receiverId, requesterId, receiverId)) {
-            throw new ConflictException("Una richiesta o una relazione di amicizia con questo utente esiste già.");
+        // Controlla se esiste già una relazione da requester → receiver
+        Optional<FriendRelationshipEty> existingRelation = 
+            friendRelationshipRepository.findByRequesterIdAndReceiverId(requesterId, receiverId);
+        
+        if (existingRelation.isPresent()) {
+            FriendRelationshipEty relation = existingRelation.get();
+            
+            if (relation.getStatus() == Status.ACCEPTED) {
+                return relation.isUnidirectional() 
+                    ? "Stai già seguendo questo utente." 
+                    : "Sei già amico di questo utente.";
+            }
+            
+            if (relation.getStatus() == Status.PENDING) {
+                return "Hai già inviato una richiesta a questo utente.";
+            }
+            
+            if (relation.getStatus() == Status.BLOCKED) {
+                throw new ConflictException("Non puoi inviare richieste a questo utente.");
+            }
+        }
+        
+        // Controlla se esiste una relazione inversa (receiver → requester)
+        Optional<FriendRelationshipEty> inverseRelation = 
+            friendRelationshipRepository.findByRequesterIdAndReceiverId(receiverId, requesterId);
+        
+        if (inverseRelation.isPresent()) {
+            FriendRelationshipEty relation = inverseRelation.get();
+            
+            // CASO SPECIALE: Esiste già un follow unidirezionale inverso
+            if (relation.getStatus() == Status.ACCEPTED && relation.isUnidirectional()) {
+                // Receiver aveva già un follower (requester)
+                // Ora il receiver vuole inviare richiesta/follow al requester
+                
+                if (requesterUser.isPrivate()) {
+                    // Il follower è privato → crea richiesta PENDING bidirezionale
+                    FriendRelationshipEty newRequest = new FriendRelationshipEty();
+                    newRequest.setRequesterId(requesterId);
+                    newRequest.setReceiverId(receiverId);
+                    newRequest.setStatus(Status.PENDING);
+                    newRequest.setUnidirectional(false); // Sarà bidirezionale quando accettata
+                    friendRelationshipRepository.save(newRequest);
+                    
+                    // Invia notifica FCM per richiesta di amicizia
+                    try {
+                        notificationService.sendFriendRequestNotification(
+                            receiverId,
+                            requesterUser.getName(),
+                            requesterId,
+                            requesterUser.getAvatar()
+                        );
+                        log.info("Notifica richiesta amicizia inviata a {} da {}", receiverId, requesterId);
+                    } catch (Exception e) {
+                        log.error("Errore invio notifica richiesta amicizia: {}", e.getMessage(), e);
+                    }
+                    
+                    return "Richiesta di amicizia inviata con successo.";
+                } else {
+                    // Il follower è pubblico → crea follow unidirezionale
+                    FriendRelationshipEty newFollow = new FriendRelationshipEty();
+                    newFollow.setRequesterId(requesterId);
+                    newFollow.setReceiverId(receiverId);
+                    newFollow.setStatus(Status.ACCEPTED);
+                    newFollow.setUnidirectional(true);
+                    friendRelationshipRepository.save(newFollow);
+                    
+                    // Invia notifica al seguito
+                    try {
+                        notificationService.sendNewFollowerNotification(
+                            receiverId,
+                            requesterUser.getName(),
+                            requesterId,
+                            requesterUser.getAvatar()
+                        );
+                        log.info("Notifica nuovo follower inviata a {} da {}", receiverId, requesterId);
+                    } catch (Exception e) {
+                        log.error("Errore invio notifica nuovo follower: {}", e.getMessage(), e);
+                    }
+                    
+                    return "Ora segui questo utente!";
+                }
+            }
+            
+            // CASO: Esiste richiesta PENDING inversa (receiver aveva chiesto amicizia a requester)
+            if (relation.getStatus() == Status.PENDING) {
+                // Accetta automaticamente la richiesta esistente trasformandola in amicizia bidirezionale
+                relation.setStatus(Status.ACCEPTED);
+                relation.setUnidirectional(false); // Amicizia bidirezionale
+                friendRelationshipRepository.save(relation);
+                return "Richiesta di amicizia accettata automaticamente!";
+            }
+            
+            // Se la relazione inversa è BLOCKED, non facciamo nulla (lasciamo che il requester crei la sua)
         }
 
+        // Nessuna relazione esistente → crea nuova
         FriendRelationshipEty newRequest = new FriendRelationshipEty();
         newRequest.setRequesterId(requesterId);
         newRequest.setReceiverId(receiverId);
-        // setStatus ora accetta FriendRelationshipEty.Status (enum)
-        newRequest.setStatus(receiverUser.isPrivate() ? Status.PENDING : Status.ACCEPTED);
-
-        friendRelationshipRepository.save(newRequest);
-
-        return receiverUser.isPrivate() ? "Richiesta di amicizia inviata con successo." : "Amico aggiunto con successo! Il profilo è pubblico.";
+        
+        // LOGICA CORRETTA:
+        // - Se RECEIVER è PRIVATO → sempre PENDING (richiede approvazione), indipendentemente dal tipo di requester
+        // - Se RECEIVER è PUBBLICO → sempre ACCEPTED immediato (follow unidirezionale), indipendentemente dal tipo di requester
+        
+        if (receiverUser.isPrivate()) {
+            // Receiver privato → sempre richiesta PENDING (sia da pubblico che da privato)
+            newRequest.setStatus(Status.PENDING);
+            newRequest.setUnidirectional(false);
+            friendRelationshipRepository.save(newRequest);
+            
+            // Invia notifica FCM per richiesta di amicizia
+            try {
+                notificationService.sendFriendRequestNotification(
+                    receiverId,
+                    requesterUser.getName(),
+                    requesterId,
+                    requesterUser.getAvatar()
+                );
+                log.info("Notifica richiesta amicizia inviata a {} da {}", receiverId, requesterId);
+            } catch (Exception e) {
+                log.error("Errore invio notifica richiesta amicizia: {}", e.getMessage(), e);
+            }
+            
+            return "Richiesta di amicizia inviata con successo.";
+        } else {
+            // Receiver è pubblico → follow unidirezionale immediato (sia da pubblico che da privato)
+            newRequest.setStatus(Status.ACCEPTED);
+            newRequest.setUnidirectional(true);
+            friendRelationshipRepository.save(newRequest);
+            
+            // Invia notifica al seguito
+            try {
+                notificationService.sendNewFollowerNotification(
+                    receiverId,
+                    requesterUser.getName(),
+                    requesterId,
+                    requesterUser.getAvatar()
+                );
+                log.info("Notifica nuovo follower inviata a {} da {}", receiverId, requesterId);
+            } catch (Exception e) {
+                log.error("Errore invio notifica nuovo follower: {}", e.getMessage(), e);
+            }
+            
+            return "Ora segui questo utente! Il profilo è pubblico.";
+        }
     }
 
     @Override
     public String handleFriendRequest(String requesterId, String receiverId, String action) {
-        int updatedCount;
-        String successMessage;
-
         if ("accept".equalsIgnoreCase(action)) {
-            updatedCount = friendRelationshipRepository.updateRequestStatus(requesterId, receiverId, Status.ACCEPTED);
-            successMessage = "Richiesta di amicizia accettata.";
+            // Trova la richiesta pending
+            Optional<FriendRelationshipEty> pendingRequest = 
+                friendRelationshipRepository.findByRequesterIdAndReceiverId(requesterId, receiverId);
+            
+            if (pendingRequest.isEmpty() || pendingRequest.get().getStatus() != Status.PENDING) {
+                throw new NotFoundException("Richiesta di amicizia in sospeso non trovata.");
+            }
+            
+            FriendRelationshipEty request = pendingRequest.get();
+            request.setStatus(Status.ACCEPTED);
+            // Le richieste PENDING sono sempre bidirezionali (solo i profili privati richiedono approvazione)
+            request.setUnidirectional(false);
+            friendRelationshipRepository.save(request);
+            
+            return "Richiesta di amicizia accettata.";
+            
         } else if ("decline".equalsIgnoreCase(action)) {
-            updatedCount = (int) friendRelationshipRepository.deleteFriendship(receiverId, requesterId);
-            successMessage = "Richiesta di amicizia rifiutata.";
+            int updatedCount = (int) friendRelationshipRepository.deleteFriendship(receiverId, requesterId);
+            
+            if (updatedCount == 0) {
+                throw new NotFoundException("Richiesta di amicizia in sospeso non trovata.");
+            }
+            
+            return "Richiesta di amicizia rifiutata.";
+            
         } else {
             throw new IllegalArgumentException("Azione non valida. Usa 'accept' o 'decline'.");
         }
-
-        if (updatedCount == 0) {
-            throw new NotFoundException("Richiesta di amicizia in sospeso non trovata.");
-        }
-
-        return successMessage;
     }
 
     @Override

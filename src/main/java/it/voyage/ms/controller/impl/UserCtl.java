@@ -59,4 +59,33 @@ public class UserCtl implements IUserCtl {
 		}
 	}
 
+	@Override
+	public ResponseEntity<Map<String, String>> updateFcmToken(Map<String, String> tokenData, CustomUserDetails customerUserDetail) {
+		log.info("Called update FCM token endpoint for userId: {}", customerUserDetail.getUserId());
+		
+		String fcmToken = tokenData.get("fcmToken");
+		if (fcmToken == null || fcmToken.trim().isEmpty()) {
+			Map<String, String> response = new HashMap<>();
+			response.put("error", "Token FCM mancante");
+			return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+		}
+		
+		userService.updateFcmToken(customerUserDetail.getUserId(), fcmToken);
+		
+		Map<String, String> response = new HashMap<>();
+		response.put("message", "Token FCM aggiornato con successo");
+		return new ResponseEntity<>(response, HttpStatus.OK);
+	}
+
+	@Override
+	public ResponseEntity<Map<String, String>> removeFcmToken(CustomUserDetails customerUserDetail) {
+		log.info("Called remove FCM token endpoint for userId: {}", customerUserDetail.getUserId());
+		
+		userService.removeFcmToken(customerUserDetail.getUserId());
+		
+		Map<String, String> response = new HashMap<>();
+		response.put("message", "Token FCM rimosso con successo");
+		return new ResponseEntity<>(response, HttpStatus.OK);
+	}
+
 }

@@ -41,8 +41,7 @@ public class TravelVoteCtl implements ITravelVoteCtl {
     @Override
     public ResponseEntity<VoteStatsDTO> getVoteStats(Long travelId, CustomUserDetails userDetails) {
         String userId = userDetails.getUserId();
-        log.info("🎯 [Controller] getVoteStats - travelId: {}, userId: '{}', userId.length: {}", 
-                 travelId, userId, userId != null ? userId.length() : 0);
+        log.info("[Controller] getVoteStats - travelId: {}, userId: '{}', userId.length: {}", travelId, userId, userId != null ? userId.length() : 0);
         VoteStatsDTO stats = voteService.getVoteStats(travelId, userId);
         return ResponseEntity.ok(stats);
     }

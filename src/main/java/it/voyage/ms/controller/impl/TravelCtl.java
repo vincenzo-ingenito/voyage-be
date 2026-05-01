@@ -94,8 +94,7 @@ public class TravelCtl implements ITravelCtl {
 	
 	@Override
 	public ResponseEntity<TravelDTO> getTravelWithUrls(@PathVariable Long travelId, String userId, @AuthenticationPrincipal CustomUserDetails userDetails) {
-		log.info("🎯 [Controller] getTravelWithUrls - travelId: {}, queryParam userId: '{}', currentUser: '{}'", 
-		         travelId, userId, userDetails.getUserId());
+		log.info("[Controller] getTravelWithUrls - travelId: {}, queryParam userId: '{}', currentUser: '{}'", travelId, userId, userDetails.getUserId());
 		
 		// FIX CRITICO: Passa currentUserId (utente loggato) come primo parametro per i voteStats
 		// e userId (dal query parameter) come terzo parametro per i permessi sul viaggio
@@ -113,16 +112,11 @@ public class TravelCtl implements ITravelCtl {
 	@Override
 	public ResponseEntity<FeedPageDTO> getFeedPaginated(@RequestParam(defaultValue = "15") int pageSize, @RequestParam(required = false) String cursor,
 			@RequestParam(defaultValue = "false") boolean includePhotos, @AuthenticationPrincipal CustomUserDetails userDetails) {
-		
 		log.info("Called get feed paginated ep - pageSize: {}, cursor: {}, includePhotos: {}", pageSize, cursor, includePhotos);
-		
 		// Limita pageSize a max 50 per sicurezza
 		int safePageSize = Math.min(pageSize, 50);
-		
 		FeedPageDTO feedPage = travelService.getFeedPaginated(userDetails.getUserId(), safePageSize, cursor, includePhotos);
-		
 		log.info("Returning feed page with {} travels, hasMore: {}", feedPage.getTravels().size(), feedPage.isHasMore());
-		
 		return ResponseEntity.ok(feedPage);
 	}
 

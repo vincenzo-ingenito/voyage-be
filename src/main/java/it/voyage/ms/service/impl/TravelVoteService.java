@@ -1,16 +1,23 @@
 package it.voyage.ms.service.impl;
 
-import it.voyage.ms.dto.response.VoteStatsDTO;
-import it.voyage.ms.repository.TravelVoteRepository;
-import it.voyage.ms.repository.entity.TravelVoteEty;
-import it.voyage.ms.repository.entity.VoteType;
-import it.voyage.ms.service.ITravelVoteService;
-import lombok.extern.slf4j.Slf4j;
+import java.util.Optional;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
+import it.voyage.ms.dto.response.VoteStatsDTO;
+import it.voyage.ms.exceptions.NotFoundException;
+import it.voyage.ms.repository.TravelVoteRepository;
+import it.voyage.ms.repository.entity.TravelEty;
+import it.voyage.ms.repository.entity.TravelVoteEty;
+import it.voyage.ms.repository.entity.UserEty;
+import it.voyage.ms.repository.entity.VoteType;
+import it.voyage.ms.repository.impl.TravelRepository;
+import it.voyage.ms.repository.impl.UserRepository;
+import it.voyage.ms.service.INotificationService;
+import it.voyage.ms.service.ITravelVoteService;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
@@ -18,6 +25,15 @@ public class TravelVoteService implements ITravelVoteService {
     
     @Autowired
     private TravelVoteRepository voteRepository;
+    
+    @Autowired
+    private TravelRepository travelRepository;
+    
+    @Autowired
+    private UserRepository userRepository;
+    
+    @Autowired
+    private INotificationService notificationService;
     
     @Override
     @Transactional
@@ -46,8 +62,32 @@ public class TravelVoteService implements ITravelVoteService {
             newVote.setUserId(userId);
             newVote.setVoteType(voteType);
             voteRepository.save(newVote);
+            
+            // Invia notifica al proprietario del viaggio (solo per UPVOTE/LIKE)
+            if (voteType == VoteType.UPVOTE) {
+                try {
+                    TravelEty travel = travelRepository.findById(travelId)
+                        .orElseThrow(() -> new NotFoundException("Viaggio non trovato"));
+                    
+                    // Non inviare notifica se l'utente mette like al proprio viaggio
+                    if (!travel.getUser().getId().equals(userId)) {
+                        UserEty liker = userRepository.findById(userId).orElse(null);
+                        if (liker != null) {
+                            notificationService.sendTravelLikeNotification(
+                                travel.getUser().getId(),
+                                liker.getName(),
+                                travel.getTravelName(),
+                                travelId
+                            );
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("❌ Errore invio notifica like", e);
+                    // Non bloccare il voto se la notifica fallisce
+                }
+            }
         }
-        
+
         return getVoteStats(travelId, userId);
     }
     

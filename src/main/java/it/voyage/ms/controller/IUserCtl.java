@@ -59,4 +59,25 @@ public interface IUserCtl {
 	    @ApiResponse(responseCode = "500", description = "Errore durante l'eliminazione dell'account")
 	})
 	ResponseEntity<Map<String, String>> deleteAccount(@AuthenticationPrincipal CustomUserDetails customerUserDetail);
+	
+	@PutMapping(path = "/fcm-token", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "Aggiorna token FCM", description = "Salva o aggiorna il token FCM per le notifiche push.")
+	@ApiResponses(value = { 
+	    @ApiResponse(responseCode = "200", description = "Token FCM aggiornato con successo"),
+	    @ApiResponse(responseCode = "404", description = "Utente non trovato"),
+	    @ApiResponse(responseCode = "500", description = "Errore durante l'aggiornamento del token")
+	})
+	ResponseEntity<Map<String, String>> updateFcmToken(
+		@RequestBody Map<String, String> tokenData, 
+		@AuthenticationPrincipal CustomUserDetails customerUserDetail
+	);
+	
+	@DeleteMapping(path = "/fcm-token", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "Rimuovi token FCM", description = "Rimuove il token FCM (es. al logout).")
+	@ApiResponses(value = { 
+	    @ApiResponse(responseCode = "200", description = "Token FCM rimosso con successo"),
+	    @ApiResponse(responseCode = "404", description = "Utente non trovato"),
+	    @ApiResponse(responseCode = "500", description = "Errore durante la rimozione del token")
+	})
+	ResponseEntity<Map<String, String>> removeFcmToken(@AuthenticationPrincipal CustomUserDetails customerUserDetail);
 }

@@ -105,6 +105,17 @@ public class FriendRelationshipEty {
     @Column(name = "blocker_id", length = 255)
     private String blockerId;
 
+    /**
+     * Indica se la relazione è unidirezionale (follow) o bidirezionale (amicizia).
+     * - true: Follow unidirezionale (tipicamente per profili pubblici)
+     * - false: Amicizia bidirezionale (default)
+     * 
+     * Nota: nullable=true per permettere a Hibernate di aggiungere la colonna
+     * Il valore di default (false) verrà applicato alle nuove righe
+     */
+    @Column(name = "is_unidirectional", nullable = true, columnDefinition = "boolean default false")
+    private boolean isUnidirectional = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;

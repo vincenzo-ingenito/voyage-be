@@ -72,7 +72,6 @@ public class BookmarkService implements IBookmarkService {
 		return bookmarkRepository.existsByUserIdAndTravelId(userId, travelId);
 	}
 
-	// Service
 	@Override
 	@Transactional(readOnly = true)
 	public List<BookmarkDTO> getUserBookmarks(String userId) {

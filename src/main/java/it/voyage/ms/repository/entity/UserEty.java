@@ -61,6 +61,10 @@ public class UserEty {
     @Column(name = "bio", columnDefinition = "TEXT")
     private String bio;
 
+    /** Token FCM per notifiche push */
+    @Column(name = "fcm_token", length = 500)
+    private String fcmToken;
+
     /** Relation: User 1:N Travel */
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL,
                orphanRemoval = true, fetch = FetchType.LAZY)
