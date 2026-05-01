@@ -45,7 +45,20 @@ public class FriendshipService implements IFriendshipService {
 
     @Override
     public boolean checkIfUserAreFriends(String userId, String friendId) {
-        return friendRelationshipRepository.findFriendshipByUsersAndStatus(userId, friendId, Status.ACCEPTED).isPresent();
+        // Con amicizie asimmetriche, verifica se esiste almeno una relazione ACCEPTED
+        // in qualsiasi direzione tra i due utenti
+        Optional<FriendRelationshipEty> relation1 = 
+            friendRelationshipRepository.findByRequesterIdAndReceiverId(userId, friendId);
+        
+        if (relation1.isPresent() && relation1.get().getStatus() == Status.ACCEPTED) {
+            return true;
+        }
+        
+        // Controlla anche nella direzione opposta
+        Optional<FriendRelationshipEty> relation2 = 
+            friendRelationshipRepository.findByRequesterIdAndReceiverId(friendId, userId);
+        
+        return relation2.isPresent() && relation2.get().getStatus() == Status.ACCEPTED;
     }
 
     @Override
