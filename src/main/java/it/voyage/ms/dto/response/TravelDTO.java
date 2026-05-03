@@ -48,6 +48,11 @@ public class TravelDTO {
 	private String ownerEmail;
 	
 	/**
+	 * Avatar del proprietario del viaggio
+	 */
+	private String ownerAvatar;
+	
+	/**
 	 * Statistiche di voto (upvotes, downvotes, punteggio netto)
 	 * Popolato opzionalmente quando richiesto (es. nel feed)
 	 */

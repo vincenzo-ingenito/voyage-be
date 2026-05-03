@@ -423,7 +423,7 @@ public class FriendshipService implements IFriendshipService {
         usersToExclude.add(currentUserId); // Escludi se stesso
         
         // Aggiungi TUTTE le relazioni esistenti (ACCEPTED, BLOCKED, PENDING) per sicurezza
-        friendRelationshipRepository.findByRequesterIdOrReceiverId(currentUserId, currentUserId).stream()
+        friendRelationshipRepository.findByRequesterIdOrReceiverId(currentUserId).stream()
             .forEach(rel -> {
                 usersToExclude.add(rel.getRequesterId());
                 usersToExclude.add(rel.getReceiverId());
@@ -443,9 +443,32 @@ public class FriendshipService implements IFriendshipService {
             return Collections.emptyList();
         }
 
-        // 4. Per ogni utente potenziale, calcola il punteggio di suggerimento
+        // 4. FIX N+1: Carica tutte le amicizie dei candidati in una sola query batch
+        List<String> candidateIds = potentialSuggestions.stream()
+            .map(UserEty::getId)
+            .collect(Collectors.toList());
+        
+        List<FriendRelationshipEty> allCandidateFriendships = Collections.emptyList();
+        if (!candidateIds.isEmpty()) {
+            allCandidateFriendships = friendRelationshipRepository
+                .findFriendshipsByUserIdsAndStatus(candidateIds, Status.ACCEPTED);
+        }
+        
+        // Costruisci una mappa: userId -> lista di amici
+        Map<String, List<String>> userFriendsMap = new java.util.HashMap<>();
+        for (FriendRelationshipEty rel : allCandidateFriendships) {
+            String user1 = rel.getRequesterId();
+            String user2 = rel.getReceiverId();
+            
+            userFriendsMap.computeIfAbsent(user1, k -> new ArrayList<>()).add(user2);
+            userFriendsMap.computeIfAbsent(user2, k -> new ArrayList<>()).add(user1);
+        }
+        
+        log.debug("[getFriendSuggestions] Caricati amici per {} candidati in batch", candidateIds.size());
+        
+        // 5. Per ogni utente potenziale, calcola il punteggio di suggerimento
         List<ScoredSuggestion> scoredSuggestions = potentialSuggestions.stream()
-            .map(user -> calculateSuggestionScore(user, currentUserId, currentUserFriendIds))
+            .map(user -> calculateSuggestionScore(user, currentUserId, currentUserFriendIds, userFriendsMap))
             .filter(scored -> {
                 // TRIPLO FILTRO DI SICUREZZA
                 boolean isCurrentUser = scored.user.getId().equals(currentUserId);
@@ -469,20 +492,18 @@ public class FriendshipService implements IFriendshipService {
 
     /**
      * Calcola il punteggio di un utente come suggerimento
+     * OTTIMIZZATO: Usa mappa pre-caricata invece di N query
      */
-    private ScoredSuggestion calculateSuggestionScore(UserEty user, String currentUserId, List<String> currentUserFriendIds) {
+    private ScoredSuggestion calculateSuggestionScore(UserEty user, String currentUserId, 
+                                                      List<String> currentUserFriendIds,
+                                                      Map<String, List<String>> userFriendsMap) {
         int score = 0;
         String reason = "new_user";
         int mutualFriendsCount = 0;
         List<String> mutualFriendNames = new ArrayList<>();
 
-        // 1. Calcola amici in comune (peso maggiore)
-        List<String> userFriendIds = friendRelationshipRepository
-            .findFriendshipsByUserIdAndStatus(user.getId(), Status.ACCEPTED).stream()
-            .map(rel -> rel.getRequesterId().equals(user.getId()) 
-                ? rel.getReceiverId() 
-                : rel.getRequesterId())
-            .collect(Collectors.toList());
+        // 1. FIX N+1: Usa mappa pre-caricata invece di query per ogni utente
+        List<String> userFriendIds = userFriendsMap.getOrDefault(user.getId(), Collections.emptyList());
 
         mutualFriendsCount = (int) userFriendIds.stream()
             .filter(currentUserFriendIds::contains)

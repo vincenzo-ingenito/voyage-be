@@ -64,4 +64,24 @@ public interface TravelParticipantRepository extends JpaRepository<TravelPartici
      * Elimina un partecipante da un viaggio
      */
     void deleteByTravelIdAndUserId(Long travelId, String userId);
+    
+    @Query("""
+		    SELECT p FROM TravelParticipantEty p
+		    LEFT JOIN FETCH p.travel t
+		    LEFT JOIN FETCH t.user
+		    WHERE p.userId = :userId
+		""")
+    List<TravelParticipantEty> findByUserIdWithTravelAndOwner(@Param("userId") String userId);
+    
+    /**
+     * Trova tutti i partecipanti di un viaggio con travel e owner pre-caricati
+     * Ottimizzazione per evitare N+1 query
+     */
+    @Query("""
+        SELECT DISTINCT p FROM TravelParticipantEty p
+        LEFT JOIN FETCH p.travel t
+        LEFT JOIN FETCH t.user
+        WHERE p.travel.id = :travelId
+    """)
+    List<TravelParticipantEty> findByTravelIdWithTravelAndOwner(@Param("travelId") Long travelId);
 }

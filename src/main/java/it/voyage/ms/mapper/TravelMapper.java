@@ -42,6 +42,8 @@ public class TravelMapper {
         dto.setOwnerId(travel.getUser() != null ? travel.getUser().getId() : null);
         dto.setOwnerName(travel.getUser() != null ? travel.getUser().getName() : null);
         dto.setOwnerEmail(travel.getUser() != null ? travel.getUser().getEmail() : null);
+        dto.setOwnerAvatar(travel.getUser() != null ? travel.getUser().getAvatar() : null);
+        dto.setUserId(travel.getUser() != null ? travel.getUser().getId() : null);
         // I partecipanti vengono popolati separatamente dal GroupTravelService quando necessario
         dto.setParticipants(new ArrayList<>());
 

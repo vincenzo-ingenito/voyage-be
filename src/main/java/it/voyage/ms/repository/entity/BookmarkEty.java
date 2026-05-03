@@ -36,7 +36,8 @@ import java.util.Date;
         @Index(name = "idx_bookmark_user_id",       columnList = "user_id"),
         @Index(name = "idx_bookmark_travel_id",     columnList = "travel_id"),
         @Index(name = "idx_bookmark_owner_id",      columnList = "travel_owner_id"),
-        @Index(name = "idx_bookmark_created_at",    columnList = "created_at")
+        @Index(name = "idx_bookmark_created_at",    columnList = "created_at"),
+        @Index(name = "idx_bookmark_user_created",  columnList = "user_id, created_at DESC")
     }
 )
 @Data

@@ -2,6 +2,7 @@ package it.voyage.ms.repository.impl;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -39,4 +40,14 @@ public interface UserRepository extends JpaRepository<UserEty, String> {
 	
 	@Query("SELECT u.isPrivate FROM UserEty u WHERE u.id = :id")
 	Optional<Boolean> findPrivacyStatusById(@Param("id") String id);
+	
+	/**
+	 * Trova tutti gli utenti escludendo un set di ID
+	 * Ottimizzazione per evitare N+1 query nei suggerimenti di amicizia
+	 */
+	@Query("""
+	    SELECT u FROM UserEty u
+	    WHERE u.id NOT IN :excludedIds
+	""")
+	List<UserEty> findAllExcluding(@Param("excludedIds") Set<String> excludedIds);
 }

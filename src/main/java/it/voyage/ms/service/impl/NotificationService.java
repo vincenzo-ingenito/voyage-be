@@ -31,17 +31,17 @@ public class NotificationService implements INotificationService {
             String travelName,
             Long travelId) {
         
-        log.info("📬 Invio notifica invito viaggio di gruppo a utente: {}", userId);
+        log.info("Invio notifica invito viaggio di gruppo a utente: {}", userId);
         
         UserEty user = userRepository.findById(userId).orElse(null);
         if (user == null) {
-            log.warn("⚠️ Utente {} non trovato per notifica", userId);
+            log.warn("Utente {} non trovato per notifica", userId);
             return;
         }
         
         String fcmToken = user.getFcmToken();
         if (fcmToken == null || fcmToken.isEmpty()) {
-            log.warn("⚠️ Utente {} non ha token FCM registrato", userId);
+            log.warn("Utente {} non ha token FCM registrato", userId);
             return;
         }
         
@@ -49,7 +49,7 @@ public class NotificationService implements INotificationService {
             Message message = Message.builder()
                 .setToken(fcmToken)
                 .setNotification(Notification.builder()
-                    .setTitle("🌍 Nuovo invito viaggio!")
+                    .setTitle("Nuovo invito viaggio!")
                     .setBody(inviterName + " ti ha invitato a " + travelName)
                     .build())
                 .putData("travelId", travelId.toString())
@@ -59,17 +59,17 @@ public class NotificationService implements INotificationService {
                 .build();
             
             String response = firebaseMessaging.send(message);
-            log.info("✅ Notifica FCM inviata con successo: {}", response);
+            log.info("Notifica FCM inviata con successo: {}", response);
             
         } catch (FirebaseMessagingException e) {
-            log.error("❌ Errore invio notifica FCM a utente {}: {}", userId, e.getMessage());
+            log.error("Errore invio notifica FCM a utente {}: {}", userId, e.getMessage());
             
             // Se il token non è più valido, rimuovilo dal database
             if (e.getMessagingErrorCode() != null) {
                 switch (e.getMessagingErrorCode()) {
                     case UNREGISTERED:
                     case INVALID_ARGUMENT:
-                        log.warn("🗑️ Token FCM non valido per utente {}, rimozione...", userId);
+                        log.warn("Token FCM non valido per utente {}, rimozione...", userId);
                         user.setFcmToken(null);
                         userRepository.save(user);
                         break;
@@ -78,24 +78,24 @@ public class NotificationService implements INotificationService {
                 }
             }
         } catch (Exception e) {
-            log.error("❌ Errore generico invio notifica", e);
+            log.error("Errore generico invio notifica", e);
         }
     }
 
     @Override
     public void sendInviteAcceptedNotification(String ownerId, String accepterName, String travelName) {
         
-        log.info("📬 Invio notifica invito accettato a utente: {}", ownerId);
+        log.info("Invio notifica invito accettato a utente: {}", ownerId);
         
         UserEty owner = userRepository.findById(ownerId).orElse(null);
         if (owner == null) {
-            log.warn("⚠️ Proprietario {} non trovato per notifica", ownerId);
+            log.warn("Proprietario {} non trovato per notifica", ownerId);
             return;
         }
         
         String fcmToken = owner.getFcmToken();
         if (fcmToken == null || fcmToken.isEmpty()) {
-            log.warn("⚠️ Utente {} non ha token FCM registrato", ownerId);
+            log.warn("Utente {} non ha token FCM registrato", ownerId);
             return;
         }
         
@@ -103,7 +103,7 @@ public class NotificationService implements INotificationService {
             Message message = Message.builder()
                 .setToken(fcmToken)
                 .setNotification(Notification.builder()
-                    .setTitle("🎉 Invito accettato!")
+                    .setTitle("Invito accettato!")
                     .setBody(accepterName + " ha accettato l'invito a " + travelName)
                     .build())
                 .putData("type", "INVITE_ACCEPTED")
@@ -112,10 +112,10 @@ public class NotificationService implements INotificationService {
                 .build();
             
             String response = firebaseMessaging.send(message);
-            log.info("✅ Notifica FCM inviata con successo: {}", response);
+            log.info("Notifica FCM inviata con successo: {}", response);
             
         } catch (FirebaseMessagingException e) {
-            log.error("❌ Errore invio notifica FCM a utente {}: {}", ownerId, e.getMessage());
+            log.error("Errore invio notifica FCM a utente {}: {}", ownerId, e.getMessage());
             
             // Se il token non è più valido, rimuovilo dal database
             if (e.getMessagingErrorCode() != null) {
@@ -131,7 +131,7 @@ public class NotificationService implements INotificationService {
                 }
             }
         } catch (Exception e) {
-            log.error("❌ Errore generico invio notifica", e);
+            log.error("Errore generico invio notifica", e);
         }
     }
 
@@ -142,13 +142,13 @@ public class NotificationService implements INotificationService {
         
         UserEty owner = userRepository.findById(travelOwnerId).orElse(null);
         if (owner == null) {
-            log.warn("⚠️ Proprietario {} non trovato per notifica", travelOwnerId);
+            log.warn("Proprietario {} non trovato per notifica", travelOwnerId);
             return;
         }
         
         String fcmToken = owner.getFcmToken();
         if (fcmToken == null || fcmToken.isEmpty()) {
-            log.warn("⚠️ Utente {} non ha token FCM registrato", travelOwnerId);
+            log.warn("Utente {} non ha token FCM registrato", travelOwnerId);
             return;
         }
         
@@ -156,7 +156,7 @@ public class NotificationService implements INotificationService {
             Message message = Message.builder()
                 .setToken(fcmToken)
                 .setNotification(Notification.builder()
-                    .setTitle("❤️ Nuovo like!")
+                    .setTitle("Nuovo like!")
                     .setBody(likerName + " ha messo mi piace a " + travelName)
                     .build())
                 .putData("type", "LIKE")
@@ -166,17 +166,17 @@ public class NotificationService implements INotificationService {
                 .build();
             
             String response = firebaseMessaging.send(message);
-            log.info("✅ Notifica like inviata con successo: {}", response);
+            log.info("Notifica like inviata con successo: {}", response);
             
         } catch (FirebaseMessagingException e) {
-            log.error("❌ Errore invio notifica like a utente {}: {}", travelOwnerId, e.getMessage());
+            log.error("Errore invio notifica like a utente {}: {}", travelOwnerId, e.getMessage());
             
             // Se il token non è più valido, rimuovilo dal database
             if (e.getMessagingErrorCode() != null) {
                 switch (e.getMessagingErrorCode()) {
                     case UNREGISTERED:
                     case INVALID_ARGUMENT:
-                        log.warn("🗑️ Token FCM non valido per utente {}, rimozione...", travelOwnerId);
+                        log.warn("Token FCM non valido per utente {}, rimozione...", travelOwnerId);
                         owner.setFcmToken(null);
                         userRepository.save(owner);
                         break;
@@ -185,7 +185,7 @@ public class NotificationService implements INotificationService {
                 }
             }
         } catch (Exception e) {
-            log.error("❌ Errore generico invio notifica like", e);
+            log.error("Errore generico invio notifica like", e);
         }
     }
 
@@ -196,13 +196,13 @@ public class NotificationService implements INotificationService {
         
         UserEty followedUser = userRepository.findById(followedUserId).orElse(null);
         if (followedUser == null) {
-            log.warn("⚠️ Utente seguito {} non trovato per notifica", followedUserId);
+            log.warn("Utente seguito {} non trovato per notifica", followedUserId);
             return;
         }
         
         String fcmToken = followedUser.getFcmToken();
         if (fcmToken == null || fcmToken.isEmpty()) {
-            log.warn("⚠️ Utente {} non ha token FCM registrato", followedUserId);
+            log.warn("Utente {} non ha token FCM registrato", followedUserId);
             return;
         }
         
@@ -220,17 +220,17 @@ public class NotificationService implements INotificationService {
                 .build();
             
             String response = firebaseMessaging.send(message);
-            log.info("✅ Notifica nuovo follower inviata con successo: {}", response);
+            log.info("Notifica nuovo follower inviata con successo: {}", response);
             
         } catch (FirebaseMessagingException e) {
-            log.error("❌ Errore invio notifica follower a utente {}: {}", followedUserId, e.getMessage());
+            log.error("Errore invio notifica follower a utente {}: {}", followedUserId, e.getMessage());
             
             // Se il token non è più valido, rimuovilo dal database
             if (e.getMessagingErrorCode() != null) {
                 switch (e.getMessagingErrorCode()) {
                     case UNREGISTERED:
                     case INVALID_ARGUMENT:
-                        log.warn("🗑️ Token FCM non valido per utente {}, rimozione...", followedUserId);
+                        log.warn("Token FCM non valido per utente {}, rimozione...", followedUserId);
                         followedUser.setFcmToken(null);
                         userRepository.save(followedUser);
                         break;
@@ -239,24 +239,24 @@ public class NotificationService implements INotificationService {
                 }
             }
         } catch (Exception e) {
-            log.error("❌ Errore generico invio notifica follower", e);
+            log.error("Errore generico invio notifica follower", e);
         }
     }
 
     @Override
     public void sendFriendRequestNotification(String receiverId, String requesterName, String requesterId, String requesterAvatar) {
         
-        log.info("📬 Invio notifica richiesta amicizia a utente: {}", receiverId);
+        log.info("Invio notifica richiesta amicizia a utente: {}", receiverId);
         
         UserEty receiver = userRepository.findById(receiverId).orElse(null);
         if (receiver == null) {
-            log.warn("⚠️ Destinatario {} non trovato per notifica", receiverId);
+            log.warn("Destinatario {} non trovato per notifica", receiverId);
             return;
         }
         
         String fcmToken = receiver.getFcmToken();
         if (fcmToken == null || fcmToken.isEmpty()) {
-            log.warn("⚠️ Utente {} non ha token FCM registrato", receiverId);
+            log.warn("Utente {} non ha token FCM registrato", receiverId);
             return;
         }
         
@@ -264,7 +264,7 @@ public class NotificationService implements INotificationService {
             Message message = Message.builder()
                 .setToken(fcmToken)
                 .setNotification(Notification.builder()
-                    .setTitle("🤝 Nuova richiesta di amicizia!")
+                    .setTitle("Nuova richiesta di amicizia!")
                     .setBody(requesterName + " ti ha inviato una richiesta di amicizia")
                     .build())
                 .putData("type", "FRIEND_REQUEST")
@@ -274,17 +274,17 @@ public class NotificationService implements INotificationService {
                 .build();
             
             String response = firebaseMessaging.send(message);
-            log.info("✅ Notifica richiesta amicizia inviata con successo: {}", response);
+            log.info("Notifica richiesta amicizia inviata con successo: {}", response);
             
         } catch (FirebaseMessagingException e) {
-            log.error("❌ Errore invio notifica richiesta amicizia a utente {}: {}", receiverId, e.getMessage());
+            log.error("Errore invio notifica richiesta amicizia a utente {}: {}", receiverId, e.getMessage());
             
             // Se il token non è più valido, rimuovilo dal database
             if (e.getMessagingErrorCode() != null) {
                 switch (e.getMessagingErrorCode()) {
                     case UNREGISTERED:
                     case INVALID_ARGUMENT:
-                        log.warn("🗑️ Token FCM non valido per utente {}, rimozione...", receiverId);
+                        log.warn("Token FCM non valido per utente {}, rimozione...", receiverId);
                         receiver.setFcmToken(null);
                         userRepository.save(receiver);
                         break;
@@ -293,7 +293,7 @@ public class NotificationService implements INotificationService {
                 }
             }
         } catch (Exception e) {
-            log.error("❌ Errore generico invio notifica richiesta amicizia", e);
+            log.error("Errore generico invio notifica richiesta amicizia", e);
         }
     }
 }

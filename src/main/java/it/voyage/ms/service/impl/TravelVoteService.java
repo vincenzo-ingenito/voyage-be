@@ -66,23 +66,17 @@ public class TravelVoteService implements ITravelVoteService {
             // Invia notifica al proprietario del viaggio (solo per UPVOTE/LIKE)
             if (voteType == VoteType.UPVOTE) {
                 try {
-                    TravelEty travel = travelRepository.findById(travelId)
-                        .orElseThrow(() -> new NotFoundException("Viaggio non trovato"));
+                    TravelEty travel = travelRepository.findById(travelId).orElseThrow(() -> new NotFoundException("Viaggio non trovato"));
                     
                     // Non inviare notifica se l'utente mette like al proprio viaggio
                     if (!travel.getUser().getId().equals(userId)) {
                         UserEty liker = userRepository.findById(userId).orElse(null);
                         if (liker != null) {
-                            notificationService.sendTravelLikeNotification(
-                                travel.getUser().getId(),
-                                liker.getName(),
-                                travel.getTravelName(),
-                                travelId
-                            );
+                            notificationService.sendTravelLikeNotification(travel.getUser().getId(), liker.getName(), travel.getTravelName(), travelId);
                         }
                     }
                 } catch (Exception e) {
-                    log.error("❌ Errore invio notifica like", e);
+                    log.error("Errore invio notifica like", e);
                     // Non bloccare il voto se la notifica fallisce
                 }
             }
@@ -113,5 +107,45 @@ public class TravelVoteService implements ITravelVoteService {
             log.info("Trovato voto utente per travel {}: userId='{}', voteType={}, voteId={}", travelId, voteEntity.getUserId(), userVote, voteEntity.getId());
         }  
         return new VoteStatsDTO(likes, userVote);
+    }
+
+    /**
+     * Ottiene le statistiche dei voti per una lista di viaggi in batch
+     * OTTIMIZZATO: 2 query totali invece di 2*N query
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<Long, VoteStatsDTO> getVoteStatsBatch(java.util.List<Long> travelIds, String userId) {
+        if (travelIds == null || travelIds.isEmpty()) {
+            return java.util.Collections.emptyMap();
+        }
+        
+        // 1 query: conta i likes per tutti i viaggi
+        java.util.Map<Long, Long> likesMap = voteRepository.countLikesByTravelIds(travelIds)
+            .stream()
+            .collect(java.util.stream.Collectors.toMap(
+                row -> (Long) row[0],
+                row -> (Long) row[1]
+            ));
+        
+        // 1 query: trova i voti dell'utente per tutti i viaggi
+        java.util.Map<Long, VoteType> userVoteMap = voteRepository
+            .findByTravelIdsAndUserId(travelIds, userId)
+            .stream()
+            .collect(java.util.stream.Collectors.toMap(
+                TravelVoteEty::getTravelId,
+                TravelVoteEty::getVoteType,
+                (existing, replacement) -> existing  // In caso di duplicati, mantieni il primo
+            ));
+        
+        // Costruisci la mappa dei risultati (rimuovi duplicati dalla lista travelIds)
+        return travelIds.stream()
+            .distinct()  // Rimuovi duplicati dalla lista
+            .collect(java.util.stream.Collectors.toMap(
+                travelId -> travelId,
+                travelId -> new VoteStatsDTO(
+                    likesMap.getOrDefault(travelId, 0L),
+                    userVoteMap.get(travelId)
+                )
+            ));
     }
 }

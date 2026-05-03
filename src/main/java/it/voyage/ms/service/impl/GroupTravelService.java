@@ -2,10 +2,16 @@ package it.voyage.ms.service.impl;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import it.voyage.ms.dto.request.ParticipantInviteRequest;
@@ -109,8 +115,31 @@ public class GroupTravelService implements IGroupTravelService {
     @Transactional(readOnly = true)
     public List<ParticipantDTO> getParticipants(Long travelId) {
         log.info("Recupero partecipanti per viaggio {}", travelId);
-        List<TravelParticipantEty> participants = participantRepository.findByTravelId(travelId);
-        return participants.stream().map(this::toDTO).collect(Collectors.toList());
+        
+        // FIX N+1: Usa query ottimizzata con fetch join
+        List<TravelParticipantEty> participants = 
+            participantRepository.findByTravelIdWithTravelAndOwner(travelId);
+        
+        // FIX N+1: Batch load di tutti gli utenti necessari (invitati + invitanti)
+        Set<String> userIds = participants.stream()
+            .flatMap(p -> Stream.of(p.getUserId(), p.getInvitedBy()))
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        
+        Map<String, UserEty> userMap = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            userMap = userRepository.findAllById(userIds)
+                .stream()
+                .collect(Collectors.toMap(UserEty::getId, u -> u));
+        }
+        
+        log.debug("Caricati {} utenti in batch per {} partecipanti", userMap.size(), participants.size());
+        
+        // Usa il metodo toDTO ottimizzato con mappa pre-caricata
+        final Map<String, UserEty> finalUserMap = userMap;
+        return participants.stream()
+            .map(p -> toDTO(p, finalUserMap))
+            .collect(Collectors.toList());
     }
 
     @Override
@@ -215,18 +244,40 @@ public class GroupTravelService implements IGroupTravelService {
     public List<ParticipantDTO> getUserGroupTravelParticipations(String userId) {
         log.info("Recupero viaggi di gruppo per utente {}", userId);
         
-        // FIX: Include sia PENDING che ACCEPTED per mostrare anche gli inviti in attesa
-        List<TravelParticipantEty> participations = participantRepository.findByUserId(userId);
+        // FIX N+1: Usa query ottimizzata con fetch join (travel + owner già caricati)
+        List<TravelParticipantEty> participations = 
+            participantRepository.findByUserIdWithTravelAndOwner(userId);
         
         // Filtra solo PENDING e ACCEPTED (esclude DECLINED)
-        return participations.stream()
-                .filter(p -> p.getStatus() == ParticipantStatus.PENDING || p.getStatus() == ParticipantStatus.ACCEPTED)
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+        List<TravelParticipantEty> filtered = participations.stream()
+            .filter(p -> p.getStatus() == ParticipantStatus.PENDING || 
+                        p.getStatus() == ParticipantStatus.ACCEPTED)
+            .collect(Collectors.toList());
+        
+        // FIX N+1: Batch load degli utenti invitanti
+        Set<String> inviterIds = filtered.stream()
+            .map(TravelParticipantEty::getInvitedBy)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        
+        Map<String, UserEty> userMap = new HashMap<>();
+        if (!inviterIds.isEmpty()) {
+            userMap = userRepository.findAllById(inviterIds)
+                .stream()
+                .collect(Collectors.toMap(UserEty::getId, u -> u));
+        }
+        
+        log.debug("Caricati {} invitanti in batch per {} partecipazioni", userMap.size(), filtered.size());
+        
+        // Usa il metodo toDTO ottimizzato con mappa pre-caricata
+        final Map<String, UserEty> finalUserMap = userMap;
+        return filtered.stream()
+            .map(p -> toDTOForUserParticipations(p, finalUserMap))
+            .collect(Collectors.toList());
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public boolean canUserEditTravel(Long travelId, String userId) {
         // Verifica se è l'owner
         TravelEty travel = travelRepository.findById(travelId).orElse(null);
@@ -245,7 +296,7 @@ public class GroupTravelService implements IGroupTravelService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public boolean canUserViewTravel(Long travelId, String userId) {
         // Verifica se è l'owner
         TravelEty travel = travelRepository.findById(travelId).orElse(null);
@@ -273,7 +324,8 @@ public class GroupTravelService implements IGroupTravelService {
     // ========================================================================
 
     /**
-     * Converte TravelParticipantEty in ParticipantDTO
+     * Converte TravelParticipantEty in ParticipantDTO (per chiamate singole)
+     * Usa query individuali - da usare solo per operazioni su singoli partecipanti
      */
     private ParticipantDTO toDTO(TravelParticipantEty entity) {
         ParticipantDTO dto = new ParticipantDTO();
@@ -305,6 +357,78 @@ public class GroupTravelService implements IGroupTravelService {
             log.info("toDTO: Popolato invitedByName con: {}", inviter.getName());
         } else {
             log.warn("toDTO: Invitante {} non trovato nel database, invitedByName rimarrà null", entity.getInvitedBy());
+        }
+        
+        return dto;
+    }
+    
+    /**
+     * Converte TravelParticipantEty in ParticipantDTO usando mappa pre-caricata
+     * OTTIMIZZATO: Evita N+1 query usando batch loading
+     * @param entity Il partecipante da convertire
+     * @param userMap Mappa di utenti pre-caricati (userId -> UserEty)
+     */
+    private ParticipantDTO toDTO(TravelParticipantEty entity, Map<String, UserEty> userMap) {
+        ParticipantDTO dto = new ParticipantDTO();
+        dto.setId(entity.getId());
+        dto.setTravelId(entity.getTravel().getId());
+        dto.setUserId(entity.getUserId());
+        dto.setRole(entity.getRole());
+        dto.setStatus(entity.getStatus());
+        dto.setInvitedBy(entity.getInvitedBy());
+        dto.setInvitedAt(entity.getInvitedAt());
+        dto.setRespondedAt(entity.getRespondedAt());
+        
+        // FIX N+1: Usa mappa pre-caricata invece di query individuali
+        UserEty user = userMap.get(entity.getUserId());
+        if (user != null) {
+            dto.setUserName(user.getName());
+            dto.setUserEmail(user.getEmail());
+            dto.setUserAvatar(user.getAvatar());
+            log.debug("toDTO(optimized): Popolato dati utente invitato: {}", user.getName());
+        } else {
+            log.warn("toDTO(optimized): Utente invitato {} non trovato nella mappa", entity.getUserId());
+        }
+        
+        // FIX N+1: Usa mappa pre-caricata per l'invitante
+        UserEty inviter = userMap.get(entity.getInvitedBy());
+        if (inviter != null) {
+            dto.setInvitedByName(inviter.getName());
+            log.debug("toDTO(optimized): Popolato invitedByName con: {}", inviter.getName());
+        } else {
+            log.warn("toDTO(optimized): Invitante {} non trovato nella mappa", entity.getInvitedBy());
+        }
+        
+        return dto;
+    }
+    
+    /**
+     * Converte TravelParticipantEty in ParticipantDTO per getUserGroupTravelParticipations
+     * OTTIMIZZATO: Travel e owner sono già caricati tramite fetch join, carica solo invitanti
+     * @param entity Il partecipante da convertire (con travel già caricato)
+     * @param inviterMap Mappa degli utenti invitanti pre-caricati
+     */
+    private ParticipantDTO toDTOForUserParticipations(TravelParticipantEty entity, Map<String, UserEty> inviterMap) {
+        ParticipantDTO dto = new ParticipantDTO();
+        dto.setId(entity.getId());
+        dto.setTravelId(entity.getTravel().getId());
+        dto.setUserId(entity.getUserId());
+        dto.setRole(entity.getRole());
+        dto.setStatus(entity.getStatus());
+        dto.setInvitedBy(entity.getInvitedBy());
+        dto.setInvitedAt(entity.getInvitedAt());
+        dto.setRespondedAt(entity.getRespondedAt());
+        
+        // L'utente invitato è l'utente corrente, non serve caricarlo
+        // (già disponibile nel contesto della chiamata)
+        
+        // FIX N+1: Usa mappa pre-caricata per l'invitante
+        UserEty inviter = inviterMap.get(entity.getInvitedBy());
+        if (inviter != null) {
+            dto.setInvitedByName(inviter.getName());
+            log.debug("toDTOForUserParticipations: Popolato invitedByName con: {}", inviter.getName());
+        } else {
+            log.warn("toDTOForUserParticipations: Invitante {} non trovato nella mappa", entity.getInvitedBy());
         }
         
         return dto;

@@ -1,5 +1,8 @@
 package it.voyage.ms.service;
 
+import java.util.List;
+import java.util.Map;
+
 import it.voyage.ms.dto.response.VoteStatsDTO;
 import it.voyage.ms.repository.entity.VoteType;
 
@@ -32,4 +35,13 @@ public interface ITravelVoteService {
      * @return Statistiche di voto
      */
     VoteStatsDTO getVoteStats(Long travelId, String userId);
+    
+    /**
+     * Ottiene le statistiche di voto per una lista di viaggi in batch (ottimizzato)
+     * 
+     * @param travelIds Lista degli ID dei viaggi
+     * @param userId ID dell'utente (per sapere quali ha votato)
+     * @return Mappa travelId -> VoteStatsDTO
+     */
+    Map<Long, VoteStatsDTO> getVoteStatsBatch(List<Long> travelIds, String userId);
 }

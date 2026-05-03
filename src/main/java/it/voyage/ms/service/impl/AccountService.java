@@ -1,6 +1,7 @@
 package it.voyage.ms.service.impl;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,24 +28,47 @@ public class AccountService implements IAccountService {
 	
 	@Autowired
 	private IFirebaseStorageService storageService;
-
+	
 	@Override
-    public boolean deleteAccount(String userId) {
-        List<TravelEty> travels = travelRepository.findByUserId(userId);
+	public boolean deleteAccount(String userId) {
+	    
+	    // 1. Elimina prima l'utente da Firebase Auth
+	    // Se fallisce qui, non abbiamo ancora toccato il DB → stato consistente
+	    try {
+	        FirebaseAuth.getInstance().deleteUser(userId);
+	        log.info("Utente {} eliminato da Firebase Auth", userId);
+	    } catch (FirebaseAuthException e) {
+	        log.error("Errore eliminazione utente {} da Firebase Auth: {}", userId, e.getMessage());
+	        return false; // interrompi, DB intatto
+	    }
 
-        userService.deleteFromDb(userId); 
+	    // 2. Carica i viaggi PRIMA di eliminare l'utente dal DB
+	    // e inizializza le lazy collections mentre la sessione è ancora attiva
+	    List<TravelEty> travels = travelRepository.findByUserIdWithFiles(userId);
+	    List<String> allFileIds = travels.stream().flatMap(t -> t.getAllFileIds().stream()).collect(Collectors.toList());
 
-        travels.forEach(travel -> {
-            try { storageService.deletePhotosForTravel(travel); }
-            catch (Exception e) { log.error("Errore Storage: {}", e.getMessage()); }
-        });
+	    // 3. Elimina l'utente dal DB (cascade elimina viaggi, bookmark, amicizie)
+	    try {
+	        userService.deleteFromDb(userId);
+	        log.info("Utente {} eliminato dal DB", userId);
+	    } catch (Exception e) {
+	        log.error("Errore eliminazione utente {} dal DB: {}", userId, e.getMessage());
+	        // Firebase già eliminato, logghiamo ma non possiamo rollbackare Firebase
+	        return false;
+	    }
 
-        try {
-            FirebaseAuth.getInstance().deleteUser(userId);
-        } catch (FirebaseAuthException e) {
-            log.error("Errore Firebase Auth per {}: {}", userId, e.getMessage());
-        }
+	    // 4. Elimina i file da Firebase Storage (best-effort, DB già pulito)
+	    // Usiamo i fileIds raccolti prima della delete, evitiamo entity detached
+	    allFileIds.forEach(fileId -> {
+	        try {
+	            storageService.getBlob(fileId).delete();
+	            log.info("File {} eliminato da Storage", fileId);
+	        } catch (Exception e) {
+	            log.warn("Errore eliminazione file {} da Storage: {}", fileId, e.getMessage());
+	        }
+	    });
 
-        return true;
-    }
+	    log.info("Account {} eliminato con successo", userId);
+	    return true;
+	}
 }

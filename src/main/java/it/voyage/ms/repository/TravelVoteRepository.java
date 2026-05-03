@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import it.voyage.ms.repository.entity.TravelVoteEty;
@@ -41,5 +43,17 @@ public interface TravelVoteRepository extends JpaRepository<TravelVoteEty, Long>
      * Trova tutti i voti per un viaggio
      */
     List<TravelVoteEty> findByTravelId(Long travelId);
+    
+    /**
+     * Conta i like per una lista di viaggi (batch query per performance)
+     */
+    @Query("SELECT tv.travelId, COUNT(tv) FROM TravelVoteEty tv WHERE tv.travelId IN :travelIds AND tv.voteType = 'UPVOTE' GROUP BY tv.travelId")
+    List<Object[]> countLikesByTravelIds(@Param("travelIds") List<Long> travelIds);
+    
+    /**
+     * Trova i voti dell'utente per una lista di viaggi (batch query per performance)
+     */
+    @Query("SELECT tv FROM TravelVoteEty tv WHERE tv.travelId IN :travelIds AND tv.userId = :userId")
+    List<TravelVoteEty> findByTravelIdsAndUserId(@Param("travelIds") List<Long> travelIds, @Param("userId") String userId);
     
 }

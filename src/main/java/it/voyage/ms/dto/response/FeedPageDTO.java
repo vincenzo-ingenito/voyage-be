@@ -20,10 +20,7 @@ public class FeedPageDTO {
      */
     private List<TravelDTO> travels;
     
-    /**
-     * Cursor per la prossima pagina (timestamp + travelId)
-     * Formato: "timestamp_travelId" es: "2024-04-20T10:30:00_123"
-     */
+    private Integer nextPage;
     private String nextCursor;
     
     /**
