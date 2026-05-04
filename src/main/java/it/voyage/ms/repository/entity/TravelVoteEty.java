@@ -12,7 +12,12 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "travel_votes", 
-       uniqueConstraints = @UniqueConstraint(columnNames = {"travel_id", "user_id"}))
+       uniqueConstraints = @UniqueConstraint(columnNames = {"travel_id", "user_id"}),
+       indexes = {
+           // OTTIMIZZAZIONE FEED: Indici per batch VoteStats queries
+           @Index(name = "idx_vote_travel_type", columnList = "travel_id, vote_type"),
+           @Index(name = "idx_vote_travel_user", columnList = "travel_id, user_id")
+       })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

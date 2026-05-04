@@ -38,7 +38,9 @@ import lombok.NoArgsConstructor;
 		indexes = {
 				@Index(name = "idx_participant_travel_id", columnList = "travel_id"),
 				@Index(name = "idx_participant_user_id", columnList = "user_id"),
-				@Index(name = "idx_participant_status", columnList = "status")
+				@Index(name = "idx_participant_status", columnList = "status"),
+				// OTTIMIZZAZIONE FEED: Indice composito per eager loading
+				@Index(name = "idx_participant_travel_status", columnList = "travel_id, status")
 		}
 		)
 @Data

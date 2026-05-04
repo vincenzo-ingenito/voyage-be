@@ -94,8 +94,7 @@ public class GroupTravelService implements IGroupTravelService {
             TravelParticipantEty saved = participantRepository.save(participant);
             invitedParticipants.add(toDTO(saved));
             
-            log.info("Invitato utente {} come {} al viaggio {}", 
-                    invite.getUserId(), invite.getRole(), travelId);
+            log.info("Invitato utente {} come {} al viaggio {}", invite.getUserId(), invite.getRole(), travelId);
             
             // FIX: Invia notifica all'utente invitato
             try {

@@ -3,7 +3,6 @@ package it.voyage.ms.service.impl;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -517,47 +516,4 @@ public class FriendshipService implements IFriendshipService {
         return result;
     }
  
-
-    /**
-     * Costruisce il DTO finale per il suggerimento
-     */
-    private UserSuggestionDTO buildSuggestionDTO(ScoredSuggestion scored) {
-        String mutualFriendsPreview = scored.mutualFriendNames.isEmpty() 
-            ? null 
-            : String.join(", ", scored.mutualFriendNames);
-
-        return UserSuggestionDTO.builder()
-            .id(scored.user.getId())
-            .name(scored.user.getName())
-            .avatar(scored.user.getAvatar() != null ? scored.user.getAvatar() : 
-                "https://ui-avatars.com/api/?name=" + scored.user.getName().replace(" ", "+") + "&background=random")
-            .bio(null) // Se hai un campo bio nell'entità UserEty, aggiungilo qui
-            .travelsCount(scored.travelsCount)
-            .mutualFriendsCount(scored.mutualFriendsCount)
-            .mutualFriendsPreview(mutualFriendsPreview)
-            .reason(scored.reason)
-            .build();
-    }
-
-    /**
-     * Classe interna per tenere traccia del punteggio dei suggerimenti
-     */
-    private static class ScoredSuggestion {
-        final UserEty user;
-        final int score;
-        final String reason;
-        final int mutualFriendsCount;
-        final List<String> mutualFriendNames;
-        final int travelsCount;
-
-        ScoredSuggestion(UserEty user, int score, String reason, int mutualFriendsCount, 
-                        List<String> mutualFriendNames, int travelsCount) {
-            this.user = user;
-            this.score = score;
-            this.reason = reason;
-            this.mutualFriendsCount = mutualFriendsCount;
-            this.mutualFriendNames = mutualFriendNames;
-            this.travelsCount = travelsCount;
-        }
-    }
 }

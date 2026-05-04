@@ -30,7 +30,6 @@ import it.voyage.ms.dto.response.FileMetadata;
 import it.voyage.ms.dto.response.PointDTO;
 import it.voyage.ms.dto.response.RegionVisit;
 import it.voyage.ms.dto.response.TravelDTO;
-import it.voyage.ms.dto.response.UserDto;
 import it.voyage.ms.dto.response.VoteStatsDTO;
 import it.voyage.ms.exceptions.BusinessException;
 import it.voyage.ms.mapper.TravelMapper;
@@ -43,7 +42,6 @@ import it.voyage.ms.repository.impl.BookmarkRepository;
 import it.voyage.ms.repository.impl.TravelRepository;
 import it.voyage.ms.repository.impl.UserRepository;
 import it.voyage.ms.security.user.CustomUserDetails;
-import it.voyage.ms.service.IFriendshipService;
 import it.voyage.ms.service.IGroupTravelService;
 import it.voyage.ms.service.ITravelService;
 import it.voyage.ms.service.ITravelVoteService;
@@ -70,7 +68,6 @@ public class TravelService implements ITravelService {
     private final UserRepository userRepository;
     private final BookmarkRepository bookmarkRepository;
     private final IGroupTravelService groupTravelService;
-    private final IFriendshipService friendshipService;
     private final ITravelVoteService travelVoteService;
 
 
@@ -806,72 +803,167 @@ public class TravelService implements ITravelService {
     }
 
     // =========================================================================
-    // FEED PAGINATO
+    // FEED PAGINATO - OTTIMIZZATO
     // =========================================================================
+    
+    // FIX OOM: Limiti di sicurezza per prevenire OutOfMemory
+    private static final int MAX_PAGE_SIZE = 20;
+    private static final int DEFAULT_PAGE_SIZE = 15;
+    private static final double MEMORY_WARNING_THRESHOLD = 0.75; // 75% heap
+    
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, timeout = 30) // FIX OOM: Timeout 30s per evitare query bloccate
     public FeedPageDTO getFeedPaginated(String userId, int pageSize, String cursor, boolean includePhotos) {
-        log.info("GET FEED PAGINATED - userId: {}, pageSize: {}, cursor: {}, includePhotos: {}", userId, pageSize, cursor, includePhotos);
-
-        // 1. Recupera gli ID degli amici
-        List<UserDto> friends = friendshipService.getAcceptedFriendsList(userId);
-        List<String> friendIds = friends.stream()
-                .map(UserDto::getId)
-                .filter(id -> !id.equals(userId))
-                .collect(Collectors.toList());
-
-        log.info("Trovati {} amici", friendIds.size());
-
-        // 2. Calcola il numero di pagina dal cursor
+        long startTime = System.currentTimeMillis();
+        
+        // FIX OOM: Validazione e sanitizzazione pageSize
+        int originalPageSize = pageSize;
+        if (pageSize <= 0) {
+            pageSize = DEFAULT_PAGE_SIZE;
+            log.warn("[FEED] PageSize invalido ({}), uso default: {}", originalPageSize, DEFAULT_PAGE_SIZE);
+        } else if (pageSize > MAX_PAGE_SIZE) {
+            pageSize = MAX_PAGE_SIZE;
+            log.warn("[FEED] PageSize troppo grande ({}), limitato a: {}", originalPageSize, MAX_PAGE_SIZE);
+        }
+        
+        // FIX OOM: Monitoring memoria prima di procedere
+        checkMemoryStatus();
+ 
+        // 1. Calcola il numero di pagina dal cursor
         int pageNumber = 0;
         if (cursor != null && !cursor.isEmpty()) {
             try {
                 pageNumber = Integer.parseInt(cursor);
             } catch (NumberFormatException e) {
-                // Vecchio formato cursor "timestamp_travelId" — ignora e parti da 0
-                log.warn("Cursor non numerico ignorato: {}", cursor);
+                log.warn("[FEED] Cursor non numerico ignorato: {}", cursor);
                 pageNumber = 0;
             }
         }
 
-        // 3. Esegui la query paginata direttamente sul DB
+        // 2. OTTIMIZZAZIONE: Query CTE - Elimina chiamata a friendshipService e IN condition
+        //    Una sola query con JOIN diretta alla tabella friend_relationships
         Pageable pageable = PageRequest.of(pageNumber, pageSize);
+        Page<TravelEty> page = travelRepository.findFeedPageOptimized(userId, pageable);
         
-        Page<TravelEty> page;
-        if (friendIds.isEmpty()) {
-            // Nessun amico: cerca solo i viaggi propri
-            page = travelRepository.findFeedPageByUserIdAndFriendIds(userId, List.of(userId), pageable);
-        } else {
-            page = travelRepository.findFeedPageByUserIdAndFriendIds(userId, friendIds, pageable);
-        }
+        log.info("[FEED DEBUG] Query CTE completata: pagina {} di {}, {} viaggi totali", 
+                pageNumber, page.getTotalPages(), page.getTotalElements());
+         
 
-        log.info("Pagina {} di {}, {} viaggi totali", pageNumber, page.getTotalPages(), page.getTotalElements());
-
-        // 4. Converti in DTO
-        List<TravelDTO> travelDTOs = new ArrayList<>();
-        for (TravelEty travel : page.getContent()) {
-            TravelDTO dto;
-            if (includePhotos) {
-                dto = buildTravelDtoWithUrls(travel);
-            } else {
-                dto = toTravelDtoWithMetadataOnly(travel);
+        // 3. OTTIMIZZAZIONE: Eager loading dei dettagli (itinerary, points, participants, files)
+        //    Evita N+1 lazy loading queries durante la conversione DTO
+        //    Diviso in 4 query per evitare MultipleBagFetchException
+        List<Long> travelIds = page.getContent().stream()
+                .map(TravelEty::getId)
+                .collect(Collectors.toList());
+        
+        if (!travelIds.isEmpty()) {
+            // STEP 1: Carica itinerari (senza punti)
+            List<TravelEty> travelsWithDetails = travelRepository.fetchTravelDetailsForFeed(travelIds);
+            
+            // STEP 2: Carica punti degli itinerari separatamente
+            travelRepository.fetchItineraryPointsForFeed(travelIds);
+            
+            // STEP 3: Carica participants separatamente per evitare MultipleBagFetchException
+            travelRepository.fetchTravelParticipantsForFeed(travelIds);
+            
+            // STEP 4: Carica files separatamente per evitare MultipleBagFetchException
+            travelRepository.fetchTravelFilesForFeed(travelIds);
+            
+            // Crea mappa per lookup veloce
+            Map<Long, TravelEty> detailsMap = travelsWithDetails.stream()
+                    .collect(Collectors.toMap(TravelEty::getId, t -> t));
+            
+            // Sostituisci le entity nella pagina con quelle complete
+            List<TravelEty> enrichedContent = page.getContent().stream()
+                    .map(t -> detailsMap.getOrDefault(t.getId(), t))
+                    .collect(Collectors.toList());
+            
+            log.info("Eager loading completato: {} viaggi con dettagli caricati (4 query per evitare MultipleBagFetchException)", enrichedContent.size());
+            
+            // 4. Converti in DTO
+            List<TravelDTO> travelDTOs = new ArrayList<>();
+            for (TravelEty travel : enrichedContent) {
+                TravelDTO dto;
+                if (includePhotos) {
+                    dto = buildTravelDtoWithUrls(travel);
+                } else {
+                    dto = toTravelDtoWithMetadataOnly(travel);
+                }
+                travelDTOs.add(dto);
             }
-            travelDTOs.add(enrichWithVoteStats(dto, userId));
+            
+            // 5. OTTIMIZZAZIONE: Batch loading dei VoteStats
+            //    Una sola chiamata con 2 query invece di 2*N query
+            travelDTOs = enrichListWithVoteStats(travelDTOs, userId);
+            
+            // 6. Costruisci il cursor per la prossima pagina
+            boolean hasMore = page.hasNext();
+            String nextCursor = hasMore ? String.valueOf(pageNumber + 1) : null;
+            
+            // FIX OOM: Log performance e memoria
+            long endTime = System.currentTimeMillis();
+            long executionTime = endTime - startTime;
+            log.info("[FEED] Completato in {}ms: {} viaggi, pageSize richiesto={}, effettivo={}, includePhotos={}", 
+                    executionTime, travelDTOs.size(), originalPageSize, pageSize, includePhotos);
+            
+            // FIX OOM: Warning se esecuzione lenta (possibile problema memoria/DB)
+            if (executionTime > 2000) {
+                log.warn("[FEED] PERFORMANCE DEGRADATA: {}ms per {} viaggi - verificare memoria e DB", 
+                        executionTime, travelDTOs.size());
+            }
+
+            return FeedPageDTO.builder()
+                    .travels(travelDTOs)
+                    .nextCursor(nextCursor)
+                    .hasMore(hasMore)
+                    .pageSize(travelDTOs.size())
+                    .totalCount((int) page.getTotalElements())
+                    .build();
+        } else {
+            // Nessun viaggio trovato
+            long endTime = System.currentTimeMillis();
+            log.info("[FEED] Completato in {}ms: nessun viaggio trovato per utente {}", 
+                    endTime - startTime, userId);
+            return FeedPageDTO.builder()
+                    .travels(Collections.emptyList())
+                    .nextCursor(null)
+                    .hasMore(false)
+                    .pageSize(0)
+                    .totalCount(0)
+                    .build();
         }
-
-        // 5. Costruisci il cursor per la prossima pagina
-        boolean hasMore = page.hasNext();
-        String nextCursor = hasMore ? String.valueOf(pageNumber + 1) : null;
-
-        log.info("Returning feed page: {} travels, hasMore: {}, nextCursor: {}", travelDTOs.size(), hasMore, nextCursor);
-
-        return FeedPageDTO.builder()
-                .travels(travelDTOs)
-                .nextCursor(nextCursor)
-                .hasMore(hasMore)
-                .pageSize(travelDTOs.size())
-                .totalCount((int) page.getTotalElements())
-                .build();
+    }
+    
+    /**
+     * FIX OOM: Monitoring dello stato della memoria heap
+     * Logga warning se la memoria utilizzata supera la soglia critica
+     */
+    private void checkMemoryStatus() {
+        Runtime runtime = Runtime.getRuntime();
+        long maxMemory = runtime.maxMemory();
+        long totalMemory = runtime.totalMemory();
+        long freeMemory = runtime.freeMemory();
+        long usedMemory = totalMemory - freeMemory;
+        double usedPercentage = (double) usedMemory / maxMemory;
+        
+        if (usedPercentage > MEMORY_WARNING_THRESHOLD) {
+            log.warn("[FEED] MEMORIA CRITICA: {}/{} MB utilizzati ({:.1f}%) - Soglia: {:.0f}%",
+                    usedMemory / 1024 / 1024,
+                    maxMemory / 1024 / 1024,
+                    usedPercentage * 100,
+                    MEMORY_WARNING_THRESHOLD * 100);
+            
+            // FIX OOM: Suggerisci garbage collection se memoria critica
+            if (usedPercentage > 0.85) {
+                log.error("[FEED] MEMORIA MOLTO CRITICA (>85%) - Suggerisco GC");
+                System.gc(); // Hint al GC, non garantito
+            }
+        } else {
+            log.debug("[FEED] Memoria OK: {}/{} MB ({:.1f}%)",
+                    usedMemory / 1024 / 1024,
+                    maxMemory / 1024 / 1024,
+                    usedPercentage * 100);
+        }
     }
      
     // =========================================================================

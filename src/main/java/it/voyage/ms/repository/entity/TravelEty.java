@@ -29,7 +29,10 @@ import lombok.NoArgsConstructor;
 @Table(name = "travel", indexes = {
 		@Index(name = "idx_travel_user_id",   columnList = "user_id"),
 		@Index(name = "idx_travel_type",      columnList = "travel_type"),
-		@Index(name = "idx_travel_user_type", columnList = "user_id, travel_type")
+		@Index(name = "idx_travel_user_type", columnList = "user_id, travel_type"),
+		// OTTIMIZZAZIONE FEED: Indici per ordinamento e query CTE
+		@Index(name = "idx_travel_user_date", columnList = "user_id, date_to"),
+		@Index(name = "idx_travel_date_to",   columnList = "date_to")
 })
 @Data
 @NoArgsConstructor

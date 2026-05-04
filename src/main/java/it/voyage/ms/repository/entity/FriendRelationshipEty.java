@@ -38,7 +38,10 @@ import java.util.Date;
         @Index(name = "idx_friend_requester_id", columnList = "requester_id"),
         @Index(name = "idx_friend_receiver_id",  columnList = "receiver_id"),
         @Index(name = "idx_friend_status",        columnList = "status"),
-        @Index(name = "idx_friend_created_at",    columnList = "created_at")
+        @Index(name = "idx_friend_created_at",    columnList = "created_at"),
+        // OTTIMIZZAZIONE FEED: Indici compositi per query CTE
+        @Index(name = "idx_friend_req_status_uni", columnList = "requester_id, status, is_unidirectional"),
+        @Index(name = "idx_friend_rec_status_uni", columnList = "receiver_id, status, is_unidirectional")
     }
 )
 @Data
