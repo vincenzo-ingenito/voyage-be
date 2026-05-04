@@ -33,30 +33,75 @@ public class UserService implements IUserService {
 	 * Sincronizza l'utente Firebase con il database locale.
 	 * Se l'utente non esiste viene creato, altrimenti viene aggiornato il lastLogin.
 	 * IMPORTANTE: Preserva il token FCM esistente durante la sincronizzazione.
+	 * 
+	 * Gestisce il caso in cui l'email esiste già con un Firebase UID diverso
+	 * (es. utente che ha eliminato e ricreato l'account Firebase).
 	 */
 	@Override
 	@Transactional
 	public UserDto syncUserWithFirebase(CustomUserDetails customUserDetails) {
-		Optional<UserEty> existingUser = userRepository.findById(customUserDetails.getUserId());
 		UserEty user;
 
-		if (existingUser.isPresent()) {
-			// Utente esistente: aggiorna solo lastLogin e preserva il token FCM
-			user = existingUser.get();
+		// 1. Cerca prima per Firebase UID
+		Optional<UserEty> existingUserById = userRepository.findById(customUserDetails.getUserId());
+
+		if (existingUserById.isPresent()) {
+			// Caso normale: utente esistente con stesso Firebase UID
+			user = existingUserById.get();
 			user.setLastLogin(new Date());
+			log.info("Utente esistente aggiornato: {}", customUserDetails.getUserId());
 		} else {
-			// Nuovo utente: crea record senza token FCM (verrà aggiunto dopo)
-			user = new UserEty();
-			user.setId(customUserDetails.getUserId());
-			user.setName(customUserDetails.getFullName());
-			user.setEmail(customUserDetails.getEmail());
-			user.setAvatar(customUserDetails.getAvatarUrl());
-			user.setCreatedAt(new Date());
-			user.setLastLogin(new Date());
-			user.setPrivate(true);
-			user.setBio("Nessuna biografia disponibile");
-			// fcmToken rimane null - verrà impostato dalla chiamata successiva
-			log.info("Nuovo utente creato: {} - Token FCM sarà registrato dopo il login", customUserDetails.getUserId());
+			// 2. Se non trovato per ID, cerca per email
+			Optional<UserEty> existingUserByEmail = userRepository.findByEmail(customUserDetails.getEmail());
+
+			if (existingUserByEmail.isPresent()) {
+				// CASO CRITICO: Email esiste ma con Firebase UID diverso
+				// Questo succede quando un utente elimina e ricrea l'account Firebase
+				UserEty oldUser = existingUserByEmail.get();
+				
+				log.warn("Email {} già esistente con Firebase UID diverso. Vecchio UID: {}, Nuovo UID: {}", 
+						 customUserDetails.getEmail(), oldUser.getId(), customUserDetails.getUserId());
+				
+				// Salva i dati importanti prima di eliminare
+				String bio = oldUser.getBio();
+				boolean isPrivate = oldUser.isPrivate();
+				boolean showEmergencyFAB = oldUser.isShowEmergencyFAB();
+				Date createdAt = oldUser.getCreatedAt();
+				
+				// Elimina il vecchio utente (con cascade eliminerà anche le relazioni)
+				userRepository.delete(oldUser);
+				userRepository.flush(); // Forza l'eliminazione immediata
+				
+				log.info("Vecchio utente eliminato. Creazione nuovo utente con UID: {}", customUserDetails.getUserId());
+				
+				// Crea nuovo utente preservando i dati importanti
+				user = new UserEty();
+				user.setId(customUserDetails.getUserId());
+				user.setName(customUserDetails.getFullName());
+				user.setEmail(customUserDetails.getEmail());
+				user.setAvatar(customUserDetails.getAvatarUrl());
+				user.setCreatedAt(createdAt != null ? createdAt : new Date()); // Preserva la data di creazione originale
+				user.setLastLogin(new Date());
+				user.setPrivate(isPrivate);
+				user.setBio(bio != null ? bio : "Nessuna biografia disponibile");
+				user.setShowEmergencyFAB(showEmergencyFAB);
+				// fcmToken rimane null - verrà impostato dalla chiamata successiva
+				
+				log.info("Nuovo utente ricreato con UID aggiornato - Dati utente preservati");
+			} else {
+				// Nuovo utente: crea record senza token FCM (verrà aggiunto dopo)
+				user = new UserEty();
+				user.setId(customUserDetails.getUserId());
+				user.setName(customUserDetails.getFullName());
+				user.setEmail(customUserDetails.getEmail());
+				user.setAvatar(customUserDetails.getAvatarUrl());
+				user.setCreatedAt(new Date());
+				user.setLastLogin(new Date());
+				user.setPrivate(true);
+				user.setBio("Nessuna biografia disponibile");
+				// fcmToken rimane null - verrà impostato dalla chiamata successiva
+				log.info("Nuovo utente creato: {} - Token FCM sarà registrato dopo il login", customUserDetails.getUserId());
+			}
 		}
 
 		UserEty savedUser = userRepository.save(user);

@@ -1,6 +1,7 @@
 package it.voyage.ms.repository.impl;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -12,6 +13,13 @@ import it.voyage.ms.repository.entity.UserEty;
 
 @Repository
 public interface UserRepository extends JpaRepository<UserEty, String> {
+
+	/**
+	 * Trova un utente per email.
+	 * @param email L'email dell'utente.
+	 * @return Un Optional contenente l'utente se trovato.
+	 */
+	Optional<UserEty> findByEmail(String email);
 
 	/**
 	 * Esegue una ricerca flessibile per nome utente utilizzando ILIKE
