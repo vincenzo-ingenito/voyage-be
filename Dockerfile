@@ -26,8 +26,8 @@ FROM eclipse-temurin:21-jre-alpine
 
 # Metadata immagine
 LABEL maintainer="Vincenzo Ingenito <vincenzo.ingenit@hotmail.it>"
-LABEL description="Voyage Backend - Ottimizzato per 512MB RAM"
-LABEL version="1.0.0"
+LABEL description="Voyage Backend - Ottimizzato per 512MB RAM (Bootstrap-Safe)"
+LABEL version="2.0.1"
 
 # Crea user non-root per sicurezza
 RUN addgroup -g 1001 -S appuser && \
@@ -38,25 +38,33 @@ WORKDIR /app
 # Copia solo il JAR dall'immagine di build
 COPY --from=build --chown=appuser:appuser /app/target/*.jar app.jar
 
-# Ottimizzazioni JVM BILANCIATE per 512MB
-# Breakdown memoria (aggiustato dopo OOM Metaspace):
-# - Heap: 128-280MB (bilanciato per lasciare spazio a Metaspace)
-# - Metaspace: 160MB (aumentato da 96MB - Spring Boot 3.x + dipendenze pesanti)
-# - Code Cache: 64MB (aumentato da 32MB - necessario per JIT)
-# - Thread stacks: ~40MB
-# - Direct memory: 32MB (ridotto da default 128MB)
+# Ottimizzazioni JVM ESTREME per 512MB - Bootstrap-Safe
+# Breakdown memoria (ottimizzato al limite per Spring Boot 3.x):
+# - Heap: 96-320MB (massimo possibile per bootstrap)
+# - Metaspace: 140MB (ridotto ma sufficiente)
+# - Code Cache: 32MB (ridotto per risparmiare)
+# - Direct memory: 16MB (minimo necessario)
+# - Thread stacks: ~30MB (ridotto)
 # - Overhead JVM: ~40MB
-# TOTALE: ~440-480MB (margine sicurezza ~32-72MB)
+# TOTALE: ~478MB (margine critico ~34MB)
+#
+# STRATEGIA:
+# 1. Heap 320MB: appena sufficiente per bootstrap pesante
+# 2. Metaspace 140MB: limite minimo per Spring Boot 3.x
+# 3. GC aggressivo: libera memoria rapidamente durante bootstrap
+# 4. Disabilitare features opzionali via application.properties
 ENV JAVA_TOOL_OPTIONS="\
--Xms128m \
--Xmx280m \
--XX:MaxMetaspaceSize=160m \
--XX:MetaspaceSize=128m \
--XX:ReservedCodeCacheSize=64m \
--XX:MaxDirectMemorySize=32m \
+-Xms96m \
+-Xmx320m \
+-XX:MaxMetaspaceSize=140m \
+-XX:MetaspaceSize=96m \
+-XX:ReservedCodeCacheSize=32m \
+-XX:MaxDirectMemorySize=16m \
 -XX:+UseG1GC \
 -XX:G1HeapRegionSize=1m \
--XX:MaxGCPauseMillis=100 \
+-XX:MaxGCPauseMillis=50 \
+-XX:GCTimeRatio=4 \
+-XX:InitiatingHeapOccupancyPercent=30 \
 -XX:+UseStringDeduplication \
 -XX:+OptimizeStringConcat \
 -XX:+UseCompressedOops \
@@ -66,6 +74,7 @@ ENV JAVA_TOOL_OPTIONS="\
 -XX:HeapDumpPath=/tmp/heapdump.hprof \
 -Djava.security.egd=file:/dev/./urandom \
 -Dspring.jmx.enabled=false \
+-Dspring.main.lazy-initialization=true \
 -Dfile.encoding=UTF-8 \
 -Djava.awt.headless=true \
 -verbose:gc"
