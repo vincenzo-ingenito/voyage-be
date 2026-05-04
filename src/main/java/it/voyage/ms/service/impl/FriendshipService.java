@@ -417,7 +417,11 @@ public class FriendshipService implements IFriendshipService {
     @Override
     @Transactional(readOnly = true)
     public List<UserSuggestionDTO> getFriendSuggestions(String currentUserId, int limit) {
-        // 1. Recupera gli amici dell'utente corrente
+        // 1. Recupera l'utente corrente per ottenere anche la sua email
+        UserEty currentUser = userRepository.findById(currentUserId)
+            .orElseThrow(() -> new NotFoundException("Utente corrente non trovato"));
+        
+        // 2. Recupera gli amici dell'utente corrente
         List<String> currentUserFriendIds = friendRelationshipRepository
             .findFriendshipsByUserIdAndStatus(currentUserId, Status.ACCEPTED).stream()
             .map(rel -> rel.getRequesterId().equals(currentUserId) 
@@ -425,9 +429,9 @@ public class FriendshipService implements IFriendshipService {
                 : rel.getRequesterId())
             .collect(Collectors.toList());
         
-        // 2. Recupera utenti con cui esiste già una relazione (amici, bloccati, pending)
+        // 3. Recupera utenti con cui esiste già una relazione (amici, bloccati, pending)
         Set<String> usersToExclude = new java.util.HashSet<>(currentUserFriendIds);
-        usersToExclude.add(currentUserId); // Escludi se stesso
+        usersToExclude.add(currentUserId); // Escludi se stesso per UUID
         
         // Aggiungi TUTTE le relazioni esistenti (ACCEPTED, BLOCKED, PENDING) per sicurezza
         friendRelationshipRepository.findByRequesterIdOrReceiverId(currentUserId).stream()
@@ -437,10 +441,21 @@ public class FriendshipService implements IFriendshipService {
             });
         
 
-        // 3. Recupera tutti gli utenti registrati esclusi quelli già filtrati
+        // 4. Recupera tutti gli utenti registrati esclusi quelli già filtrati
         List<UserEty> potentialSuggestions = userRepository.findAll().stream()
             .filter(user -> {
-                boolean shouldExclude = usersToExclude.contains(user.getId()) || user.getId().equals(currentUserId);
+                // FILTRO TRIPLO: UUID, email e lista esclusioni
+                boolean isSameUid = user.getId().equals(currentUserId);
+                boolean isSameEmail = user.getEmail() != null && user.getEmail().equalsIgnoreCase(currentUser.getEmail());
+                boolean isInExcludeList = usersToExclude.contains(user.getId());
+                
+                boolean shouldExclude = isSameUid || isSameEmail || isInExcludeList;
+                
+                if (shouldExclude && isSameEmail && !isSameUid) {
+                    log.warn("Filtrato utente con stessa email ma UID diverso: {} (vecchio) vs {} (corrente)", 
+                             user.getId(), currentUserId);
+                }
+                
                 return !shouldExclude;
             })
             .collect(Collectors.toList());
