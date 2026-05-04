@@ -92,8 +92,7 @@ public class UserService implements IUserService {
 	 */
 	@Override
 	public PrivacyStatusResponse getPrivacyStatus(String firebaseId) {
-		UserEty user = userRepository.findById(firebaseId)
-			.orElseThrow(() -> new NotFoundException("Utente non presente"));
+		UserEty user = userRepository.findById(firebaseId).orElseThrow(() -> new NotFoundException("Utente non presente"));
 		return new PrivacyStatusResponse(user.isPrivate(), user.isShowEmergencyFAB());
 	}
 
