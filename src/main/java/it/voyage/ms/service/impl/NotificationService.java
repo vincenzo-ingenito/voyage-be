@@ -192,7 +192,7 @@ public class NotificationService implements INotificationService {
     @Override
     public void sendNewFollowerNotification(String followedUserId, String followerUsername, String followerId, String followerAvatar) {
         
-        log.info("📬 Invio notifica nuovo follower a utente: {}", followedUserId);
+        log.info("Invio notifica nuovo follower a utente: {}", followedUserId);
         
         UserEty followedUser = userRepository.findById(followedUserId).orElse(null);
         if (followedUser == null) {
@@ -210,7 +210,7 @@ public class NotificationService implements INotificationService {
             Message message = Message.builder()
                 .setToken(fcmToken)
                 .setNotification(Notification.builder()
-                    .setTitle("👥 Nuovo follower!")
+                    .setTitle("Nuovo follower!")
                     .setBody(followerUsername + " ha iniziato a seguirti")
                     .build())
                 .putData("type", "NEW_FOLLOWER")

@@ -44,13 +44,6 @@ public class UserService implements IUserService {
 			// Utente esistente: aggiorna solo lastLogin e preserva il token FCM
 			user = existingUser.get();
 			user.setLastLogin(new Date());
-			
-			// Log per debug
-			if (user.getFcmToken() != null && !user.getFcmToken().isEmpty()) {
-				log.debug("✅ Token FCM preservato per utente {} durante sync", customUserDetails.getUserId());
-			} else {
-				log.debug("⚠️ Utente {} non ha token FCM durante sync", customUserDetails.getUserId());
-			}
 		} else {
 			// Nuovo utente: crea record senza token FCM (verrà aggiunto dopo)
 			user = new UserEty();
@@ -63,8 +56,7 @@ public class UserService implements IUserService {
 			user.setPrivate(true);
 			user.setBio("Nessuna biografia disponibile");
 			// fcmToken rimane null - verrà impostato dalla chiamata successiva
-			
-			log.info("🆕 Nuovo utente creato: {} - Token FCM sarà registrato dopo il login", customUserDetails.getUserId());
+			log.info("Nuovo utente creato: {} - Token FCM sarà registrato dopo il login", customUserDetails.getUserId());
 		}
 
 		UserEty savedUser = userRepository.save(user);
@@ -97,7 +89,6 @@ public class UserService implements IUserService {
 
 	/**
 	 * Restituisce lo stato di privacy e delle preferenze del profilo utente.
-	 *
 	 */
 	@Override
 	public PrivacyStatusResponse getPrivacyStatus(String firebaseId) {
@@ -106,60 +97,86 @@ public class UserService implements IUserService {
 		return new PrivacyStatusResponse(user.isPrivate(), user.isShowEmergencyFAB());
 	}
 
-
+	/**
+	 * Elimina l'utente dal database.
+	 * Chiamato da AccountService durante la cancellazione completa dell'account.
+	 */
 	@Transactional
 	public void deleteFromDb(String userId) {
 		if (!userRepository.existsById(userId)) {
 			throw new NotFoundException("Utente non trovato");
 		}
+		
+		// Rimuovi il token FCM PRIMA di eliminare l'utente
+		UserEty user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("Utente non trovato"));
+		if (user.getFcmToken() != null && !user.getFcmToken().isEmpty()) {
+			log.info("Rimozione token FCM per utente {} prima della cancellazione", userId);
+			user.setFcmToken(null);
+			userRepository.save(user);
+		}
+		
 		userRepository.deleteById(userId);
 	}
 
+	/**
+	 * Aggiorna il token FCM per le notifiche push.
+	 */
 	@Override
 	@Transactional
 	public void updateFcmToken(String firebaseId, String fcmToken) {
 		log.info("Aggiornamento token FCM per utente: {}", firebaseId);
 		
-		UserEty user = userRepository.findById(firebaseId)
-			.orElseThrow(() -> new NotFoundException("Utente non trovato"));
+		Optional<UserEty> userOpt = userRepository.findById(firebaseId);
+		if (userOpt.isEmpty()) {
+			return; // Ignora silenziosamente, l'utente verrà creato dalla syncUserWithFirebase
+		}
 		
+		UserEty user = userOpt.get();
 		user.setFcmToken(fcmToken);
 		userRepository.save(user);
 		
 		log.info("Token FCM aggiornato con successo per utente: {}", firebaseId);
 	}
 
+	/**
+	 * Rimuove il token FCM (es. al logout).
+	 * Gestisce gracefully il caso in cui l'utente non esista più (già eliminato durante deleteAccount).
+	 */
 	@Override
 	@Transactional
 	public void removeFcmToken(String firebaseId) {
 		log.info("Rimozione token FCM per utente: {}", firebaseId);
 		
-		UserEty user = userRepository.findById(firebaseId)
-			.orElseThrow(() -> new NotFoundException("Utente non trovato"));
+		Optional<UserEty> userOpt = userRepository.findById(firebaseId);
+		if (userOpt.isEmpty()) {
+			log.info("Utente {} non trovato - probabilmente già eliminato durante deleteAccount", firebaseId);
+			log.info("Il token FCM è già stato rimosso, nessuna azione necessaria");
+			return;
+		}
 		
+		UserEty user = userOpt.get();
 		user.setFcmToken(null);
 		userRepository.save(user);
-		
 		log.info("Token FCM rimosso con successo per utente: {}", firebaseId);
 	}
 
+	/**
+	 * Completa il setup del login registrando il token FCM.
+	 */
 	@Override
 	@Transactional
 	public void completeLoginSetup(String firebaseId, String fcmToken) {
-		log.info("🔧 Completamento setup login per utente: {}", firebaseId);
-		log.debug("🔧 Token FCM da registrare (primi 30 char): {}", 
-			fcmToken != null && fcmToken.length() > 30 ? fcmToken.substring(0, 30) + "..." : fcmToken);
+		log.info("Completamento setup login per utente: {}", firebaseId);
 		
-		UserEty user = userRepository.findById(firebaseId)
-			.orElseThrow(() -> new NotFoundException("Utente non trovato durante setup login"));
+		UserEty user = userRepository.findById(firebaseId).orElseThrow(() -> new NotFoundException("Utente non trovato durante setup login"));
 		
 		// Registra il token FCM se fornito
 		if (fcmToken != null && !fcmToken.isEmpty()) {
-			String oldToken = user.getFcmToken();
 			user.setFcmToken(fcmToken);
 			userRepository.save(user);
+			log.info("Token FCM registrato per utente: {}", firebaseId);
 		} else {
-			log.warn("⚠️ Setup login chiamato senza token FCM per utente: {}", firebaseId);
+			log.warn("Setup login chiamato senza token FCM per utente: {}", firebaseId);
 		}
 	}
 }
