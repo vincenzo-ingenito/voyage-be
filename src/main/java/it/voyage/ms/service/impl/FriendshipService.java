@@ -221,10 +221,10 @@ public class FriendshipService implements IFriendshipService {
             // CASO SPECIALE: Esiste già un follow unidirezionale inverso
             if (relation.getStatus() == Status.ACCEPTED && relation.isUnidirectional()) {
                 // Receiver aveva già un follower (requester)
-                // Ora il receiver vuole inviare richiesta/follow al requester
+                // Ora il requester vuole inviare richiesta/follow al receiver
                 
-                if (requesterUser.isPrivate()) {
-                    // Il follower è privato → crea richiesta PENDING bidirezionale
+                if (receiverUser.isPrivate()) {
+                    // Il receiver è privato → crea richiesta PENDING bidirezionale
                     FriendRelationshipEty newRequest = new FriendRelationshipEty();
                     newRequest.setRequesterId(requesterId);
                     newRequest.setReceiverId(receiverId);
@@ -247,7 +247,7 @@ public class FriendshipService implements IFriendshipService {
                     
                     return "Richiesta di amicizia inviata con successo.";
                 } else {
-                    // Il follower è pubblico → crea follow unidirezionale
+                    // Il receiver è pubblico → crea follow unidirezionale
                     FriendRelationshipEty newFollow = new FriendRelationshipEty();
                     newFollow.setRequesterId(requesterId);
                     newFollow.setReceiverId(receiverId);

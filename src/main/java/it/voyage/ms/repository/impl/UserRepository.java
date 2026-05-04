@@ -28,8 +28,14 @@ public interface UserRepository extends JpaRepository<UserEty, String> {
 			    LEFT JOIN FriendRelationshipEty r2 ON r2.receiverId = :userId AND r2.requesterId = u.id AND r2.status = :status
 			    WHERE (
 			        (
-			            (u.isPrivate = false AND (r1.id IS NOT NULL OR r2.id IS NOT NULL))
-			            OR (u.isPrivate = true AND (r1.id IS NOT NULL OR r2.id IS NOT NULL))
+			            (u.isPrivate = false AND (
+			                r1.id IS NOT NULL 
+			                OR (r2.id IS NOT NULL AND r2.isUnidirectional = false)
+			            ))
+			            OR (u.isPrivate = true AND (
+			                r1.id IS NOT NULL 
+			                OR (r2.id IS NOT NULL AND r2.isUnidirectional = false)
+			            ))
 			        )
 			    )
 			    OR u.id = :userId
