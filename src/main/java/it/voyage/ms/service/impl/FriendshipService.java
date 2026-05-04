@@ -54,8 +54,7 @@ public class FriendshipService implements IFriendshipService {
         }
         
         // Controlla anche nella direzione opposta
-        Optional<FriendRelationshipEty> relation2 = 
-            friendRelationshipRepository.findByRequesterIdAndReceiverId(friendId, userId);
+        Optional<FriendRelationshipEty> relation2 = friendRelationshipRepository.findByRequesterIdAndReceiverId(friendId, userId);
         
         return relation2.isPresent() && relation2.get().getStatus() == Status.ACCEPTED;
     }
@@ -82,8 +81,7 @@ public class FriendshipService implements IFriendshipService {
 
     @Override
     public List<FriendRelationshipDto> getPendingRequests(String receiverId) {
-        List<FriendRelationshipEty> pendingRequests = friendRelationshipRepository
-            .findPendingRequestsWithRequester(receiverId, Status.PENDING);
+        List<FriendRelationshipEty> pendingRequests = friendRelationshipRepository.findPendingRequestsWithRequester(receiverId, Status.PENDING);
 
         return pendingRequests.stream()
             .filter(r -> r.getRequester() != null)
@@ -441,131 +439,84 @@ public class FriendshipService implements IFriendshipService {
             });
         
 
-        // 4. Recupera tutti gli utenti registrati esclusi quelli già filtrati
-        List<UserEty> potentialSuggestions = userRepository.findAll().stream()
-            .filter(user -> {
-                // FILTRO TRIPLO: UUID, email e lista esclusioni
-                boolean isSameUid = user.getId().equals(currentUserId);
-                boolean isSameEmail = user.getEmail() != null && user.getEmail().equalsIgnoreCase(currentUser.getEmail());
-                boolean isInExcludeList = usersToExclude.contains(user.getId());
+        // PROTEZIONE OOM: Limite massimo forzato
+        int safeLimit = Math.min(Math.max(limit, 1), 20);
+        
+        log.info("[getFriendSuggestions] RANDOM MODE: Fetching {} random suggestions for user {} (excluding {} users)", 
+                 safeLimit, currentUserId, usersToExclude.size());
+        
+        // PROTEZIONE OOM: Usa query ottimizzata invece di findAll()
+        List<UserEty> candidates;
+        
+        try {
+            if (usersToExclude.isEmpty()) {
+                // Se non ci sono esclusioni, prendi i primi 100 utenti
+                log.debug("[getFriendSuggestions] No exclusions, fetching first 100 users");
+                candidates = userRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 100))
+                    .getContent();
+            } else {
+                // Usa la query ottimizzata con esclusioni
+                List<Object[]> potentialCandidates = userRepository.findPotentialSuggestionsOptimized(
+                    new ArrayList<>(usersToExclude),
+                    org.springframework.data.domain.PageRequest.of(0, 100)
+                );
                 
-                boolean shouldExclude = isSameUid || isSameEmail || isInExcludeList;
-                
-                if (shouldExclude && isSameEmail && !isSameUid) {
-                    log.warn("Filtrato utente con stessa email ma UID diverso: {} (vecchio) vs {} (corrente)", 
-                             user.getId(), currentUserId);
-                }
-                
-                return !shouldExclude;
-            })
-            .collect(Collectors.toList());
-        
+                log.debug("[getFriendSuggestions] Found {} potential candidates from optimized query", 
+                         potentialCandidates.size());
 
-        if (potentialSuggestions.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        // 4. FIX N+1: Carica tutte le amicizie dei candidati in una sola query batch
-        List<String> candidateIds = potentialSuggestions.stream()
-            .map(UserEty::getId)
-            .collect(Collectors.toList());
-        
-        List<FriendRelationshipEty> allCandidateFriendships = Collections.emptyList();
-        if (!candidateIds.isEmpty()) {
-            allCandidateFriendships = friendRelationshipRepository
-                .findFriendshipsByUserIdsAndStatus(candidateIds, Status.ACCEPTED);
-        }
-        
-        // Costruisci una mappa: userId -> lista di amici
-        Map<String, List<String>> userFriendsMap = new java.util.HashMap<>();
-        for (FriendRelationshipEty rel : allCandidateFriendships) {
-            String user1 = rel.getRequesterId();
-            String user2 = rel.getReceiverId();
-            
-            userFriendsMap.computeIfAbsent(user1, k -> new ArrayList<>()).add(user2);
-            userFriendsMap.computeIfAbsent(user2, k -> new ArrayList<>()).add(user1);
-        }
-        
-        log.debug("[getFriendSuggestions] Caricati amici per {} candidati in batch", candidateIds.size());
-        
-        // 5. Per ogni utente potenziale, calcola il punteggio di suggerimento
-        List<ScoredSuggestion> scoredSuggestions = potentialSuggestions.stream()
-            .map(user -> calculateSuggestionScore(user, currentUserId, currentUserFriendIds, userFriendsMap))
-            .filter(scored -> {
-                // TRIPLO FILTRO DI SICUREZZA
-                boolean isCurrentUser = scored.user.getId().equals(currentUserId);
-                boolean isFriend = currentUserFriendIds.contains(scored.user.getId());
-                boolean hasScore = scored.score > 0;
-                
-                return hasScore && !isCurrentUser && !isFriend;
-            })
-            .sorted((a, b) -> Integer.compare(b.score, a.score)) // Ordina per score decrescente
-            .limit(limit)
-            .collect(Collectors.toList());
-        
-
-        // 5. Converti in DTO
-        List<UserSuggestionDTO> result = scoredSuggestions.stream()
-            .map(scored -> buildSuggestionDTO(scored))
-            .collect(Collectors.toList());
-        
-        return result;
-    }
-
-    /**
-     * Calcola il punteggio di un utente come suggerimento
-     * OTTIMIZZATO: Usa mappa pre-caricata invece di N query
-     */
-    private ScoredSuggestion calculateSuggestionScore(UserEty user, String currentUserId, 
-                                                      List<String> currentUserFriendIds,
-                                                      Map<String, List<String>> userFriendsMap) {
-        int score = 0;
-        String reason = "new_user";
-        int mutualFriendsCount = 0;
-        List<String> mutualFriendNames = new ArrayList<>();
-
-        // 1. FIX N+1: Usa mappa pre-caricata invece di query per ogni utente
-        List<String> userFriendIds = userFriendsMap.getOrDefault(user.getId(), Collections.emptyList());
-
-        mutualFriendsCount = (int) userFriendIds.stream()
-            .filter(currentUserFriendIds::contains)
-            .count();
-
-        if (mutualFriendsCount > 0) {
-            score += mutualFriendsCount * 100; // Peso alto per amici in comune
-            reason = "mutual_friends";
-            
-            // Ottieni i nomi dei primi 3 amici in comune
-            mutualFriendNames = userFriendIds.stream()
-                .filter(currentUserFriendIds::contains)
-                .limit(3)
-                .map(friendId -> userRepository.findById(friendId)
-                    .map(UserEty::getName)
-                    .orElse(""))
-                .filter(name -> !name.isEmpty())
+                // PROTEZIONE OOM: Converti solo i risultati necessari (max 100)
+                candidates = potentialCandidates.stream()
+                    .limit(100)
+                    .map(arr -> {
+                        UserEty user = new UserEty();
+                        user.setId((String) arr[0]);
+                        user.setName((String) arr[1]);
+                        user.setAvatar((String) arr[2]);
+                        return user;
+                    })
+                    .collect(Collectors.toList());
+            }
+        } catch (Exception e) {
+            log.error("[getFriendSuggestions] Error fetching candidates, falling back to simple query: {}", e.getMessage());
+            // Fallback: usa query semplice senza ottimizzazioni
+            candidates = userRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 100))
+                .getContent().stream()
+                .filter(user -> !usersToExclude.contains(user.getId()))
                 .collect(Collectors.toList());
         }
 
-        // 2. Conta i viaggi dell'utente (viaggiatori attivi)
-        // Accedi direttamente alla collezione travels dall'oggetto user già caricato
-        int travelsCount = (user.getTravels() != null) ? user.getTravels().size() : 0;
-
-        if (travelsCount > 5) {
-            score += 50;
-            if (reason.equals("new_user")) {
-                reason = "active_traveler";
-            }
-        } else if (travelsCount > 0) {
-            score += travelsCount * 5;
+        if (candidates.isEmpty()) {
+            log.warn("[getFriendSuggestions] No candidates found for user {}", currentUserId);
+            return Collections.emptyList();
         }
 
-        // 3. Bonus per utenti con profilo completo (hanno avatar e bio)
-        if (user.getAvatar() != null && !user.getAvatar().isEmpty()) {
-            score += 10;
-        }
+        log.debug("[getFriendSuggestions] Found {} candidates before shuffle", candidates.size());
 
-        return new ScoredSuggestion(user, score, reason, mutualFriendsCount, mutualFriendNames, travelsCount);
+        // RANDOMIZZAZIONE: Shuffle per casualità
+        Collections.shuffle(candidates);
+        
+        // PROTEZIONE OOM: Prendi solo il limite richiesto
+        List<UserSuggestionDTO> result = candidates.stream()
+            .limit(safeLimit)
+            .map(user -> UserSuggestionDTO.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .avatar(user.getAvatar() != null ? user.getAvatar() : 
+                    "https://ui-avatars.com/api/?name=" + user.getName().replace(" ", "+") + "&background=random")
+                .bio(null)
+                .travelsCount(0)
+                .mutualFriendsCount(0)
+                .mutualFriendsPreview(null)
+                .reason("Nuovo utente da scoprire")
+                .build())
+            .collect(Collectors.toList());
+
+        log.info("[getFriendSuggestions] Returning {} random suggestions (OOM-safe) for user {}", 
+                 result.size(), currentUserId);
+        
+        return result;
     }
+ 
 
     /**
      * Costruisce il DTO finale per il suggerimento

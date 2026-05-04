@@ -145,8 +145,7 @@ public class TravelService implements ITravelService {
             log.info("UPDATE TRAVEL - Inizio aggiornamento viaggio ID: {}", travelId);
 
             // Cerca il viaggio senza filtro owner
-            TravelEty existingTravel = travelRepository.findById(travelId)
-                .orElseThrow(() -> new BusinessException("Viaggio non trovato."));
+            TravelEty existingTravel = travelRepository.findById(travelId).orElseThrow(() -> new BusinessException("Viaggio non trovato."));
 
             // Verifica se l'utente può modificare questo viaggio (owner o editor)
             if (!groupTravelService.canUserEditTravel(travelId, ownerUid)) {
@@ -809,98 +808,10 @@ public class TravelService implements ITravelService {
     // =========================================================================
     // FEED PAGINATO
     // =========================================================================
-
-//    @Override
-//    @Transactional(readOnly = true)
-//    public FeedPageDTO getFeedPaginated(String userId, int pageSize, String cursor, boolean includePhotos) {
-//        log.info("GET FEED PAGINATED - userId: {}, pageSize: {}, cursor: {}, includePhotos: {}", 
-//                userId, pageSize, cursor, includePhotos);
-//        
-//        // 1. Recupera tutti i viaggi (propri + amici)
-//        List<TravelEty> allTravels = new ArrayList<>();
-//        
-//        // Viaggi propri
-//        List<TravelEty> ownTravels = travelRepository.findByUserId(userId);
-//        allTravels.addAll(ownTravels);
-//        log.info("Trovati {} viaggi propri", ownTravels.size());
-//        
-//     // Viaggi degli amici
-//        List<UserDto> friends = friendshipService.getAcceptedFriendsList(userId);
-//        log.info("Trovati {} amici", friends.size());
-//
-//        if (!friends.isEmpty()) {
-//            List<String> friendIds = friends.stream()
-//                    .map(UserDto::getId)
-//                    .filter(id -> !id.equals(userId)) // esclude se stesso che è già nella lista
-//                    .collect(Collectors.toList());
-//
-//            List<TravelEty> friendTravels = travelRepository.findByUserIdIn(friendIds);
-//            allTravels.addAll(friendTravels);
-//            log.info("Trovati {} viaggi degli amici", friendTravels.size());
-//        }
-//        
-//        log.info("Totale viaggi prima dell'ordinamento: {}", allTravels.size());
-//        
-//        // 2. Ordina per dateTo DESC (più recenti prima)
-//        allTravels.sort((a, b) -> {
-//            if (a.getDateTo() == null) return 1;
-//            if (b.getDateTo() == null) return -1;
-//            return b.getDateTo().compareTo(a.getDateTo());
-//        });
-//        
-//        // 3. Applica cursor-based pagination
-//        int startIndex = 0;
-//        if (cursor != null && !cursor.isEmpty()) {
-//            startIndex = findStartIndexFromCursor(allTravels, cursor);
-//            log.info("Cursor applicato, startIndex: {}", startIndex);
-//        }
-//        
-//        // 4. Prendi la pagina richiesta
-//        int endIndex = Math.min(startIndex + pageSize, allTravels.size());
-//        List<TravelEty> pageTravels = allTravels.subList(startIndex, endIndex);
-//        
-//        // 5. Converti in DTO
-//        List<TravelDTO> travelDTOs = new ArrayList<>();
-//        for (TravelEty travel : pageTravels) {
-//            TravelDTO dto;
-//            if (includePhotos) {
-//                // Con foto (più pesante)
-//                dto = buildTravelDtoWithUrls(travel);
-//            } else {
-//                // Solo metadati (più leggero)
-//                dto = toTravelDtoWithMetadataOnly(travel);
-//            }
-//            travelDTOs.add(dto);
-//        }
-//        
-//        // FIX N+1: Arricchisci tutti i viaggi con voteStats in batch
-//        travelDTOs = enrichListWithVoteStats(travelDTOs, userId);
-//        
-//        // 6. Costruisci il cursor per la prossima pagina
-//        boolean hasMore = endIndex < allTravels.size();
-//        String nextCursor = null;
-//        if (hasMore && !pageTravels.isEmpty()) {
-//            TravelEty lastTravel = pageTravels.get(pageTravels.size() - 1);
-//            nextCursor = buildCursor(lastTravel);
-//        }
-//        
-//        log.info("Returning feed page: {} travels, hasMore: {}, nextCursor: {}", 
-//                travelDTOs.size(), hasMore, nextCursor);
-//        
-//        return FeedPageDTO.builder()
-//                .travels(travelDTOs)
-//                .nextCursor(nextCursor)
-//                .hasMore(hasMore)
-//                .pageSize(travelDTOs.size())
-//                .totalCount(null) // Opzionale, può essere costoso da calcolare
-//                .build();
-//    }
-    
     @Override
     @Transactional(readOnly = true)
     public FeedPageDTO getFeedPaginated(String userId, int pageSize, String cursor, boolean includePhotos) {
-        log.info("GET FEED PAGINATED - userId: {}, pageSize: {}, cursor: {}, includePhotos: {}",
-                userId, pageSize, cursor, includePhotos);
+        log.info("GET FEED PAGINATED - userId: {}, pageSize: {}, cursor: {}, includePhotos: {}", userId, pageSize, cursor, includePhotos);
 
         // 1. Recupera gli ID degli amici
         List<UserDto> friends = friendshipService.getAcceptedFriendsList(userId);
@@ -952,8 +863,7 @@ public class TravelService implements ITravelService {
         boolean hasMore = page.hasNext();
         String nextCursor = hasMore ? String.valueOf(pageNumber + 1) : null;
 
-        log.info("Returning feed page: {} travels, hasMore: {}, nextCursor: {}",
-                travelDTOs.size(), hasMore, nextCursor);
+        log.info("Returning feed page: {} travels, hasMore: {}, nextCursor: {}", travelDTOs.size(), hasMore, nextCursor);
 
         return FeedPageDTO.builder()
                 .travels(travelDTOs)
@@ -963,49 +873,7 @@ public class TravelService implements ITravelService {
                 .totalCount((int) page.getTotalElements())
                 .build();
     }
-    
-    /**
-     * Trova l'indice di partenza dalla stringa cursor
-     * Formato cursor: "timestamp_travelId"
-     */
-//    private int findStartIndexFromCursor(List<TravelEty> travels, String cursor) {
-//        try {
-//            String[] parts = cursor.split("_");
-//            if (parts.length != 2) {
-//                log.warn("Cursor format non valido: {}", cursor);
-//                return 0;
-//            }
-//            
-//            String timestamp = parts[0];
-//            Long travelId = Long.parseLong(parts[1]);
-//            
-//            for (int i = 0; i < travels.size(); i++) {
-//                TravelEty travel = travels.get(i);
-//                if (travel.getId().equals(travelId)) {
-//                    // Ritorna l'elemento DOPO quello del cursor
-//                    return i + 1;
-//                }
-//            }
-//            
-//            log.warn("Travel con ID {} non trovato nel feed", travelId);
-//            return 0;
-//        } catch (Exception e) {
-//            log.error("Errore parsing cursor: {}", cursor, e);
-//            return 0;
-//        }
-//    }
-//    
-//    /**
-//     * Costruisce il cursor per un viaggio
-//     * Formato: "timestamp_travelId"
-//     */
-//    private String buildCursor(TravelEty travel) {
-//        String timestamp = travel.getDateTo() != null 
-//                ? travel.getDateTo().toString() 
-//                : "null";
-//        return timestamp + "_" + travel.getId();
-//    }
-
+     
     // =========================================================================
     // INNER CLASSES
     // =========================================================================
