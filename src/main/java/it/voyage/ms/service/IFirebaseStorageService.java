@@ -7,7 +7,6 @@ import org.springframework.web.multipart.MultipartFile;
 import com.google.cloud.storage.Blob;
 
 import it.voyage.ms.dto.response.FileMetadata;
-import it.voyage.ms.repository.entity.TravelEty;
 
 /**
  * Contratto unico per la gestione dei file su Firebase Storage.
@@ -48,9 +47,4 @@ public interface IFirebaseStorageService {
      */
     int deleteTravelFolder(String userId, Long travelId);
 
-    /**
-     * Elimina tutte le foto associate a un viaggio (ricordi giornalieri + allFileIds).
-     * Operazione best-effort: un errore su un singolo file non blocca gli altri.
-     */
-    void deletePhotosForTravel(TravelEty travel);
 }

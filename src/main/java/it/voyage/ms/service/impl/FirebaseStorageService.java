@@ -1,8 +1,6 @@
 package it.voyage.ms.service.impl;
 
 import java.io.IOException;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -20,24 +18,10 @@ import com.google.cloud.storage.Storage.BlobListOption;
 
 import it.voyage.ms.dto.response.FileMetadata;
 import it.voyage.ms.exceptions.BusinessException;
-import it.voyage.ms.repository.entity.TravelEty;
 import it.voyage.ms.service.IFirebaseStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-/**
- * Implementazione unica per la gestione dei file su Firebase Storage.
- *
- * Unifica le responsabilità che erano distribuite tra FirebaseStorageService
- * e StorageService: upload, download, URL firmati, eliminazione singola
- * ed eliminazione massiva per viaggio.
- *
- * NOTA — ACL pubbliche rimosse:
- * Acl.of(Acl.User.ofAllUsers(), Acl.Role.READER) è deprecato nei bucket con
- * Uniform Bucket-Level Access attivo e causa errori silenziosi o eccezioni a
- * runtime. L'accesso ai file avviene esclusivamente tramite signed URL generati
- * da getPublicUrl(), senza esporre i file pubblicamente.
- */
+ 
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -170,47 +154,6 @@ public class FirebaseStorageService implements IFirebaseStorageService {
             return 0;
         }
     }
-
-    /**
-     * Elimina tutte le foto associate a un viaggio (ricordi giornalieri + allFileIds).
-     * Operazione best-effort: un errore su un singolo file non blocca gli altri.
-     * Usato da UserService alla cancellazione dell'account.
-     *
-     * NOTA — memoryImageUrl vs fileId:
-     * Con l'architettura attuale, le foto dei giorni sono referenziate tramite
-     * memoryImageIndex e incluse in getAllFileIds(). Il ramo memoryImageUrl è
-     * mantenuto per compatibilità con eventuali record creati con la vecchia
-     * architettura che salvava l'URL diretto anziché l'indice.
-     */
-    @Override
-    public void deletePhotosForTravel(TravelEty travel) {
-        try {
-            // Vecchia architettura: foto referenziate tramite URL diretto
-            if (travel.getItinerary() != null) {
-                travel.getItinerary().forEach(day -> {
-                    if (day.getMemoryImageUrl() != null && !day.getMemoryImageUrl().isEmpty()) {
-                        String path = extractStoragePath(day.getMemoryImageUrl());
-                        if (path != null) {
-                            deleteBlob(path, "foto ricordo giorno " + day.getDay());
-                        } else {
-                            log.warn("Impossibile estrarre il path dall'URL per foto ricordo giorno {}: {}",
-                                    day.getDay(), day.getMemoryImageUrl());
-                        }
-                    }
-                });
-            }
-
-            // Architettura corrente: tutti i file referenziati tramite fileId/path
-            if (travel.getAllFileIds() != null && !travel.getAllFileIds().isEmpty()) {
-                travel.getAllFileIds().forEach(fileId ->
-                        deleteBlob(fileId, "file viaggio " + travel.getId()));
-            }
-
-        } catch (Exception e) {
-            log.error("Errore durante l'eliminazione delle foto per il viaggio {}: {}",
-                    travel.getId(), e.getMessage());
-        }
-    }
  
     /**
      * Elimina un singolo blob da Firebase Storage tramite path diretto.
@@ -236,33 +179,7 @@ public class FirebaseStorageService implements IFirebaseStorageService {
             return false;
         }
     }
-
-    /**
-     * Estrae il path interno di Firebase Storage da un URL pubblico.
-     *
-     * Formato atteso:
-     * https://firebasestorage.googleapis.com/v0/b/BUCKET/o/PATH?alt=media&token=TOKEN
-     *
-     * @return path decodificato, o null se il formato non è riconoscibile
-     */
-    private String extractStoragePath(String url) {
-        if (url == null || url.isBlank()) {
-            return null;
-        }
-        try {
-            if (url.contains("/o/")) {
-                String[] parts = url.split("/o/");
-                if (parts.length > 1) {
-                    String rawPath = parts[1].split("\\?")[0];
-                    return URLDecoder.decode(rawPath, StandardCharsets.UTF_8);
-                }
-            }
-        } catch (Exception e) {
-            log.error("Errore durante l'estrazione del path dall'URL {}: {}", url, e.getMessage());
-        }
-        return null;
-    }
-
+ 
     /**
      * URL pubblico diretto come fallback quando la generazione del signed URL fallisce.
      * Funziona solo su bucket con accesso pubblico uniforme abilitato.

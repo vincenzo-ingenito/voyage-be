@@ -6,12 +6,10 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseAuthException;
-
 import it.voyage.ms.repository.entity.TravelEty;
 import it.voyage.ms.repository.impl.TravelRepository;
 import it.voyage.ms.service.IAccountService;
+import it.voyage.ms.service.IFirebaseAuthService;
 import it.voyage.ms.service.IFirebaseStorageService;
 import it.voyage.ms.service.IUserService;
 import lombok.extern.slf4j.Slf4j;
@@ -29,18 +27,13 @@ public class AccountService implements IAccountService {
 	@Autowired
 	private IFirebaseStorageService storageService;
 	
+	@Autowired
+	private IFirebaseAuthService firebaseAuthService;
+	
 	@Override
 	public boolean deleteAccount(String userId) {
-	    
-	    // 1. Elimina prima l'utente da Firebase Auth
-	    // Se fallisce qui, non abbiamo ancora toccato il DB → stato consistente
-	    try {
-	        FirebaseAuth.getInstance().deleteUser(userId);
-	        log.info("Utente {} eliminato da Firebase Auth", userId);
-	    } catch (FirebaseAuthException e) {
-	        log.error("Errore eliminazione utente {} da Firebase Auth: {}", userId, e.getMessage());
-	        return false; // interrompi, DB intatto
-	    }
+	  
+		firebaseAuthService.deleteUser(userId);
 
 	    // 2. Carica i viaggi PRIMA di eliminare l'utente dal DB
 	    // e inizializza le lazy collections mentre la sessione è ancora attiva
