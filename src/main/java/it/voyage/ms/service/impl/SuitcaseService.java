@@ -11,13 +11,13 @@ import it.voyage.ms.dto.SuitcaseDTO;
 import it.voyage.ms.dto.SuitcaseItemDTO;
 import it.voyage.ms.dto.UserCustomItemDTO;
 import it.voyage.ms.repository.SuitcaseItemRepository;
-import it.voyage.ms.repository.SuitcaseRepository;
-import it.voyage.ms.repository.UserCustomItemRepository;
 import it.voyage.ms.repository.entity.SuitcaseEty;
 import it.voyage.ms.repository.entity.SuitcaseItemEty;
 import it.voyage.ms.repository.entity.TravelEty;
 import it.voyage.ms.repository.entity.UserCustomItemEty;
+import it.voyage.ms.repository.impl.SuitcaseRepository;
 import it.voyage.ms.repository.impl.TravelRepository;
+import it.voyage.ms.repository.impl.UserCustomItemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

@@ -10,34 +10,19 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import it.voyage.ms.repository.entity.FriendRelationshipEty;
-import it.voyage.ms.repository.entity.TravelParticipantEty;
 import it.voyage.ms.repository.entity.FriendRelationshipEty.Status;
 import jakarta.transaction.Transactional;
 
 @Repository
 public interface IFriendRelationshipRepository extends JpaRepository<FriendRelationshipEty, String> {
 
-	List<FriendRelationshipEty> findByRequesterIdAndStatus(String requesterId, Status status);
 
 	List<FriendRelationshipEty> findByReceiverIdAndStatus(String receiverId, Status status);
 
+	List<FriendRelationshipEty> findByRequesterIdAndStatus(String requesterId, Status status);
+
 	Optional<FriendRelationshipEty> findByRequesterIdAndReceiverId(
 			String requesterId, String receiverId);
-
-	Optional<FriendRelationshipEty> findByRequesterIdAndReceiverIdOrReceiverIdAndRequesterId(
-			String requesterId, String receiverId,
-			String requesterId2, String receiverId2);
-
-	List<FriendRelationshipEty> findByRequesterIdAndStatusOrReceiverIdAndStatus(
-			String requesterId, Status requesterStatus,
-			String receiverId,  Status receiverStatus);
-
-	boolean existsByRequesterIdAndReceiverIdOrReceiverIdAndRequesterId(
-			String requesterId, String receiverId,
-			String receiverId2, String requesterId2);
-
-	List<FriendRelationshipEty> findByRequesterIdAndReceiverIdAndStatus(
-			String requesterId, String receiverId, Status status);
 
 	// -------------------------------------------------------------------------
 	// DELETE friendship (bidirezionale)
@@ -52,21 +37,6 @@ public interface IFriendRelationshipRepository extends JpaRepository<FriendRelat
 	int deleteFriendship(@Param("userId")   String userId,
 			@Param("friendId") String friendId);
 
-	// -------------------------------------------------------------------------
-	// UPDATE request status (PENDING → newStatus)
-	// -------------------------------------------------------------------------
-	@Modifying
-	@Transactional
-	@Query("""
-			    UPDATE FriendRelationshipEty f
-			    SET f.status = :newStatus
-			    WHERE f.requesterId = :requesterId
-			      AND f.receiverId  = :receiverId
-			      AND f.status      = it.voyage.ms.repository.entity.FriendRelationshipEty$Status.PENDING
-			""")
-	int updateRequestStatus(@Param("requesterId") String requesterId,
-			@Param("receiverId")  String receiverId,
-			@Param("newStatus")   Status newStatus);
 
 	// -------------------------------------------------------------------------
 	// Find all relevant relationships (bulk, evita N+1)
@@ -80,19 +50,6 @@ public interface IFriendRelationshipRepository extends JpaRepository<FriendRelat
 			@Param("currentUserId") String currentUserId,
 			@Param("userIds")       List<String> userIds);
 
-	// -------------------------------------------------------------------------
-	// Find friendship by users and status (bidirezionale)
-	// -------------------------------------------------------------------------
-	@Query("""
-			    SELECT f FROM FriendRelationshipEty f
-			    WHERE ((f.requesterId = :userId1 AND f.receiverId = :userId2)
-			        OR (f.requesterId = :userId2 AND f.receiverId = :userId1))
-			      AND f.status = :status
-			""")
-	Optional<FriendRelationshipEty> findFriendshipByUsersAndStatus(
-			@Param("userId1") String userId1,
-			@Param("userId2") String userId2,
-			@Param("status")  Status status);
 
 	// -------------------------------------------------------------------------
 	// Update relationship status + blockerId

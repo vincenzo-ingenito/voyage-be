@@ -30,46 +30,29 @@ public class NotificationController {
     private final IUserService userService;
 
     @PostMapping("/fcm-token")
-    @Operation(summary = "Registra o aggiorna token FCM", 
-               description = "Salva il token FCM del dispositivo per ricevere notifiche push")
-    public ResponseEntity<Void> registerFcmToken(
-            @Valid @RequestBody FcmTokenDto tokenDto,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        
+    @Operation(summary = "Registra o aggiorna token FCM", description = "Salva il token FCM del dispositivo per ricevere notifiche push")
+    public ResponseEntity<Void> registerFcmToken(@Valid @RequestBody FcmTokenDto tokenDto, @AuthenticationPrincipal CustomUserDetails userDetails) {
         String userId = userDetails.getUserId();
         log.info("Registrazione token FCM per utente: {}", userId);
-        
         userService.updateFcmToken(userId, tokenDto.getToken());
-        
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/fcm-token")
-    @Operation(summary = "Rimuove token FCM", 
-               description = "Rimuove il token FCM al logout o disinstallazione app")
-    public ResponseEntity<Void> removeFcmToken(
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        
+    @Operation(summary = "Rimuove token FCM", description = "Rimuove il token FCM al logout o disinstallazione app")
+    public ResponseEntity<Void> removeFcmToken(@AuthenticationPrincipal CustomUserDetails userDetails) {
         String userId = userDetails.getUserId();
         log.info("Rimozione token FCM per utente: {}", userId);
-        
         userService.removeFcmToken(userId);
-        
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/complete-login")
-    @Operation(summary = "Completa setup post-login", 
-               description = "Registra il token FCM dopo il login, risolvendo race conditions")
-    public ResponseEntity<Void> completeLoginSetup(
-            @Valid @RequestBody FcmTokenDto tokenDto,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        
+    @Operation(summary = "Completa setup post-login", description = "Registra il token FCM dopo il login, risolvendo race conditions")
+    public ResponseEntity<Void> completeLoginSetup(@Valid @RequestBody FcmTokenDto tokenDto, @AuthenticationPrincipal CustomUserDetails userDetails) {
         String userId = userDetails.getUserId();
-        log.info("🔧 Completamento setup login per utente: {}", userId);
-        
+        log.info("Completamento setup login per utente: {}", userId);
         userService.completeLoginSetup(userId, tokenDto.getToken());
-        
         return ResponseEntity.ok().build();
     }
 }

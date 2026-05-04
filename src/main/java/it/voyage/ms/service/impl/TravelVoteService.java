@@ -1,5 +1,7 @@
 package it.voyage.ms.service.impl;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,12 +10,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import it.voyage.ms.dto.response.VoteStatsDTO;
 import it.voyage.ms.exceptions.NotFoundException;
-import it.voyage.ms.repository.TravelVoteRepository;
 import it.voyage.ms.repository.entity.TravelEty;
 import it.voyage.ms.repository.entity.TravelVoteEty;
 import it.voyage.ms.repository.entity.UserEty;
 import it.voyage.ms.repository.entity.VoteType;
 import it.voyage.ms.repository.impl.TravelRepository;
+import it.voyage.ms.repository.impl.TravelVoteRepository;
 import it.voyage.ms.repository.impl.UserRepository;
 import it.voyage.ms.service.INotificationService;
 import it.voyage.ms.service.ITravelVoteService;
@@ -114,13 +116,14 @@ public class TravelVoteService implements ITravelVoteService {
      * OTTIMIZZATO: 2 query totali invece di 2*N query
      */
     @Transactional(readOnly = true)
-    public java.util.Map<Long, VoteStatsDTO> getVoteStatsBatch(java.util.List<Long> travelIds, String userId) {
+    @Override
+    public Map<Long, VoteStatsDTO> getVoteStatsBatch(List<Long> travelIds, String userId) {
         if (travelIds == null || travelIds.isEmpty()) {
             return java.util.Collections.emptyMap();
         }
         
         // 1 query: conta i likes per tutti i viaggi
-        java.util.Map<Long, Long> likesMap = voteRepository.countLikesByTravelIds(travelIds)
+        Map<Long, Long> likesMap = voteRepository.countLikesByTravelIds(travelIds)
             .stream()
             .collect(java.util.stream.Collectors.toMap(
                 row -> (Long) row[0],
@@ -128,7 +131,7 @@ public class TravelVoteService implements ITravelVoteService {
             ));
         
         // 1 query: trova i voti dell'utente per tutti i viaggi
-        java.util.Map<Long, VoteType> userVoteMap = voteRepository
+        Map<Long, VoteType> userVoteMap = voteRepository
             .findByTravelIdsAndUserId(travelIds, userId)
             .stream()
             .collect(java.util.stream.Collectors.toMap(

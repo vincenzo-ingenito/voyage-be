@@ -1,8 +1,6 @@
 package it.voyage.ms.repository.impl;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -30,24 +28,12 @@ public interface UserRepository extends JpaRepository<UserEty, String> {
 			    LEFT JOIN FriendRelationshipEty r2 ON r2.receiverId = :userId AND r2.requesterId = u.id AND r2.status = :status
 			    WHERE (
 			        (
-			            (u.isPrivate = false AND r1.id IS NOT NULL)
-			            OR (u.isPrivate = true AND r1.id IS NOT NULL AND r2.id IS NOT NULL)
+			            (u.isPrivate = false AND (r1.id IS NOT NULL OR r2.id IS NOT NULL))
+			            OR (u.isPrivate = true AND (r1.id IS NOT NULL OR r2.id IS NOT NULL))
 			        )
 			    )
 			    OR u.id = :userId
 			""")
 	List<UserEty> findAcceptedFriendsAndSelf(@Param("userId") String userId, @Param("status") FriendRelationshipEty.Status status);
 	
-	@Query("SELECT u.isPrivate FROM UserEty u WHERE u.id = :id")
-	Optional<Boolean> findPrivacyStatusById(@Param("id") String id);
-	
-	/**
-	 * Trova tutti gli utenti escludendo un set di ID
-	 * Ottimizzazione per evitare N+1 query nei suggerimenti di amicizia
-	 */
-	@Query("""
-	    SELECT u FROM UserEty u
-	    WHERE u.id NOT IN :excludedIds
-	""")
-	List<UserEty> findAllExcluding(@Param("excludedIds") Set<String> excludedIds);
 }

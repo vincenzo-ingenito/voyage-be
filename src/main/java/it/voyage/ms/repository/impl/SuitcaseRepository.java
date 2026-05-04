@@ -1,4 +1,4 @@
-package it.voyage.ms.repository;
+package it.voyage.ms.repository.impl;
 
 import it.voyage.ms.repository.entity.SuitcaseEty;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -100,9 +100,16 @@ public class FriendshipService implements IFriendshipService {
             .map(FriendRelationshipEty::getRequesterId)
             .collect(Collectors.toSet());
 
+        // Utenti che il currentUser ha bloccato
+        Set<String> iBlockedIds = friendRelationshipRepository
+            .findByRequesterIdAndStatus(currentUserId, Status.BLOCKED).stream()
+            .map(FriendRelationshipEty::getReceiverId)
+            .collect(Collectors.toSet());
+
         List<UserEty> allMatchingUsers = userRepository.findByNameRegex(query).stream()
             .filter(user -> !user.getId().equals(currentUserId))
-            .filter(user -> !blockedMeIds.contains(user.getId()))
+            .filter(user -> !blockedMeIds.contains(user.getId())) // Escludi chi mi ha bloccato
+            .filter(user -> !iBlockedIds.contains(user.getId())) // Escludi chi ho bloccato
             .collect(Collectors.toList());
 
         if (allMatchingUsers.isEmpty()) {

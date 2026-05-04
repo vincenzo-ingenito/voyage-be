@@ -1,4 +1,4 @@
-package it.voyage.ms.repository;
+package it.voyage.ms.repository.impl;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,24 +25,10 @@ public interface TravelVoteRepository extends JpaRepository<TravelVoteEty, Long>
     Long countByTravelIdAndVoteType(Long travelId, VoteType voteType);
     
     /**
-     * Conta tutti i voti per un viaggio
-     */
-    Long countByTravelId(Long travelId);
-    
-    /**
      * Elimina il voto di un utente per un viaggio
      */
     void deleteByTravelIdAndUserId(Long travelId, String userId);
     
-    /**
-     * Trova tutti i voti di un utente
-     */
-    List<TravelVoteEty> findByUserId(String userId);
-    
-    /**
-     * Trova tutti i voti per un viaggio
-     */
-    List<TravelVoteEty> findByTravelId(Long travelId);
     
     /**
      * Conta i like per una lista di viaggi (batch query per performance)

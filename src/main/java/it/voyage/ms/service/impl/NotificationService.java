@@ -26,10 +26,7 @@ public class NotificationService implements INotificationService {
     private final FirebaseMessaging firebaseMessaging;
 
     @Override
-    public void sendGroupTravelInviteNotification(String userId,
-            String inviterName,
-            String travelName,
-            Long travelId) {
+    public void sendGroupTravelInviteNotification(String userId, String inviterName, String travelName, Long travelId) {
         
         log.info("Invio notifica invito viaggio di gruppo a utente: {}", userId);
         
@@ -122,7 +119,7 @@ public class NotificationService implements INotificationService {
                 switch (e.getMessagingErrorCode()) {
                     case UNREGISTERED:
                     case INVALID_ARGUMENT:
-                        log.warn("🗑️ Token FCM non valido per utente {}, rimozione...", ownerId);
+                        log.warn("Token FCM non valido per utente {}, rimozione...", ownerId);
                         owner.setFcmToken(null);
                         userRepository.save(owner);
                         break;
@@ -138,7 +135,7 @@ public class NotificationService implements INotificationService {
     @Override
     public void sendTravelLikeNotification(String travelOwnerId, String likerName, String travelName, Long travelId) {
         
-        log.info("📬 Invio notifica like a proprietario viaggio: {}", travelOwnerId);
+        log.info("Invio notifica like a proprietario viaggio: {}", travelOwnerId);
         
         UserEty owner = userRepository.findById(travelOwnerId).orElse(null);
         if (owner == null) {

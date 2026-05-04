@@ -1,4 +1,4 @@
-package it.voyage.ms.repository;
+package it.voyage.ms.repository.impl;
 
 import it.voyage.ms.repository.entity.UserCustomItemEty;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,10 +15,6 @@ public interface UserCustomItemRepository extends JpaRepository<UserCustomItemEt
      */
     List<UserCustomItemEty> findByUserId(String userId);
     
-    /**
-     * Trova un oggetto personalizzato per utente e nome
-     */
-    Optional<UserCustomItemEty> findByUserIdAndName(String userId, String name);
     
     /**
      * Verifica se esiste già un oggetto con lo stesso nome per l'utente
