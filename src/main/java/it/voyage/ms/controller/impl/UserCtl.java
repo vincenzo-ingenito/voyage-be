@@ -41,22 +41,10 @@ public class UserCtl implements IUserCtl {
 	}
 
 	@Override
-	public ResponseEntity<Map<String, String>> deleteAccount(CustomUserDetails customerUserDetail) {
+	public ResponseEntity<Void> deleteAccount(CustomUserDetails customerUserDetail) {
 		log.info("Called delete account endpoint for userId: {}", customerUserDetail.getUserId());
-
-		boolean deleted = accountService.deleteAccount(customerUserDetail.getUserId());
-
-		if (deleted) {
-			Map<String, String> response = new HashMap<>();
-			response.put("message", "Account eliminato con successo");
-			response.put("userId", customerUserDetail.getUserId());
-			log.info("Account eliminato con successo per userId: {}", customerUserDetail.getUserId());
-			return new ResponseEntity<>(response, HttpStatus.OK);
-		} else {
-			Map<String, String> response = new HashMap<>();
-			response.put("error", "Impossibile eliminare l'account");
-			return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
-		}
+		accountService.deleteAccount(customerUserDetail.getUserId());
+		return ResponseEntity.noContent().build();
 	}
 
 	@Override

@@ -51,14 +51,14 @@ public interface IUserCtl {
 	})
 	public ResponseEntity<PrivacyStatusResponse> getPrivacyStatus(@AuthenticationPrincipal CustomUserDetails customerUserDetail);
 	
-	@DeleteMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+	@DeleteMapping
 	@Operation(summary = "Eliminazione account", description = "Elimina l'account utente e tutti i dati associati (viaggi, foto, amicizie, bookmark).")
 	@ApiResponses(value = { 
-	    @ApiResponse(responseCode = "200", description = "Account eliminato con successo"),
+	    @ApiResponse(responseCode = "204", description = "Account eliminato con successo"),
 	    @ApiResponse(responseCode = "404", description = "Utente non trovato"),
 	    @ApiResponse(responseCode = "500", description = "Errore durante l'eliminazione dell'account")
 	})
-	ResponseEntity<Map<String, String>> deleteAccount(@AuthenticationPrincipal CustomUserDetails customerUserDetail);
+	ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal CustomUserDetails customerUserDetail);
 	
 	@PutMapping(path = "/fcm-token", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Aggiorna token FCM", description = "Salva o aggiorna il token FCM per le notifiche push.")

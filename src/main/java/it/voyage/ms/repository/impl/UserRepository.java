@@ -1,6 +1,7 @@
 package it.voyage.ms.repository.impl;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -49,5 +50,40 @@ public interface UserRepository extends JpaRepository<UserEty, String> {
 			    OR u.id = :userId
 			""")
 	List<UserEty> findAcceptedFriendsAndSelf(@Param("userId") String userId, @Param("status") FriendRelationshipEty.Status status);
+
+	/**
+	 * OTTIMIZZAZIONE MEMORIA: Limita candidati e calcola viaggi in query
+	 * Evita di caricare tutti gli utenti con findAll()
+	 */
+	@Query("""
+			SELECT u.id, u.name, u.avatar, u.email, u.isPrivate,
+			       (SELECT COUNT(t.id) FROM TravelEty t WHERE t.user.id = u.id)
+			FROM UserEty u
+			WHERE u.id NOT IN :excludedIds
+			ORDER BY (SELECT COUNT(t.id) FROM TravelEty t WHERE t.user.id = u.id) DESC
+			""")
+	List<Object[]> findPotentialSuggestionsOptimized(
+			@Param("excludedIds") List<String> excludedIds,
+			org.springframework.data.domain.Pageable pageable);
+
+	/**
+	 * OTTIMIZZAZIONE: Carica nomi in batch invece di N query
+	 */
+	@Query("SELECT u.id, u.name FROM UserEty u WHERE u.id IN :userIds")
+	List<Object[]> findNamesMapByIds(@Param("userIds") List<String> userIds);
+
+	/**
+	 * Helper per convertire risultati in mappa
+	 */
+	default java.util.Map<String, String> findNamesByIds(List<String> userIds) {
+		if (userIds == null || userIds.isEmpty()) {
+			return java.util.Collections.emptyMap();
+		}
+		return findNamesMapByIds(userIds).stream()
+				.collect(java.util.stream.Collectors.toMap(
+						arr -> (String) arr[0],
+						arr -> (String) arr[1]
+				));
+	}
 	
 }

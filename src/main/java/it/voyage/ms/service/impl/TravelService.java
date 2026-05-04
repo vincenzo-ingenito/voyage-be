@@ -929,15 +929,12 @@ public class TravelService implements ITravelService {
         Page<TravelEty> page;
         if (friendIds.isEmpty()) {
             // Nessun amico: cerca solo i viaggi propri
-            page = travelRepository.findFeedPageByUserIdAndFriendIds(
-                    userId, List.of(userId), pageable);
+            page = travelRepository.findFeedPageByUserIdAndFriendIds(userId, List.of(userId), pageable);
         } else {
-            page = travelRepository.findFeedPageByUserIdAndFriendIds(
-                    userId, friendIds, pageable);
+            page = travelRepository.findFeedPageByUserIdAndFriendIds(userId, friendIds, pageable);
         }
 
-        log.info("Pagina {} di {}, {} viaggi totali",
-                pageNumber, page.getTotalPages(), page.getTotalElements());
+        log.info("Pagina {} di {}, {} viaggi totali", pageNumber, page.getTotalPages(), page.getTotalElements());
 
         // 4. Converti in DTO
         List<TravelDTO> travelDTOs = new ArrayList<>();

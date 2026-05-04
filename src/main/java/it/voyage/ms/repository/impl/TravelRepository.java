@@ -52,6 +52,7 @@ public interface TravelRepository extends JpaRepository<TravelEty, Long> {
 
 	@Query("""
 			SELECT DISTINCT t FROM TravelEty t
+			LEFT JOIN FETCH t.user
 			WHERE t.user.id = :userId
 			OR t.user.id IN :friendIds
 			ORDER BY t.dateTo DESC NULLS LAST
