@@ -65,6 +65,13 @@ public class UserEty {
     @Column(name = "fcm_token", length = 500)
     private String fcmToken;
 
+    /** 
+     * Identifica se l'utente è un AI User generato per demo.
+     * Gli AI Users hanno sempre profilo pubblico e itinerari pre-popolati.
+     */
+    @Column(name = "is_ai_user", nullable = false)
+    private boolean isAiUser = false;
+
     /** Relation: User 1:N Travel */
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL,
                orphanRemoval = true, fetch = FetchType.LAZY)

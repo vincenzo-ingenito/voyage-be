@@ -56,7 +56,7 @@ public interface UserRepository extends JpaRepository<UserEty, String> {
 	 * Evita di caricare tutti gli utenti con findAll()
 	 */
 	@Query("""
-			SELECT u.id, u.name, u.avatar, u.email, u.isPrivate,
+			SELECT u.id, u.name, u.avatar, u.bio, u.isAiUser,
 			       (SELECT COUNT(t.id) FROM TravelEty t WHERE t.user.id = u.id)
 			FROM UserEty u
 			WHERE u.id NOT IN :excludedIds

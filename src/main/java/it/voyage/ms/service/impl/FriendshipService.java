@@ -471,6 +471,8 @@ public class FriendshipService implements IFriendshipService {
                         user.setId((String) arr[0]);
                         user.setName((String) arr[1]);
                         user.setAvatar((String) arr[2]);
+                        user.setBio(arr.length > 3 ? (String) arr[3] : null);
+                        user.setAiUser(arr.length > 4 ? (Boolean) arr[4] : false);
                         return user;
                     })
                     .collect(Collectors.toList());
@@ -502,11 +504,12 @@ public class FriendshipService implements IFriendshipService {
                 .name(user.getName())
                 .avatar(user.getAvatar() != null ? user.getAvatar() : 
                     "https://ui-avatars.com/api/?name=" + user.getName().replace(" ", "+") + "&background=random")
-                .bio(null)
+                .bio(user.getBio())
                 .travelsCount(0)
                 .mutualFriendsCount(0)
                 .mutualFriendsPreview(null)
-                .reason("Nuovo utente da scoprire")
+                .reason(user.isAiUser() ? "AI Travel Explorer" : "Nuovo utente da scoprire")
+                .isAiUser(user.isAiUser())
                 .build())
             .collect(Collectors.toList());
 

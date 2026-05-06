@@ -17,6 +17,7 @@ public class UserDto {
 	private String bio;
 	private Boolean privateProfile;
 	private Boolean showEmergencyFAB;
+	private Boolean isAiUser;
 
 	public static UserDto fromEntity(UserEty user) {
 		UserDto dto = new UserDto();
@@ -29,6 +30,7 @@ public class UserDto {
 		dto.setBio(user.getBio());
 		dto.setPrivateProfile(user.isPrivate());
 		dto.setShowEmergencyFAB(user.isShowEmergencyFAB());
+		dto.setIsAiUser(user.isAiUser());
 		return dto;
 	}
 
@@ -43,6 +45,7 @@ public class UserDto {
 		dto.setBio(user.getBio());
 		dto.setPrivateProfile(user.isPrivate());
 		dto.setShowEmergencyFAB(user.isShowEmergencyFAB());
+		dto.setIsAiUser(user.isAiUser());
 		return dto;
 	}
 

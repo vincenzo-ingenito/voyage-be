@@ -56,6 +56,12 @@ public class UserSuggestionDTO {
      * - "similar_travels" = Ha visitato destinazioni simili
      * - "active_traveler" = Viaggiatore attivo
      * - "new_user" = Nuovo su Voyage
+     * - "ai_explorer" = AI Travel Explorer (utente demo)
      */
     private String reason;
+    
+    /**
+     * Indica se l'utente è un AI User generato per demo
+     */
+    private Boolean isAiUser;
 }
