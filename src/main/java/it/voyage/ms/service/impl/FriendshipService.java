@@ -160,19 +160,32 @@ public class FriendshipService implements IFriendshipService {
             if (incomingRel != null && incomingRel.getStatus() == Status.ACCEPTED) {
                 status = FriendRelationshipStatusEnum.ALREADY_FRIENDS;
             }
-            // Solo outgoingRel ACCEPTED → Sempre ALREADY_FRIENDS
+            // Solo outgoingRel ACCEPTED
             else {
-                status = FriendRelationshipStatusEnum.ALREADY_FRIENDS;
+                // Se la relazione è unidirezionale, currentUser segue user ma non viceversa
+                if (outgoingRel.isUnidirectional()) {
+                    status = FriendRelationshipStatusEnum.ALREADY_FRIENDS;
+                } else {
+                    // Relazione bidirezionale → amici
+                    status = FriendRelationshipStatusEnum.ALREADY_FRIENDS;
+                }
             }
         }
         else if (incomingRel != null && incomingRel.getStatus() == Status.ACCEPTED) {
             // C'è solo una relazione in entrata ACCEPTED
-            // Se l'utente è PRIVATO, currentUser può inviare richiesta
-            if (user.isPrivate()) {
+            // Verifica se è unidirezionale (user può vedere currentUser, ma non viceversa)
+            if (incomingRel.isUnidirectional()) {
+                // Relazione unidirezionale: user vede currentUser
+                // CurrentUser NON vede ancora user → può inviare richiesta
                 status = FriendRelationshipStatusEnum.AVAILABLE;
             } else {
-                // Utente pubblico con solo relazione in entrata → ALREADY_FRIENDS
-                status = FriendRelationshipStatusEnum.ALREADY_FRIENDS;
+                // Relazione bidirezionale in entrata
+                if (user.isPrivate()) {
+                    status = FriendRelationshipStatusEnum.AVAILABLE;
+                } else {
+                    // Utente pubblico con relazione bidirezionale in entrata → ALREADY_FRIENDS
+                    status = FriendRelationshipStatusEnum.ALREADY_FRIENDS;
+                }
             }
         }
 
@@ -220,8 +233,35 @@ public class FriendshipService implements IFriendshipService {
                 // Receiver aveva già un follower (requester)
                 // Ora il requester vuole inviare richiesta/follow al receiver
                 
-                if (receiverUser.isPrivate()) {
-                    // Il receiver è privato → crea richiesta PENDING bidirezionale
+                // CASO SPECIALE: Entrambi privati con relazione unidirezionale inversa
+                // Receiver (privato) aveva accettato la richiesta di Requester (privato)
+                // Ora Requester vuole inviare richiesta a Receiver
+                if (requesterUser.isPrivate() && receiverUser.isPrivate()) {
+                    // Crea una nuova richiesta PENDING (non accettare automaticamente)
+                    FriendRelationshipEty newRequest = new FriendRelationshipEty();
+                    newRequest.setRequesterId(requesterId);
+                    newRequest.setReceiverId(receiverId);
+                    newRequest.setStatus(Status.PENDING);
+                    newRequest.setUnidirectional(false); // Sarà unidirezionale quando accettata
+                    friendRelationshipRepository.save(newRequest);
+                    
+                    // Invia notifica FCM per richiesta di amicizia
+                    try {
+                        notificationService.sendFriendRequestNotification(
+                            receiverId,
+                            requesterUser.getName(),
+                            requesterId,
+                            requesterUser.getAvatar()
+                        );
+                        log.info("Notifica richiesta amicizia inviata a {} da {}", receiverId, requesterId);
+                    } catch (Exception e) {
+                        log.error("Errore invio notifica richiesta amicizia: {}", e.getMessage(), e);
+                    }
+                    
+                    return "Richiesta di amicizia inviata con successo.";
+                }
+                else if (receiverUser.isPrivate()) {
+                    // Il receiver è privato (ma requester è pubblico) → crea richiesta PENDING bidirezionale
                     FriendRelationshipEty newRequest = new FriendRelationshipEty();
                     newRequest.setRequesterId(requesterId);
                     newRequest.setReceiverId(receiverId);
@@ -344,13 +384,27 @@ public class FriendshipService implements IFriendshipService {
                 throw new NotFoundException("Richiesta di amicizia in sospeso non trovata.");
             }
             
+            // Recupera gli utenti per verificare i loro tipi di profilo
+            UserEty requesterUser = userRepository.findById(requesterId)
+                .orElseThrow(() -> new NotFoundException("Utente richiedente non trovato."));
+            UserEty receiverUser = userRepository.findById(receiverId)
+                .orElseThrow(() -> new NotFoundException("Utente destinatario non trovato."));
+            
             FriendRelationshipEty request = pendingRequest.get();
             request.setStatus(Status.ACCEPTED);
-            // Le richieste PENDING sono sempre bidirezionali (solo i profili privati richiedono approvazione)
-            request.setUnidirectional(false);
+            
+            // LOGICA CORRETTA PER UNIDIREZIONALITÀ:
+            // - Se ENTRAMBI sono privati → unidirezionale (requester vede receiver, ma non viceversa)
+            // - Altrimenti → bidirezionale (amicizia reciproca)
+            boolean bothPrivate = requesterUser.isPrivate() && receiverUser.isPrivate();
+            request.setUnidirectional(bothPrivate);
             friendRelationshipRepository.save(request);
             
-            return "Richiesta di amicizia accettata.";
+            if (bothPrivate) {
+                return "Richiesta di amicizia accettata. L'amico potrà vedere i tuoi contenuti.";
+            } else {
+                return "Richiesta di amicizia accettata.";
+            }
             
         } else if ("decline".equalsIgnoreCase(action)) {
             int updatedCount = (int) friendRelationshipRepository.deleteFriendship(receiverId, requesterId);
