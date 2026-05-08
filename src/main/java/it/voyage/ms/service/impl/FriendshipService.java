@@ -374,10 +374,6 @@ public class FriendshipService implements IFriendshipService {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // UTILITY
-    // ─────────────────────────────────────────────────────────────────────────
-
     private void sendNotificationSafely(Runnable task, String type, String to, String from) {
         try {
             task.run();
