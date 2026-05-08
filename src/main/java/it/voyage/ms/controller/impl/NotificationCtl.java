@@ -25,7 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Notifications", description = "API per la gestione delle notifiche push")
-public class NotificationController {
+public class NotificationCtl {
 
     private final IUserService userService;
 

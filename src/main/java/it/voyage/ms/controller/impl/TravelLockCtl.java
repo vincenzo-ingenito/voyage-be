@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-public class TravelLockController implements ITravelLockCtl {
+public class TravelLockCtl implements ITravelLockCtl {
 
     private final ITravelLockService lockService;
     private final UserRepository userRepository;

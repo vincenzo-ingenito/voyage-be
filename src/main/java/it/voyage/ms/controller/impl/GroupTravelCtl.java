@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 @Slf4j
 @AllArgsConstructor
-public class GroupTravelController implements IGroupTravelCtl {
+public class GroupTravelCtl implements IGroupTravelCtl {
 
     private final IGroupTravelService groupTravelService;
 

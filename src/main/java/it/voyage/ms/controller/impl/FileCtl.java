@@ -19,7 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-public class FileController implements IFileController {
+public class FileCtl implements IFileController {
 
 	private final IFirebaseStorageService storageService;
 

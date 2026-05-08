@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @Slf4j
-public class SuitcaseController implements ISuitcaseController {
+public class SuitcaseCtl implements ISuitcaseController {
 
 	@Autowired
     private SuitcaseService suitcaseService;
