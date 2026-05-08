@@ -31,25 +31,12 @@ public class FirebaseStorageService implements IFirebaseStorageService {
 
     private static final String BUCKET_NAME = "voyage-ed2d0.firebasestorage.app";
 
-
-    /**
-     * Carica un file su Firebase Storage e restituisce i metadati completi.
-     *
-     * Il path segue la struttura:
-     * travel-files/{userId}/{travelId}/{category}/{uuid}_{fileName}
-     *
-     * L'accesso al file avviene tramite signed URL (getPublicUrl), non tramite
-     * ACL pubbliche.
-     */
     @Override
-    public FileMetadata uploadFileWithMetadata(MultipartFile file, String userId, Long travelId, String category)
-            throws IOException {
+    public FileMetadata uploadFileWithMetadata(MultipartFile file, String userId, Long travelId, String category){
         log.info("Caricamento file per categoria: {}", category);
 
-        // getOriginalFilename() e getContentType() possono restituire null
         String originalFileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "file";
         String contentType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
-
         String filePath = String.format("travel-files/%s/%s/%s/%s_%s", userId, travelId, category, UUID.randomUUID(), originalFileName);
 
         Map<String, String> metadata = new HashMap<>();
@@ -61,21 +48,20 @@ public class FirebaseStorageService implements IFirebaseStorageService {
                 .setMetadata(metadata)
                 .build();
 
-        storage.create(blobInfo, file.getBytes());
-
-        log.info("File caricato con successo: {}", filePath);
-        return new FileMetadata(filePath, originalFileName, contentType);
+        try {
+            storage.create(blobInfo, file.getBytes());
+            log.info("File caricato con successo: {}", filePath);
+            return new FileMetadata(filePath, originalFileName, contentType);
+        } catch (IOException e) {
+            log.error("Errore durante il caricamento del file {}: {}", filePath, e.getMessage());
+            throw new BusinessException("Errore durante il caricamento del file");
+        }
     }
- 
-    /**
-     * Restituisce un URL firmato valido per 7 giorni.
-     * In caso di errore restituisce un URL pubblico diretto come fallback.
-     */
+
     @Override
     public String getPublicUrl(String fileId) {
-        if (fileId == null || fileId.isEmpty()) {
-            return null;
-        }
+        if (fileId == null || fileId.isEmpty()) return null;
+
         try {
             Blob blob = storage.get(BlobId.of(BUCKET_NAME, fileId));
             if (blob == null) {
@@ -89,43 +75,41 @@ public class FirebaseStorageService implements IFirebaseStorageService {
         }
     }
 
-    /**
-     * Restituisce il blob grezzo di Firebase Storage, o null se non trovato.
-     */
     @Override
     public Blob getBlob(String fileId) {
-        if (fileId == null || fileId.isEmpty()) {
-            return null;
-        }
+        if (fileId == null || fileId.isEmpty()) return null;
+
         try {
-            return storage.get(BlobId.of(BUCKET_NAME, fileId));
+            Blob blob = storage.get(BlobId.of(BUCKET_NAME, fileId));
+            if (blob == null) {
+                log.warn("Blob non trovato per fileId: {}", fileId);
+            }
+            return blob;
         } catch (Exception e) {
             log.error("Errore nel recupero del blob {}: {}", fileId, e.getMessage());
             return null;
         }
     }
 
-    /**
-     * Scarica il contenuto binario di un file da Firebase Storage.
-     */
     @Override
     public byte[] downloadFile(String fileId, String userId) {
         log.info("Download file: {}", fileId);
-        Blob blob = getBlob(fileId);
-        if (blob == null) {
-            throw new BusinessException("File non trovato: " + fileId);
+        try {
+            Blob blob = getBlob(fileId);
+            if (blob == null) {
+                throw new BusinessException("File non trovato: " + fileId);
+            }
+            byte[] fileData = blob.getContent();
+            log.info("File scaricato con successo, dimensione: {} bytes", fileData.length);
+            return fileData;
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Errore durante il download del file {}: {}", fileId, e.getMessage());
+            throw new BusinessException("Errore durante il download del file: " + fileId);
         }
-        byte[] fileData = blob.getContent();
-        log.info("File scaricato con successo, dimensione: {} bytes", fileData.length);
-        return fileData;
     }
- 
-    /**
-     * Elimina tutti i file nella cartella travel-files/{userId}/{travelId}/.
-     * Usato alla cancellazione di un intero viaggio.
-     *
-     * @return numero di file eliminati
-     */
+
     @Override
     public int deleteTravelFolder(String userId, Long travelId) {
         if (userId == null || travelId == null) {
@@ -141,49 +125,36 @@ public class FirebaseStorageService implements IFirebaseStorageService {
             int deletedCount = 0;
 
             for (Blob blob : blobs.iterateAll()) {
-                if (deleteBlob(blob.getName(), "cartella viaggio")) {
+                if (deleteBlob(blob)) {
                     deletedCount++;
                 }
             }
 
             log.info("Cartella viaggio eliminata: {} ({} file)", folderPrefix, deletedCount);
             return deletedCount;
-
         } catch (Exception e) {
-            log.error("Errore durante l'eliminazione della cartella viaggio {}: {}", folderPrefix, e.getMessage(), e);
+            log.error("Errore durante l'eliminazione della cartella {}: {}", folderPrefix, e.getMessage());
             return 0;
         }
     }
- 
+
+    // --- Metodi privati ---
+
     /**
-     * Elimina un singolo blob da Firebase Storage tramite path diretto.
-     * Operazione best-effort: logga warning in caso di errore senza propagarlo.
-     *
-     * @param path  path interno del blob nel bucket
-     * @param label descrizione contestuale usata nel log
-     * @return true se eliminato, false se non trovato o in caso di errore
+     * Elimina un blob già recuperato da Storage.
+     * Evita una seconda chiamata a storage.get() rispetto alla versione per path.
      */
-    private boolean deleteBlob(String path, String label) {
+    private boolean deleteBlob(Blob blob) {
         try {
-            Blob blob = storage.get(BlobId.of(BUCKET_NAME, path));
-            if (blob != null) {
-                blob.delete();
-                log.info("Eliminato file ({}): {}", label, path);
-                return true;
-            } else {
-                log.debug("File non trovato su Storage ({}): {}", label, path);
-                return false;
-            }
+            blob.delete();
+            log.info("File eliminato: {}", blob.getName());
+            return true;
         } catch (Exception e) {
-            log.warn("Impossibile eliminare file ({}): {} — {}", label, path, e.getMessage());
+            log.error("Impossibile eliminare file {}: {}", blob.getName(), e.getMessage());
             return false;
         }
     }
- 
-    /**
-     * URL pubblico diretto come fallback quando la generazione del signed URL fallisce.
-     * Funziona solo su bucket con accesso pubblico uniforme abilitato.
-     */
+
     private String fallbackUrl(String fileId) {
         return String.format("https://storage.googleapis.com/%s/%s", BUCKET_NAME, fileId);
     }

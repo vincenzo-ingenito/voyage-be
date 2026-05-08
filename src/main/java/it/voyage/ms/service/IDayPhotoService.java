@@ -12,7 +12,7 @@ public interface IDayPhotoService {
      * @param userId ID dell'utente proprietario del viaggio
      * @return URL della foto caricata
      */
-    String addOrReplacePhotoToDay(Long travelId, Integer dayNumber, MultipartFile file, String userId) throws Exception;
+    String addOrReplacePhotoToDay(Long travelId, Integer dayNumber, MultipartFile file, String userId);
     
     /**
      * Rimuove la foto ricordo da un giorno specifico
@@ -20,5 +20,5 @@ public interface IDayPhotoService {
      * @param dayNumber Numero del giorno
      * @param userId ID dell'utente proprietario del viaggio
      */
-    void removePhotoFromDay(Long travelId, Integer dayNumber, String userId) throws Exception;
+    void removePhotoFromDay(Long travelId, Integer dayNumber, String userId);
 }

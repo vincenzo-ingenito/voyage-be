@@ -1,7 +1,5 @@
 package it.voyage.ms.service;
 
-import java.io.IOException;
-
 import org.springframework.web.multipart.MultipartFile;
 
 import com.google.cloud.storage.Blob;
@@ -23,7 +21,7 @@ public interface IFirebaseStorageService {
     /**
      * Carica un file su Firebase Storage e restituisce i metadati completi.
      */
-    FileMetadata uploadFileWithMetadata(MultipartFile file, String userId, Long travelId, String category) throws IOException;
+    FileMetadata uploadFileWithMetadata(MultipartFile file, String userId, Long travelId, String category);
 
     /**
      * Restituisce l'URL firmato (valido 7 giorni) per accedere al file.
