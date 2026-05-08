@@ -31,23 +31,23 @@ public interface UserRepository extends JpaRepository<UserEty, String> {
 	@Query("SELECT u FROM UserEty u WHERE LOWER(u.name) LIKE LOWER(CONCAT('%', :query, '%'))")
 	List<UserEty> findByNameRegex(@Param("query") String query);
 
+	/**
+	 * MODELLO ASIMMETRICO: Restituisce solo gli utenti che currentUserId SEGUE.
+	 * 
+	 * Un utente appare nella lista se:
+	 * 1. Esiste un record requesterId=currentUserId, receiverId=utente, status=ACCEPTED
+	 *    (= currentUserId segue l'utente)
+	 * 2. Oppure è currentUserId stesso
+	 * 
+	 * NON include utenti che seguono currentUserId ma che currentUserId non segue.
+	 */
 	@Query("""
-			    SELECT DISTINCT u FROM UserEty u
-			    LEFT JOIN FriendRelationshipEty r1 ON r1.requesterId = :userId AND r1.receiverId = u.id AND r1.status = :status
-			    LEFT JOIN FriendRelationshipEty r2 ON r2.receiverId = :userId AND r2.requesterId = u.id AND r2.status = :status
-			    WHERE (
-			        (
-			            (u.isPrivate = false AND (
-			                r1.id IS NOT NULL 
-			                OR (r2.id IS NOT NULL AND r2.isUnidirectional = false)
-			            ))
-			            OR (u.isPrivate = true AND (
-			                r1.id IS NOT NULL 
-			                OR (r2.id IS NOT NULL AND r2.isUnidirectional = false)
-			            ))
-			        )
-			    )
-			    OR u.id = :userId
+			SELECT DISTINCT u FROM UserEty u
+			WHERE u.id IN (
+			    SELECT r.receiverId FROM FriendRelationshipEty r 
+			    WHERE r.requesterId = :userId AND r.status = :status
+			)
+			OR u.id = :userId
 			""")
 	List<UserEty> findAcceptedFriendsAndSelf(@Param("userId") String userId, @Param("status") FriendRelationshipEty.Status status);
 

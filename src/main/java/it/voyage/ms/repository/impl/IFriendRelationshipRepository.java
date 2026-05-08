@@ -21,21 +21,29 @@ public interface IFriendRelationshipRepository extends JpaRepository<FriendRelat
 
 	List<FriendRelationshipEty> findByRequesterIdAndStatus(String requesterId, Status status);
 
-	Optional<FriendRelationshipEty> findByRequesterIdAndReceiverId(
-			String requesterId, String receiverId);
+	Optional<FriendRelationshipEty> findByRequesterIdAndReceiverId(String requesterId, String receiverId);
 
 	// -------------------------------------------------------------------------
 	// DELETE friendship (bidirezionale)
 	// -------------------------------------------------------------------------
+//	@Modifying
+//	@Transactional
+//	@Query("""
+//			    DELETE FROM FriendRelationshipEty f
+//			    WHERE (f.requesterId = :userId AND f.receiverId = :friendId)
+//			       OR (f.requesterId = :friendId AND f.receiverId = :userId)
+//			""")
+//	int deleteFriendship(@Param("userId")   String userId,
+//			@Param("friendId") String friendId);
 	@Modifying
 	@Transactional
 	@Query("""
-			    DELETE FROM FriendRelationshipEty f
-			    WHERE (f.requesterId = :userId AND f.receiverId = :friendId)
-			       OR (f.requesterId = :friendId AND f.receiverId = :userId)
-			""")
-	int deleteFriendship(@Param("userId")   String userId,
-			@Param("friendId") String friendId);
+	    DELETE FROM FriendRelationshipEty f
+	    WHERE f.requesterId = :requesterId
+	      AND f.receiverId  = :receiverId
+	""")
+	int deleteFriendship(@Param("requesterId") String requesterId,
+	                     @Param("receiverId")  String receiverId);
 
 
 	// -------------------------------------------------------------------------
@@ -54,19 +62,31 @@ public interface IFriendRelationshipRepository extends JpaRepository<FriendRelat
 	// -------------------------------------------------------------------------
 	// Update relationship status + blockerId
 	// -------------------------------------------------------------------------
+//	@Modifying
+//	@Transactional
+//	@Query("""
+//			    UPDATE FriendRelationshipEty f
+//			    SET f.status    = :status,
+//			        f.blockerId = :blockerId
+//			    WHERE (f.requesterId = :user1Id AND f.receiverId = :user2Id)
+//			       OR (f.requesterId = :user2Id AND f.receiverId = :user1Id)
+//			""")
+//	void updateRelationshipStatus(@Param("user1Id")   String user1Id,
+//			@Param("user2Id")   String user2Id,
+//			@Param("status")    Status status,
+//			@Param("blockerId") String blockerId);
 	@Modifying
 	@Transactional
 	@Query("""
-			    UPDATE FriendRelationshipEty f
-			    SET f.status    = :status,
-			        f.blockerId = :blockerId
-			    WHERE (f.requesterId = :user1Id AND f.receiverId = :user2Id)
-			       OR (f.requesterId = :user2Id AND f.receiverId = :user1Id)
-			""")
-	void updateRelationshipStatus(@Param("user1Id")   String user1Id,
-			@Param("user2Id")   String user2Id,
-			@Param("status")    Status status,
-			@Param("blockerId") String blockerId);
+	    UPDATE FriendRelationshipEty f
+	    SET f.status    = :status,
+	        f.blockerId = :blockerId
+	    WHERE f.requesterId = :blockerId
+	      AND f.receiverId  = :targetId
+	""")
+	void updateRelationshipStatus(@Param("blockerId") String blockerId,
+	                              @Param("targetId")  String targetId,
+	                              @Param("status")    Status status);
 
 	// -------------------------------------------------------------------------
 	// Find my blocked relationships
@@ -82,17 +102,27 @@ public interface IFriendRelationshipRepository extends JpaRepository<FriendRelat
 	// -------------------------------------------------------------------------
 	// Delete relationship only if blockerId matches
 	// -------------------------------------------------------------------------
+//	@Modifying
+//	@Transactional
+//	@Query("""
+//			    DELETE FROM FriendRelationshipEty f
+//			    WHERE ((f.requesterId = :user1Id AND f.receiverId = :user2Id)
+//			        OR (f.requesterId = :user2Id AND f.receiverId = :user1Id))
+//			      AND f.blockerId = :blockerId
+//			""")
+//	void deleteRelationship(@Param("user1Id")   String user1Id,
+//			@Param("user2Id")   String user2Id,
+//			@Param("blockerId") String blockerId);
 	@Modifying
 	@Transactional
 	@Query("""
-			    DELETE FROM FriendRelationshipEty f
-			    WHERE ((f.requesterId = :user1Id AND f.receiverId = :user2Id)
-			        OR (f.requesterId = :user2Id AND f.receiverId = :user1Id))
-			      AND f.blockerId = :blockerId
-			""")
-	void deleteRelationship(@Param("user1Id")   String user1Id,
-			@Param("user2Id")   String user2Id,
-			@Param("blockerId") String blockerId);
+	    DELETE FROM FriendRelationshipEty f
+	    WHERE f.requesterId = :blockerId
+	      AND f.receiverId  = :targetId
+	""")
+	void deleteRelationship(@Param("blockerId") String blockerId,
+	                        @Param("targetId")  String targetId);
+
 
 	// -------------------------------------------------------------------------
 	// Find pending requests with requester (fetch join)

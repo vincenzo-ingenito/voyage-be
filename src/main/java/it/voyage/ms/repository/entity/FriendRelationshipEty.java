@@ -40,8 +40,8 @@ import java.util.Date;
         @Index(name = "idx_friend_status",        columnList = "status"),
         @Index(name = "idx_friend_created_at",    columnList = "created_at"),
         // OTTIMIZZAZIONE FEED: Indici compositi per query CTE
-        @Index(name = "idx_friend_req_status_uni", columnList = "requester_id, status, is_unidirectional"),
-        @Index(name = "idx_friend_rec_status_uni", columnList = "receiver_id, status, is_unidirectional")
+        @Index(name = "idx_friend_req_status_uni", columnList = "requester_id, status"),
+        @Index(name = "idx_friend_rec_status_uni", columnList = "receiver_id, status")
     }
 )
 @Data
@@ -107,17 +107,6 @@ public class FriendRelationshipEty {
      */
     @Column(name = "blocker_id", length = 255)
     private String blockerId;
-
-    /**
-     * Indica se la relazione è unidirezionale (follow) o bidirezionale (amicizia).
-     * - true: Follow unidirezionale (tipicamente per profili pubblici)
-     * - false: Amicizia bidirezionale (default)
-     * 
-     * Nota: nullable=true per permettere a Hibernate di aggiungere la colonna
-     * Il valore di default (false) verrà applicato alle nuove righe
-     */
-    @Column(name = "is_unidirectional", nullable = true, columnDefinition = "boolean default false")
-    private boolean isUnidirectional = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Temporal(TemporalType.TIMESTAMP)

@@ -65,31 +65,29 @@ public interface TravelRepository extends JpaRepository<TravelEty, Long> {
 			);
 	
 	/**
-	 * OTTIMIZZATO: Query CTE per feed - Elimina IN condition e caricamento friendIds in memoria
+	 * OTTIMIZZATO: Query CTE per feed - Modello Asimmetrico Puro
 	 * Usa Common Table Expression per materializzare gli amici una sola volta
 	 * Performance: 90% più veloce rispetto a IN condition con lista dinamica
 	 * 
-	 * LOGICA is_unidirectional:
-	 * - Mostra viaggi di amici bidirezionali (is_unidirectional = false) in ENTRAMBE le direzioni
-	 * - Mostra viaggi di chi TU segui (is_unidirectional = true, tu sei requester)
-	 * - NON mostra viaggi di chi ti segue ma tu non segui (is_unidirectional = true, tu sei receiver)
+	 * LOGICA MODELLO ASIMMETRICO (stile Instagram):
+	 * - Mostra SOLO i viaggi di chi TU segui (esiste record userId→utente ACCEPTED)
+	 * - Mostra i TUOI viaggi
+	 * 
+	 * NON mostra viaggi di chi ti segue ma che tu non segui.
+	 * 
+	 * Esempio TC1: A segue B (A→B ACCEPTED)
+	 *   - A vede i viaggi di B ✓
+	 *   - B NON vede i viaggi di A ✓ (non esiste B→A)
 	 */
 	@Query(value = """
 			WITH friend_ids AS (
-			    -- Caso 1: Tu segui qualcuno (mostra sempre i suoi viaggi)
+			    -- Caso 1: Chi TU segui (mostra sempre i loro viaggi)
 			    SELECT receiver_id as friend_id 
 			    FROM friend_relationships 
 			    WHERE requester_id = :userId 
 			      AND status = 'ACCEPTED'
 			    UNION
-			    -- Caso 2: Qualcuno ti segue (mostra solo se è amicizia bidirezionale)
-			    SELECT requester_id as friend_id 
-			    FROM friend_relationships 
-			    WHERE receiver_id = :userId 
-			      AND status = 'ACCEPTED'
-			      AND COALESCE(is_unidirectional, false) = false
-			    UNION
-			    -- Caso 3: I tuoi viaggi (sempre)
+			    -- Caso 2: I tuoi viaggi (sempre)
 			    SELECT :userId as friend_id
 			)
 			SELECT t.* 
@@ -104,12 +102,6 @@ public interface TravelRepository extends JpaRepository<TravelEty, Long> {
 			    FROM friend_relationships 
 			    WHERE requester_id = :userId 
 			      AND status = 'ACCEPTED'
-			    UNION
-			    SELECT requester_id as friend_id 
-			    FROM friend_relationships 
-			    WHERE receiver_id = :userId 
-			      AND status = 'ACCEPTED'
-			      AND COALESCE(is_unidirectional, false) = false
 			    UNION
 			    SELECT :userId as friend_id
 			)
@@ -178,48 +170,36 @@ public interface TravelRepository extends JpaRepository<TravelEty, Long> {
 	// =========================================================================
 	
 	/**
-	 * DEBUG: Query per verificare quali amici vengono trovati dalla CTE
-	 * Restituisce: [friend_id, source, status, is_unidirectional]
-	 * Rispecchia la logica della query principale del feed
+	 * DEBUG: Query per verificare quali amici vengono trovati dalla CTE del feed
+	 * Restituisce: [friend_id, source, status]
+	 * Rispecchia la logica della query principale del feed (modello asimmetrico puro)
 	 */
 	@Query(value = """
 			WITH friend_ids AS (
-			    -- Caso 1: Tu segui qualcuno (mostra sempre)
+			    -- Caso 1: Chi TU segui (mostra sempre i loro viaggi)
 			    SELECT receiver_id as friend_id, 
 			           'TU_SEGUI' as source,
-			           status,
-			           COALESCE(is_unidirectional, false) as is_unidirectional
+			           status
 			    FROM friend_relationships 
 			    WHERE requester_id = :userId 
 			      AND status = 'ACCEPTED'
 			    UNION
-			    -- Caso 2: Qualcuno ti segue (mostra solo se bidirezionale)
-			    SELECT requester_id as friend_id,
-			           'TI_SEGUE_BIDIREZIONALE' as source,
-			           status,
-			           COALESCE(is_unidirectional, false) as is_unidirectional
-			    FROM friend_relationships 
-			    WHERE receiver_id = :userId 
-			      AND status = 'ACCEPTED'
-			      AND COALESCE(is_unidirectional, false) = false
-			    UNION
-			    -- Caso 3: Te stesso
+			    -- Caso 2: Te stesso
 			    SELECT :userId as friend_id,
 			           'SELF' as source,
-			           'ACCEPTED' as status,
-			           false as is_unidirectional
+			           'ACCEPTED' as status
 			)
-			SELECT friend_id, source, status, is_unidirectional
+			SELECT friend_id, source, status
 			FROM friend_ids
 			""", nativeQuery = true)
 	List<Object[]> debugFriendIds(@Param("userId") String userId);
 	
 	/**
-	 * DEBUG: Query per verificare TUTTE le amicizie (anche con is_unidirectional = true o NULL)
-	 * Restituisce: [requester_id, receiver_id, status, is_unidirectional]
+	 * DEBUG: Query per verificare TUTTE le amicizie
+	 * Restituisce: [requester_id, receiver_id, status]
 	 */
 	@Query(value = """
-			SELECT requester_id, receiver_id, status, COALESCE(is_unidirectional, false) as is_unidirectional
+			SELECT requester_id, receiver_id, status
 			FROM friend_relationships 
 			WHERE (requester_id = :userId OR receiver_id = :userId)
 			  AND status = 'ACCEPTED'
