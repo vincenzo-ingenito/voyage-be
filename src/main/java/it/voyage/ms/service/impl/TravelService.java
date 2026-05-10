@@ -38,6 +38,7 @@ import it.voyage.ms.repository.entity.PointEty;
 import it.voyage.ms.repository.entity.TravelEty;
 import it.voyage.ms.repository.entity.TravelFileEty;
 import it.voyage.ms.repository.entity.UserEty;
+import it.voyage.ms.config.VoyageConfigProperties;
 import it.voyage.ms.repository.impl.BookmarkRepository;
 import it.voyage.ms.repository.impl.TravelRepository;
 import it.voyage.ms.repository.impl.UserRepository;
@@ -69,6 +70,7 @@ public class TravelService implements ITravelService {
     private final BookmarkRepository bookmarkRepository;
     private final IGroupTravelService groupTravelService;
     private final ITravelVoteService travelVoteService;
+    private final VoyageConfigProperties config;
 
 
     @Override
@@ -842,11 +844,15 @@ public class TravelService implements ITravelService {
 
         // 2. OTTIMIZZAZIONE: Query CTE - Elimina chiamata a friendshipService e IN condition
         //    Una sola query con JOIN diretta alla tabella friend_relationships
-        Pageable pageable = PageRequest.of(pageNumber, pageSize);
-        Page<TravelEty> page = travelRepository.findFeedPageOptimized(userId, pageable);
+        // FEATURE: Supporto utenti mock configurabile tramite application.properties
+        boolean includeMockUsers = config.getFeed().isIncludeMockUsers();
+        log.debug("[FEED] Configuration - includeMockUsers: {}", includeMockUsers);
         
-        log.info("[FEED DEBUG] Query CTE completata: pagina {} di {}, {} viaggi totali", 
-                pageNumber, page.getTotalPages(), page.getTotalElements());
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+        Page<TravelEty> page = travelRepository.findFeedPageOptimized(userId, includeMockUsers, pageable);
+        
+        log.info("[FEED DEBUG] Query CTE completata: pagina {} di {}, {} viaggi totali (mock users: {})", 
+                pageNumber, page.getTotalPages(), page.getTotalElements(), includeMockUsers ? "enabled" : "disabled");
          
 
         // 3. OTTIMIZZAZIONE: Eager loading dei dettagli (itinerary, points, participants, files)

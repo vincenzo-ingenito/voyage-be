@@ -65,19 +65,20 @@ public interface TravelRepository extends JpaRepository<TravelEty, Long> {
 			);
 	
 	/**
-	 * OTTIMIZZATO: Query CTE per feed - Modello Asimmetrico Puro
+	 * OTTIMIZZATO: Query CTE per feed - Modello Asimmetrico Puro + Mock Users (Opzionale)
 	 * Usa Common Table Expression per materializzare gli amici una sola volta
 	 * Performance: 90% più veloce rispetto a IN condition con lista dinamica
 	 * 
 	 * LOGICA MODELLO ASIMMETRICO (stile Instagram):
 	 * - Mostra SOLO i viaggi di chi TU segui (esiste record userId→utente ACCEPTED)
 	 * - Mostra i TUOI viaggi
+	 * - Mostra SEMPRE i viaggi degli utenti MOCK se includeMockUsers=true (configurabile)
 	 * 
 	 * NON mostra viaggi di chi ti segue ma che tu non segui.
 	 * 
-	 * Esempio TC1: A segue B (A→B ACCEPTED)
-	 *   - A vede i viaggi di B ✓
-	 *   - B NON vede i viaggi di A ✓ (non esiste B→A)
+	 * @param userId ID dell'utente corrente
+	 * @param includeMockUsers Se true, include automaticamente tutti gli utenti mock (id LIKE 'mock-user-%')
+	 * @param pageable Parametri di paginazione
 	 */
 	@Query(value = """
 			WITH friend_ids AS (
@@ -89,6 +90,12 @@ public interface TravelRepository extends JpaRepository<TravelEty, Long> {
 			    UNION
 			    -- Caso 2: I tuoi viaggi (sempre)
 			    SELECT :userId as friend_id
+			    UNION
+			    -- Caso 3: TUTTI gli utenti mock (solo se abilitato via config)
+			    SELECT id as friend_id
+			    FROM users
+			    WHERE id LIKE 'mock-user-%'
+			      AND :includeMockUsers = true
 			)
 			SELECT t.* 
 			FROM travel t
@@ -104,6 +111,11 @@ public interface TravelRepository extends JpaRepository<TravelEty, Long> {
 			      AND status = 'ACCEPTED'
 			    UNION
 			    SELECT :userId as friend_id
+			    UNION
+			    SELECT id as friend_id
+			    FROM users
+			    WHERE id LIKE 'mock-user-%'
+			      AND :includeMockUsers = true
 			)
 			SELECT COUNT(t.id)
 			FROM travel t
@@ -112,6 +124,7 @@ public interface TravelRepository extends JpaRepository<TravelEty, Long> {
 			nativeQuery = true)
 	Page<TravelEty> findFeedPageOptimized(
 			@Param("userId") String userId,
+			@Param("includeMockUsers") boolean includeMockUsers,
 			Pageable pageable
 	);
 	
